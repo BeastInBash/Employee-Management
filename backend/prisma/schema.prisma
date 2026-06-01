@@ -1,0 +1,97 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+    admin
+    member
+}
+
+enum TaskStatus {
+    todo
+    in_progress
+    review
+    completed
+}
+
+enum TaskPriority {
+    low
+    medium
+    high
+    urgent
+}
+
+enum AttendanceStatus {
+    present
+    absent
+    partial
+}
+
+model User {
+    id               String    @id @default(uuid())
+    email            String    @unique
+    password         String
+    name             String
+    role             UserRole  @default(member)
+    isPasswordReset  Boolean   @default(false)
+    resetToken       String?
+    resetTokenExpiry DateTime?
+    createdAt        DateTime  @default(now())
+    updatedAt        DateTime  @updatedAt
+
+    members        Member[]
+    createdMembers Member[] @relation("CreatedMembers")
+
+    @@map("users")
+}
+
+model Member {
+    id          String   @id @default(uuid())
+    role        String
+    email       String
+    userId      String   @unique
+    user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    createdAt   DateTime @default(now())
+    createdById String?
+    createdBy   User?    @relation("CreatedMembers", fields: [createdById], references: [id])
+
+    tasks      Task[]
+    attendance DailyAttendance[]
+
+    @@map("members")
+}
+
+model Task {
+    id          String       @id @default(uuid())
+    title       String
+    description String
+    status      TaskStatus   @default(todo)
+    priority    TaskPriority @default(medium)
+    dueDate     DateTime
+    memberId    String
+    member      Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+    createdAt   DateTime     @default(now())
+    completedAt DateTime?
+
+    @@map("tasks")
+}
+
+model DailyAttendance {
+    id                  String           @id @default(uuid())
+    memberId            String
+    member              Member           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+    date                DateTime         @db.Date
+    status              AttendanceStatus @default(absent)
+    taskSubmittedAt     DateTime?
+    allTasksCompletedAt DateTime?
+    createdAt           DateTime         @default(now())
+    updatedAt           DateTime         @updatedAt
+
+    @@unique([memberId, date])
+    @@map("daily_attendance")
+}
