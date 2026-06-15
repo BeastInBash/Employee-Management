@@ -106,9 +106,12 @@ prisma/
 **`/api/auth`** (public unless noted)
 - `POST /login` → `{ token, user, requiresPasswordChange }`
 - `POST /signup` → creates an **admin** User, returns `{ token, user }`
-- `POST /change-password` *(auth)* — verify old pw, set new, clear `isPasswordReset`
-- `POST /forgot-password` — resets pw directly by email + newPassword (no token step)
-- `POST /reset-password` — resets pw via `resetToken` + newPassword
+- `POST /change-password` *(auth)* — verify old pw, set new (must differ), clear `isPasswordReset`
+- `POST /forgot-password` — takes `email` only; if the account exists, stores a hashed,
+  1-hour reset token and emails a reset link. Always returns a generic 200 (no user
+  enumeration).
+- `POST /reset-password` — resets pw via `token` + newPassword. The raw token from the
+  email is SHA-256 hashed and matched against the stored hash + expiry.
 
 **`/api/members`** (all `authenticate`)
 - `POST /` *(admin)* — create member; creates the User w/ DEFAULT_PASSWORD if new and
@@ -164,9 +167,11 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
 Read from `process.env` (loaded via `dotenv` in `index.ts`). Required:
 
 - `DATABASE_URL` — Postgres connection string (Prisma).
-- `JWT_SECRET` — JWT signing secret. **Always set it** — `jwt.ts` silently falls back
-  to `"fallback-secret-key"` if missing, which is unsafe.
+- `JWT_SECRET` — JWT signing secret. **Required** — `jwt.ts` throws on startup if it's
+  missing (no insecure fallback).
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SENDER_EMAIL` — email sending.
+- `CLIENT_URL` — base URL of the client app, used to build links in emails (login +
+  password-reset). Defaults to `http://localhost:5173`.
 
 Optional: `PORT` (defaults **3000** in `index.ts`, but `config.ts` exports **3001** —
 inconsistent), `JWT_EXPIRES_IN` (default `"7d"`, though `generateToken` hardcodes `"7d"`
@@ -184,8 +189,8 @@ anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`)
 - `tsconfig` is strict (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) —
   hence the `!` assertions and the conditional-spread update pattern in `updateTask`.
   Match that style rather than loosening types.
-- Email links are hardcoded to `http://localhost:5173` in `utils/email.ts` — update
-  before relying on them in production.
+- Email links are built from `CLIENT_URL` in `utils/email.ts` (default
+  `http://localhost:5173`) — set it in production.
 - `admin.controller.ts` (`setUserRole`) and `utils/hash.ts` exist but are unused; the
   legacy zod schemas in `config.ts` are leftovers from another project. Don't assume
   they're wired in.

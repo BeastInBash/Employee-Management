@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
-import { PrismaClient, UserRole } from "@prisma/client";
+import { PrismaClient, UserRole, Prisma } from "@prisma/client";
+import { ZodError } from "zod";
 import { createMemberSchema } from "../validation/memberValidation";
 import { hashPassword, DEFAULT_PASSWORD } from "../utils/password";
 import { sendMemberCredentials } from "../utils/email";
@@ -20,55 +21,82 @@ export async function createMember(req: Request, res: Response): Promise<void> {
         }
 
         const validatedData = createMemberSchema.parse(req.body);
+        const email = validatedData.email.trim().toLowerCase();
 
-        // Check if user account already exists for this email
-        let memberUser = await prisma.user.findUnique({
-            where: { email: validatedData.email },
+        // Check if a user account already exists for this email
+        const existingUser = await prisma.user.findUnique({
+            where: { email },
+            include: { members: { select: { id: true } } },
         });
 
-        // Create user account if it doesn't exist
+        // Don't let an existing admin account be repurposed as a member, and
+        // don't silently no-op when the person is already a member somewhere.
+        if (existingUser) {
+            if (existingUser.role === UserRole.admin) {
+                res.status(409).json({
+                    message: "This email belongs to an admin account and cannot be added as a member",
+                });
+                return;
+            }
+            if (existingUser.members.length > 0) {
+                res.status(409).json({ message: "This person is already a member" });
+                return;
+            }
+        }
+
+        let memberUser = existingUser;
+        let credentialsEmailed = false;
+
+        // Create the user account (with a default password) only if it's new.
         if (!memberUser) {
             const hashedPassword = await hashPassword(DEFAULT_PASSWORD);
 
             memberUser = await prisma.user.create({
                 data: {
-                    email: validatedData.email,
+                    email,
                     password: hashedPassword,
                     name: validatedData.name,
                     role: UserRole.member,
                     isPasswordReset: true, // Flag to indicate password needs to be changed
                 },
+                include: { members: { select: { id: true } } },
             });
 
-            // Send credentials email (optional)
-            await sendMemberCredentials(
-                validatedData.email,
-                validatedData.name,
-                DEFAULT_PASSWORD
-            );
+            // Email the credentials. sendMemberCredentials swallows its own
+            // errors so a mail outage never blocks member creation.
+            await sendMemberCredentials(email, validatedData.name, DEFAULT_PASSWORD);
+            credentialsEmailed = true;
         }
 
-        // Create member record
+        // Create the member record
         const member = await prisma.member.create({
             data: {
                 role: validatedData.role,
-                email: validatedData.email,
+                email,
                 userId: memberUser.id,
-                createdAt: new Date(),
                 createdById: req.user.userId,
             },
         });
         const memberData = { ...member, name: memberUser.name };
 
-        console.log("Member created :", member);
         res.status(201).json({
             memberData,
-            message: `Member added successfully. Login credentials sent to ${validatedData.email}. Default password: ${DEFAULT_PASSWORD}`,
+            message: credentialsEmailed
+                ? `Member added successfully. Login credentials were emailed to ${email}.`
+                : "Member added successfully.",
         });
     } catch (error: any) {
         console.error("Create member error:", error);
-        if (error.name === "ZodError") {
-            res.status(400).json({ message: "Invalid input", errors: error.errors });
+        if (error instanceof ZodError) {
+            res.status(400).json({ message: "Invalid input", errors: error.issues });
+            return;
+        }
+        // Unique-constraint race (e.g. the same member created twice concurrently)
+        if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2002"
+        ) {
+            res.status(409).json({ message: "This person is already a member" });
             return;
         }
         res.status(500).json({ message: "Internal server error" });
@@ -160,13 +188,30 @@ export async function deleteMember(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const member = await prisma.member.findUnique({ where: { id: memberId } });
+        const member = await prisma.member.findUnique({
+            where: { id: memberId },
+            include: { user: { select: { id: true, role: true } } },
+        });
         if (!member) {
             res.status(404).json({ message: "Member not found" });
             return;
         }
 
-        await prisma.member.delete({ where: { id: memberId } });
+        // Only the admin who created the member may delete them.
+        if (member.createdById !== req.user.userId) {
+            res.status(403).json({ message: "You can only delete members you created" });
+            return;
+        }
+
+        // Remove the login as well so a deleted member can't authenticate into a
+        // member-less account. Deleting the (member-role) user cascades to the
+        // member row, its tasks and attendance. Guard against ever deleting an
+        // admin user this way.
+        if (member.user.role === UserRole.member) {
+            await prisma.user.delete({ where: { id: member.user.id } });
+        } else {
+            await prisma.member.delete({ where: { id: memberId } });
+        }
 
         res.json({ message: "Member deleted successfully", memberId });
     } catch (error) {

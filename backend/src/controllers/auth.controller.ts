@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { PrismaClient, UserRole } from "@prisma/client";
+import { ZodError } from "zod";
 import {
   loginSchema,
   signupSchema,
@@ -13,6 +14,15 @@ import { sendPasswordResetEmail } from "../utils/email";
 import crypto from "crypto";
 
 const prisma = new PrismaClient();
+
+// Password reset tokens are short-lived; the raw token is emailed to the user
+// and only its SHA-256 hash is persisted, so a database leak can't be replayed.
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 declare global {
   namespace Express {
     interface Request {
@@ -25,7 +35,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     const validatedData = loginSchema.parse(req.body);
 
     const user = await prisma.user.findUnique({
-      where: { email: validatedData.email },
+      where: { email: validatedData.email.trim().toLowerCase() },
     });
 
     if (!user) {
@@ -58,8 +68,8 @@ export async function login(req: Request, res: Response): Promise<void> {
     });
   } catch (error: any) {
     console.error("Login error:", error);
-    if (error.name === "ZodError") {
-      res.status(400).json({ message: "Invalid input", errors: error.errors });
+    if (error instanceof ZodError) {
+      res.status(400).json({ message: "Invalid input", errors: error.issues });
       return;
     }
     res.status(500).json({ message: "Internal server error" });
@@ -69,9 +79,10 @@ export async function login(req: Request, res: Response): Promise<void> {
 export async function signup(req: Request, res: Response): Promise<void> {
   try {
     const validatedData = signupSchema.parse(req.body);
+    const email = validatedData.email.trim().toLowerCase();
 
     const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email },
+      where: { email },
     });
 
     if (existingUser) {
@@ -83,10 +94,10 @@ export async function signup(req: Request, res: Response): Promise<void> {
 
     const user = await prisma.user.create({
       data: {
-        email: validatedData.email,
+        email,
         password: hashedPassword,
         name: validatedData.name,
-        role: UserRole.admin, 
+        role: UserRole.admin,
       },
     });
 
@@ -104,8 +115,8 @@ export async function signup(req: Request, res: Response): Promise<void> {
     });
   } catch (error:any) {
     console.error("Signup error:", error);
-    if (error.name === "ZodError") {
-      res.status(400).json({ message: "Invalid input", errors: error.errors });
+    if (error instanceof ZodError) {
+      res.status(400).json({ message: "Invalid input", errors: error.issues });
       return;
     }
     res.status(500).json({ message: "Internal server error" });
@@ -143,6 +154,13 @@ export async function changePassword(
       return;
     }
 
+    if (validatedData.oldPassword === validatedData.newPassword) {
+      res.status(400).json({
+        message: "New password must be different from the current password",
+      });
+      return;
+    }
+
     const hashedNewPassword = await hashPassword(validatedData.newPassword);
 
     await prisma.user.update({
@@ -156,8 +174,8 @@ export async function changePassword(
     res.json({ message: "Password changed successfully" });
   } catch (error:any) {
     console.error("Change password error:", error);
-    if (error.name === "ZodError") {
-      res.status(400).json({ message: "Invalid input", errors: error.errors });
+    if (error instanceof ZodError) {
+      res.status(400).json({ message: "Invalid input", errors: error.issues });
       return;
     }
     res.status(500).json({ message: "Internal server error" });
@@ -172,31 +190,37 @@ export async function forgotPassword(
     const validatedData = forgotPasswordSchema.parse(req.body);
 
     const user = await prisma.user.findUnique({
-      where: { email: validatedData.email },
+      where: { email: validatedData.email.trim().toLowerCase() },
     });
 
-    if (!user) {
-      res.status(404).json({ message: "User not found" });
-      return;
+    // Always respond the same way whether or not the account exists, so this
+    // endpoint can't be used to enumerate registered email addresses.
+    if (user) {
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const tokenHash = hashResetToken(rawToken);
+      const expiry = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { resetToken: tokenHash, resetTokenExpiry: expiry },
+      });
+
+      try {
+        await sendPasswordResetEmail(user.email, user.name, rawToken);
+      } catch (emailError) {
+        // Don't leak the failure to the caller (enumeration); just log it.
+        console.error("Failed to send password reset email:", emailError);
+      }
     }
 
-    const hashedPassword = await hashPassword(validatedData.newPassword);
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        resetToken: null,
-        resetTokenExpiry: null,
-        isPasswordReset: false,
-      },
+    res.json({
+      message:
+        "If an account exists for that email, a password reset link has been sent.",
     });
-
-    res.json({ message: "Password reset successfully" });
   } catch (error: any) {
     console.error("Forgot password error:", error);
-    if (error.name === "ZodError") {
-      res.status(400).json({ message: "Invalid input", errors: error.errors });
+    if (error instanceof ZodError) {
+      res.status(400).json({ message: "Invalid input", errors: error.issues });
       return;
     }
     res.status(500).json({ message: "Internal server error" });
@@ -210,9 +234,11 @@ export async function resetPassword(
   try {
     const validatedData = resetPasswordSchema.parse(req.body);
 
+    const tokenHash = hashResetToken(validatedData.token);
+
     const user = await prisma.user.findFirst({
       where: {
-        resetToken: validatedData.token,
+        resetToken: tokenHash,
         resetTokenExpiry: { gte: new Date() },
       },
     });
@@ -237,8 +263,8 @@ export async function resetPassword(
     res.json({ message: "Password reset successfully" });
   } catch (error: any) {
     console.error("Reset password error:", error);
-    if (error.name === "ZodError") {
-      res.status(400).json({ message: "Invalid input", errors: error.errors });
+    if (error instanceof ZodError) {
+      res.status(400).json({ message: "Invalid input", errors: error.issues });
       return;
     }
     res.status(500).json({ message: "Internal server error" });

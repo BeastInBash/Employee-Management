@@ -10,6 +10,13 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// Base URL of the client app, used to build links inside emails. Falls back to
+// the local dev server so links still work in development.
+const CLIENT_URL = (process.env.CLIENT_URL || "http://localhost:5173").replace(
+  /\/+$/,
+  ""
+);
+
 export async function sendMemberCredentials(
   email: string,
   name: string,
@@ -36,7 +43,7 @@ export async function sendMemberCredentials(
         <p style="color:#ef4444;font-weight:bold;">Important:</p>
         <p style="color:#374151;">Please change your password after your first login for security purposes.</p>
 
-        <a href="http://localhost:5173/"
+        <a href="${CLIENT_URL}/login"
           style="display:inline-block;margin-top:20px;background-color:#3b82f6;color:#ffffff;
                  text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;">
           Login to Task Manager
@@ -67,7 +74,7 @@ export async function sendPasswordResetEmail(
   name: string,
   resetToken: string
 ): Promise<void> {
-  const resetUrl = `http://localhost:5173/reset-password?token=${resetToken}`;
+  const resetUrl = `${CLIENT_URL}/reset-password?token=${resetToken}`;
   const htmlContent = `
   <div style="background-color:#f4f4f7;padding:40px 0;font-family:Arial,Helvetica,sans-serif;">
     <div style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.05);overflow:hidden;">
