@@ -20,7 +20,11 @@ const CLIENT_URL = (process.env.CLIENT_URL || "http://localhost:5173").replace(
 export async function sendMemberCredentials(
   email: string,
   name: string,
-  password: string
+  password: string,
+  // The admin who added the member. The email is sent through the shared SMTP
+  // relay but appears to come *from* this admin so replies go back to them.
+  adminEmail: string,
+  adminName?: string
 ): Promise<void> {
    const htmlContent = `
   <div style="background-color:#f4f4f7;padding:40px 0;font-family:Arial,Helvetica,sans-serif;">
@@ -58,7 +62,8 @@ export async function sendMemberCredentials(
   `;
   try {
     await transporter.sendMail({
-      from: process.env.SENDER_EMAIL,
+      from: adminName ? `"${adminName}" <${adminEmail}>` : adminEmail,
+      replyTo: adminEmail,
       to: email,
       subject: "Welcome to Task Manager - Your Login Credentials",
       html: htmlContent,

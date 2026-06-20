@@ -62,9 +62,22 @@ export async function createMember(req: Request, res: Response): Promise<void> {
                 include: { members: { select: { id: true } } },
             });
 
+            // Look up the admin so the credentials email is sent *from* them
+            // (From/Reply-To), not the generic relay sender.
+            const admin = await prisma.user.findUnique({
+                where: { id: req.user.userId },
+                select: { name: true, email: true },
+            });
+
             // Email the credentials. sendMemberCredentials swallows its own
             // errors so a mail outage never blocks member creation.
-            await sendMemberCredentials(email, validatedData.name, DEFAULT_PASSWORD);
+            await sendMemberCredentials(
+                email,
+                validatedData.name,
+                DEFAULT_PASSWORD,
+                admin?.email ?? req.user.email,
+                admin?.name
+            );
             credentialsEmailed = true;
         }
 
