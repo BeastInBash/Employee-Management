@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-// import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { useMembers } from "@/contexts/MemberContext";
 // import { Skeleton } from "@/components/ui/skeleton";
 import type { Task, TaskStatus, TaskPriority } from "@/contexts/MemberContext";
@@ -36,11 +36,19 @@ import {
     AlertCircle,
     Loader2,
     ChevronDown,
+    Settings,
+    Users,
+    CalendarCheck,
+    Sun,
+    Moon,
+    LogOut,
 } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -53,7 +61,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ThemeToggle } from "@/components/theme-provider";
+import { useTheme } from "@/components/theme-provider";
 import { format, isToday, isTomorrow, isPast } from "date-fns";
 
 const statusColors = {
@@ -87,7 +95,8 @@ const priorityLabels = {
 const MemberDetail = () => {
     const { memberId } = useParams();
     const navigate = useNavigate();
-    // const { user } = useAuth();
+    const { user, logout } = useAuth();
+    const { theme, setTheme } = useTheme();
     const {
         members,
         getMemberTasks,
@@ -320,13 +329,7 @@ const MemberDetail = () => {
                             </p>
 
                         </div>
-                        <div>
-                            <Button onClick={() => navigate(`/dashboard/member/${memberId}/attendance`)}>
-                                Check Attendance
-                            </Button>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <ThemeToggle />
+                        <div className="flex items-center gap-2">
                             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                                 <DialogTrigger asChild>
                                     <Button className="gap-2">
@@ -438,6 +441,60 @@ const MemberDetail = () => {
                                     </DialogFooter>
                                 </DialogContent>
                             </Dialog>
+
+                            {user?.role === "admin" && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="gap-2">
+                                            <Settings className="h-4 w-4" />
+                                            Actions
+                                            <ChevronDown className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-56">
+                                        <DropdownMenuLabel>Attendance</DropdownMenuLabel>
+                                        <DropdownMenuItem
+                                            onClick={() =>
+                                                navigate(
+                                                    `/dashboard/member/${memberId}/attendance`
+                                                )
+                                            }
+                                        >
+                                            <CalendarCheck className="h-4 w-4 mr-2" />
+                                            This member's attendance
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() => navigate("/admin/attendance")}
+                                        >
+                                            <Users className="h-4 w-4 mr-2" />
+                                            All members' attendance
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                            onClick={() =>
+                                                setTheme(theme === "dark" ? "light" : "dark")
+                                            }
+                                        >
+                                            {theme === "dark" ? (
+                                                <Sun className="h-4 w-4 mr-2" />
+                                            ) : (
+                                                <Moon className="h-4 w-4 mr-2" />
+                                            )}
+                                            {theme === "dark" ? "Light mode" : "Dark mode"}
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="text-destructive"
+                                            onClick={() => {
+                                                logout();
+                                                navigate("/");
+                                            }}
+                                        >
+                                            <LogOut className="h-4 w-4 mr-2" />
+                                            Logout
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
                         </div>
                     </div>
                 </div>
