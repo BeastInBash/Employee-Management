@@ -28,7 +28,7 @@ type TaskContextType = {
   tasks: Task[];
   getTasks: (memberId: string) => Promise<Task[]>;
   addTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => void;
-  updateTask: (id: string, updatedTask: Partial<Task>) => void;
+  updateTask: (id: string, updatedTask: Partial<Task>) => Promise<Task | void>;
   deleteTask: (id: string) => void;
 };
 
@@ -137,6 +137,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
 
       setTasks(tasks.map((t) => (t.id === id ? updated : t)));
       toast.success("Task updated successfully");
+      return updated as Task;
     } catch (error) {
       console.error("Update task error:", error);
       toast.error("An error occurred while updating task");

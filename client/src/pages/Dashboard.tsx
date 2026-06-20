@@ -22,7 +22,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { PlusCircle, LogOut, Users, KeyRound, Trash2 } from "lucide-react";
+import { PlusCircle, LogOut, Users, KeyRound, Trash2, Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-provider";
 import { toast } from "@/components/ui/sonner";
 import {
@@ -38,9 +38,14 @@ import {
 // import { get } from "react-hook-form";
 const Dashboard = () => {
     const { user, logout, changePassword } = useAuth();
-    const { getUserMembers, addMember, refreshMembers, deleteMember } =
-        useMembers();
+    const { getUserMembers, addMember, deleteMember } = useMembers();
     const navigate = useNavigate();
+
+    // Per-action loading state so buttons can show spinners and stay disabled
+    // while a request is in flight.
+    const [isAddingMember, setIsAddingMember] = useState(false);
+    const [isDeletingMember, setIsDeletingMember] = useState(false);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -63,20 +68,25 @@ const Dashboard = () => {
     const handleAddMember = async () => {
         if (!user) return;
 
-        const created = await addMember({
-            name: memberName,
-            email: memberEmail,
-            role: memberRole,
-            createdById: user.id,
-        });
+        setIsAddingMember(true);
+        try {
+            const created = await addMember({
+                name: memberName,
+                email: memberEmail,
+                role: memberRole,
+                createdById: user.id,
+            });
 
-        // Only clear/close UI if add was successful
-        if (created) {
-            await refreshMembers();
-            setMemberName("");
-            setMemberEmail("");
-            setMemberRole("");
-            setIsDialogOpen(false);
+            // addMember already inserts the new member into local state, so there's
+            // no need for a full (slow) refetch — just close/reset the form.
+            if (created) {
+                setMemberName("");
+                setMemberEmail("");
+                setMemberRole("");
+                setIsDialogOpen(false);
+            }
+        } finally {
+            setIsAddingMember(false);
         }
     };
 
@@ -91,13 +101,18 @@ const Dashboard = () => {
             return;
         }
 
-        const success = await changePassword(oldPassword, newPassword);
+        setIsChangingPassword(true);
+        try {
+            const success = await changePassword(oldPassword, newPassword);
 
-        if (success) {
-            setOldPassword("");
-            setNewPassword("");
-            setConfirmPassword("");
-            setIsPasswordDialogOpen(false);
+            if (success) {
+                setOldPassword("");
+                setNewPassword("");
+                setConfirmPassword("");
+                setIsPasswordDialogOpen(false);
+            }
+        } finally {
+            setIsChangingPassword(false);
         }
     };
 
@@ -186,9 +201,15 @@ const Dashboard = () => {
                                         <Button
                                             onClick={handleChangePassword}
                                             disabled={
-                                                !oldPassword || !newPassword || !confirmPassword
+                                                !oldPassword ||
+                                                !newPassword ||
+                                                !confirmPassword ||
+                                                isChangingPassword
                                             }
                                         >
+                                            {isChangingPassword && (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            )}
                                             Change Password
                                         </Button>
                                     </DialogFooter>
@@ -268,9 +289,12 @@ const Dashboard = () => {
                                     </Button>
                                     <Button
                                         onClick={handleAddMember}
-                                        disabled={!memberName || !memberEmail}
+                                        disabled={!memberName || !memberEmail || isAddingMember}
                                     >
-                                        Add Member
+                                        {isAddingMember && (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        )}
+                                        {isAddingMember ? "Adding..." : "Add Member"}
                                     </Button>
                                 </DialogFooter>
                             </DialogContent>
@@ -349,21 +373,36 @@ const Dashboard = () => {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeletingMember}>
+                            Cancel
+                        </AlertDialogCancel>
                         <AlertDialogAction
-                            onClick={async () => {
+                            disabled={isDeletingMember}
+                            onClick={async (e) => {
+                                // Prevent Radix from auto-closing so we can show the
+                                // spinner until the request actually resolves.
+                                e.preventDefault();
                                 if (!memberToDeleteId) return;
-                                const ok = await deleteMember(memberToDeleteId);
-                                if (ok) {
-                                    await refreshMembers();
+                                setIsDeletingMember(true);
+                                try {
+                                    // deleteMember removes the row from local state on
+                                    // success, so no refetch is needed.
+                                    const ok = await deleteMember(memberToDeleteId);
+                                    if (ok) {
+                                        setIsDeleteDialogOpen(false);
+                                        setMemberToDeleteId(null);
+                                        setMemberToDeleteName(null);
+                                    }
+                                } finally {
+                                    setIsDeletingMember(false);
                                 }
-                                setIsDeleteDialogOpen(false);
-                                setMemberToDeleteId(null);
-                                setMemberToDeleteName(null);
                             }}
                             className="bg-destructive"
                         >
-                            Delete
+                            {isDeletingMember && (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            )}
+                            {isDeletingMember ? "Deleting..." : "Delete"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

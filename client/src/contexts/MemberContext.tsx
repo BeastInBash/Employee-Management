@@ -43,9 +43,11 @@ type MemberContextType = {
   addMember: (
     member: Omit<Member, "id" | "createdAt">
   ) => Promise<Member | void>;
-  addTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => void;
-  updateTask: (id: string, updatedTask: Partial<Task>) => void;
-  deleteTask: (id: string) => void;
+  addTask: (
+    task: Omit<Task, "id" | "createdAt" | "completedAt">
+  ) => Promise<Task | void>;
+  updateTask: (id: string, updatedTask: Partial<Task>) => Promise<Task | void>;
+  deleteTask: (id: string) => Promise<boolean>;
   deleteMember: (id: string) => Promise<boolean>;
   // getMemberTasks: (memberId: string) => Task[];
   getMemberTasks: (memberId: string) => Promise<Task[]>;
@@ -125,16 +127,19 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
 
       const data = await response.json();
 
-      // Some backends return the created member wrapped under `member` (e.g.
-      // { member: { ... }, message: '...' }). Normalize to use the nested
-      // object if present so we pick up the real createdAt returned by server.
-      const payload = data.member ?? data;
+      // The backend returns the created row under `memberData` (older shapes used
+      // `member`). Normalize so we pick up the real id/createdAt from the server.
+      const payload = data.memberData ?? data.member ?? data;
 
       // Some backends may still omit createdAt; fall back to now only if missing.
       const createdAtValue = payload.createdAt ?? new Date().toISOString();
       const newMember: Member = {
         ...payload,
         createdAt: new Date(createdAtValue),
+        // The list/card reads `member.user?.name`, but the create response only
+        // carries a flat `name`. Mirror it so the optimistic card renders the
+        // name immediately without waiting on a refetch.
+        user: { name: payload.name ?? member.name },
       };
 
       setMembers((prev) => [...prev, newMember]);
@@ -191,6 +196,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
 
       setTasks([...tasks, newTask]);
       toast.success("Task created successfully");
+      return newTask as Task;
     } catch (error) {
       console.error("Add task error:", error);
       toast.error("An error occurred while creating task");
@@ -233,6 +239,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
 
       setTasks(tasks.map((t) => (t.id === id ? updated : t)));
       toast.success("Task updated successfully");
+      return updated as Task;
     } catch (error) {
       console.error("Update task error:", error);
       toast.error("An error occurred while updating task");
@@ -243,11 +250,11 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
     const token = getAuthToken();
     if (!token) {
       toast.error("You must be logged in");
-      return;
+      return false;
     }
 
     const task = tasks.find((t) => t.id === id);
-    if (!task) return;
+    if (!task) return false;
 
     try {
       const response = await fetch(`${API_BASE_URL}/tasks/${id}`, {
@@ -260,14 +267,16 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
       if (!response.ok) {
         const error = await response.json();
         toast.error(error.message || "Failed to delete task");
-        return;
+        return false;
       }
 
       setTasks(tasks.filter((task) => task.id !== id));
       toast.success("Task deleted successfully");
+      return true;
     } catch (error) {
       console.error("Delete task error:", error);
       toast.error("An error occurred while deleting task");
+      return false;
     }
   };
 

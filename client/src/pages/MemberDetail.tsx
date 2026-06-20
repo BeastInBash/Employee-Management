@@ -34,6 +34,8 @@ import {
     Trash2,
     Calendar,
     AlertCircle,
+    Loader2,
+    ChevronDown,
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -109,6 +111,11 @@ const MemberDetail = () => {
     );
     const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
 
+    // Per-action loading state for button spinners.
+    const [isAddingTask, setIsAddingTask] = useState(false);
+    const [isUpdatingTask, setIsUpdatingTask] = useState(false);
+    const [isDeletingTask, setIsDeletingTask] = useState(false);
+
     const member = members.find((m) => m.userId == memberId);
     const [memberTasks, setMemberTasks] = useState<Task[]>([]);
 
@@ -175,21 +182,29 @@ const MemberDetail = () => {
         setCurrentTaskId(null);
     };
 
-    const handleAddTask = () => {
+    const handleAddTask = async () => {
         if (!memberId) return;
 
-        Promise.resolve(
-            addTask({
+        setIsAddingTask(true);
+        try {
+            const created = await addTask({
                 title: taskTitle,
                 description: taskDescription,
                 status: taskStatus,
                 priority: taskPriority,
                 dueDate: new Date(taskDueDate),
                 memberId,
-            })
-        ).then(() => refreshTasks());
+            });
 
-        setIsAddDialogOpen(false);
+            // Optimistically reflect the new task locally instead of re-fetching
+            // the whole list from the (slow) backend.
+            if (created) {
+                setMemberTasks((prev) => [...prev, created]);
+                setIsAddDialogOpen(false);
+            }
+        } finally {
+            setIsAddingTask(false);
+        }
     };
 
     const handleEditTask = (task: Task) => {
@@ -202,19 +217,39 @@ const MemberDetail = () => {
         setIsEditDialogOpen(true);
     };
 
-    const handleUpdateTask = () => {
+    const handleUpdateTask = async () => {
         if (!currentTaskId) return;
 
-        Promise.resolve(
-            updateTask(currentTaskId, {
+        setIsUpdatingTask(true);
+        try {
+            const updated = await updateTask(currentTaskId, {
                 title: taskTitle,
                 description: taskDescription,
                 status: taskStatus,
                 priority: taskPriority,
                 dueDate: new Date(taskDueDate),
-            })
-        ).then(() => refreshTasks());
-        setIsEditDialogOpen(false);
+            });
+
+            if (updated) {
+                setMemberTasks((prev) =>
+                    prev.map((t) => (t.id === currentTaskId ? updated : t))
+                );
+                setIsEditDialogOpen(false);
+            }
+        } finally {
+            setIsUpdatingTask(false);
+        }
+    };
+
+    // Inline status change straight from the card, so completing a task no longer
+    // requires opening the edit dialog.
+    const handleStatusChange = async (taskId: string, status: TaskStatus) => {
+        const updated = await updateTask(taskId, { status });
+        if (updated) {
+            setMemberTasks((prev) =>
+                prev.map((t) => (t.id === taskId ? updated : t))
+            );
+        }
     };
 
     const confirmDeleteTask = (taskId: string) => {
@@ -222,12 +257,21 @@ const MemberDetail = () => {
         setIsDeleteDialogOpen(true);
     };
 
-    const handleDeleteTask = () => {
+    const handleDeleteTask = async () => {
         if (!currentTaskId) return;
 
-        Promise.resolve(deleteTask(currentTaskId)).then(() => refreshTasks());
-        setIsDeleteDialogOpen(false);
-        setCurrentTaskId(null);
+        const idToDelete = currentTaskId;
+        setIsDeletingTask(true);
+        try {
+            const ok = await deleteTask(idToDelete);
+            if (ok) {
+                setMemberTasks((prev) => prev.filter((t) => t.id !== idToDelete));
+                setIsDeleteDialogOpen(false);
+                setCurrentTaskId(null);
+            }
+        } finally {
+            setIsDeletingTask(false);
+        }
     };
 
     const getDueDateLabel = (dueDate: Date) => {
@@ -382,8 +426,14 @@ const MemberDetail = () => {
                                         >
                                             Cancel
                                         </Button>
-                                        <Button onClick={handleAddTask} disabled={!taskTitle}>
-                                            Add Task
+                                        <Button
+                                            onClick={handleAddTask}
+                                            disabled={!taskTitle || isAddingTask}
+                                        >
+                                            {isAddingTask && (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            )}
+                                            {isAddingTask ? "Adding..." : "Add Task"}
                                         </Button>
                                     </DialogFooter>
                                 </DialogContent>
@@ -409,6 +459,9 @@ const MemberDetail = () => {
                                     task={task}
                                     onEdit={() => handleEditTask(task)}
                                     onDelete={() => confirmDeleteTask(task.id)}
+                                    onStatusChange={(status) =>
+                                        handleStatusChange(task.id, status)
+                                    }
                                     getDueDateLabel={getDueDateLabel}
                                     canManage={canManageTask(task.id)}
                                 />
@@ -436,6 +489,9 @@ const MemberDetail = () => {
                                     task={task}
                                     onEdit={() => handleEditTask(task)}
                                     onDelete={() => confirmDeleteTask(task.id)}
+                                    onStatusChange={(status) =>
+                                        handleStatusChange(task.id, status)
+                                    }
                                     getDueDateLabel={getDueDateLabel}
                                     canManage={canManageTask(task.id)}
                                 />
@@ -463,6 +519,9 @@ const MemberDetail = () => {
                                     task={task}
                                     onEdit={() => handleEditTask(task)}
                                     onDelete={() => confirmDeleteTask(task.id)}
+                                    onStatusChange={(status) =>
+                                        handleStatusChange(task.id, status)
+                                    }
                                     getDueDateLabel={getDueDateLabel}
                                     canManage={canManageTask(task.id)}
                                 />
@@ -490,6 +549,9 @@ const MemberDetail = () => {
                                     task={task}
                                     onEdit={() => handleEditTask(task)}
                                     onDelete={() => confirmDeleteTask(task.id)}
+                                    onStatusChange={(status) =>
+                                        handleStatusChange(task.id, status)
+                                    }
                                     getDueDateLabel={getDueDateLabel}
                                     canManage={canManageTask(task.id)}
                                 />
@@ -589,8 +651,14 @@ const MemberDetail = () => {
                         >
                             Cancel
                         </Button>
-                        <Button onClick={handleUpdateTask} disabled={!taskTitle}>
-                            Update Task
+                        <Button
+                            onClick={handleUpdateTask}
+                            disabled={!taskTitle || isUpdatingTask}
+                        >
+                            {isUpdatingTask && (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            )}
+                            {isUpdatingTask ? "Updating..." : "Update Task"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -609,12 +677,23 @@ const MemberDetail = () => {
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeletingTask}>
+                            Cancel
+                        </AlertDialogCancel>
                         <AlertDialogAction
-                            onClick={handleDeleteTask}
+                            disabled={isDeletingTask}
+                            onClick={(e) => {
+                                // Keep the dialog open until the request resolves so
+                                // the spinner is visible.
+                                e.preventDefault();
+                                handleDeleteTask();
+                            }}
                             className="bg-destructive"
                         >
-                            Delete
+                            {isDeletingTask && (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            )}
+                            {isDeletingTask ? "Deleting..." : "Delete"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -623,16 +702,25 @@ const MemberDetail = () => {
     );
 };
 
+const statusOrder: TaskStatus[] = [
+    "todo",
+    "in_progress",
+    "review",
+    "completed",
+];
+
 const TaskCard = ({
     task,
     onEdit,
     onDelete,
+    onStatusChange,
     getDueDateLabel,
     canManage,
 }: {
     task: Task;
     onEdit: () => void;
     onDelete: () => void;
+    onStatusChange: (status: TaskStatus) => void;
     getDueDateLabel: (date: Date) => string;
     canManage: boolean;
 }) => {
@@ -690,9 +778,42 @@ const TaskCard = ({
                 </p>
                 <div className="space-y-2">
                     <div className="flex gap-2">
-                        <Badge className={statusColors[task.status]}>
-                            {statusLabels[task.status]}
-                        </Badge>
+                        {canManage ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="focus:outline-none"
+                                        aria-label="Change status"
+                                    >
+                                        <Badge
+                                            className={`${statusColors[task.status]} cursor-pointer gap-1`}
+                                        >
+                                            {statusLabels[task.status]}
+                                            <ChevronDown className="h-3 w-3" />
+                                        </Badge>
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start">
+                                    {statusOrder.map((status) => (
+                                        <DropdownMenuItem
+                                            key={status}
+                                            disabled={status === task.status}
+                                            onClick={() => onStatusChange(status)}
+                                        >
+                                            <span
+                                                className={`mr-2 inline-block h-2 w-2 ${statusColors[status]}`}
+                                            />
+                                            {statusLabels[status]}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <Badge className={statusColors[task.status]}>
+                                {statusLabels[task.status]}
+                            </Badge>
+                        )}
                         <Badge className={priorityColors[task.priority]}>
                             {priorityLabels[task.priority]}
                         </Badge>

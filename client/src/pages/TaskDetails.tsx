@@ -37,6 +37,7 @@ import {
     Users,
     KeyRound,
     LogOut,
+    ChevronDown,
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -245,6 +246,17 @@ const MemberDetail = () => {
         ).then(() => refreshTasks());
 
         setIsEditDialogOpen(false);
+    };
+
+    // Inline status change straight from the card, so marking a task complete no
+    // longer requires opening the three-dots menu and the edit dialog.
+    const handleStatusChange = async (taskId: string, status: TaskStatus) => {
+        const updated = await updateTask(taskId, { status });
+        if (updated) {
+            setTasks((prev) =>
+                prev.map((t) => (t.id === taskId ? updated : t))
+            );
+        }
     };
 
     const confirmDeleteTask = (taskId: string) => {
@@ -507,6 +519,9 @@ const MemberDetail = () => {
                                     task={task}
                                     onEdit={() => handleEditTask(task)}
                                     onDelete={() => confirmDeleteTask(task.id)}
+                                    onStatusChange={(status) =>
+                                        handleStatusChange(task.id, status)
+                                    }
                                     getDueDateLabel={getDueDateLabel}
                                     canManage={canManageTask(task.id)}
                                 />
@@ -534,6 +549,9 @@ const MemberDetail = () => {
                                     task={task}
                                     onEdit={() => handleEditTask(task)}
                                     onDelete={() => confirmDeleteTask(task.id)}
+                                    onStatusChange={(status) =>
+                                        handleStatusChange(task.id, status)
+                                    }
                                     getDueDateLabel={getDueDateLabel}
                                     canManage={canManageTask(task.id)}
                                 />
@@ -561,6 +579,9 @@ const MemberDetail = () => {
                                     task={task}
                                     onEdit={() => handleEditTask(task)}
                                     onDelete={() => confirmDeleteTask(task.id)}
+                                    onStatusChange={(status) =>
+                                        handleStatusChange(task.id, status)
+                                    }
                                     getDueDateLabel={getDueDateLabel}
                                     canManage={canManageTask(task.id)}
                                 />
@@ -588,6 +609,9 @@ const MemberDetail = () => {
                                     task={task}
                                     onEdit={() => handleEditTask(task)}
                                     onDelete={() => confirmDeleteTask(task.id)}
+                                    onStatusChange={(status) =>
+                                        handleStatusChange(task.id, status)
+                                    }
                                     getDueDateLabel={getDueDateLabel}
                                     canManage={canManageTask(task.id)}
                                 />
@@ -721,16 +745,25 @@ const MemberDetail = () => {
     );
 };
 
+const statusOrder: TaskStatus[] = [
+    "todo",
+    "in_progress",
+    "review",
+    "completed",
+];
+
 const TaskCard = ({
     task,
     onEdit,
     onDelete,
+    onStatusChange,
     getDueDateLabel,
     canManage,
 }: {
     task: Task;
     onEdit: () => void;
     onDelete: () => void;
+    onStatusChange: (status: TaskStatus) => void;
     getDueDateLabel: (date: Date) => string;
     canManage: boolean;
 }) => {
@@ -788,9 +821,42 @@ const TaskCard = ({
                 </p>
                 <div className="space-y-2">
                     <div className="flex gap-2">
-                        <Badge className={statusColors[task.status]}>
-                            {statusLabels[task.status]}
-                        </Badge>
+                        {canManage ? (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="focus:outline-none"
+                                        aria-label="Change status"
+                                    >
+                                        <Badge
+                                            className={`${statusColors[task.status]} cursor-pointer gap-1`}
+                                        >
+                                            {statusLabels[task.status]}
+                                            <ChevronDown className="h-3 w-3" />
+                                        </Badge>
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start">
+                                    {statusOrder.map((status) => (
+                                        <DropdownMenuItem
+                                            key={status}
+                                            disabled={status === task.status}
+                                            onClick={() => onStatusChange(status)}
+                                        >
+                                            <span
+                                                className={`mr-2 inline-block h-2 w-2 ${statusColors[status]}`}
+                                            />
+                                            {statusLabels[status]}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        ) : (
+                            <Badge className={statusColors[task.status]}>
+                                {statusLabels[task.status]}
+                            </Badge>
+                        )}
                         <Badge className={priorityColors[task.priority]}>
                             {priorityLabels[task.priority]}
                         </Badge>
