@@ -60,9 +60,13 @@ export async function sendMemberCredentials(
     </div>
   </div>
   `;
+  // Gmail rewrites the From address to the authenticated account, so we keep
+  // the admin's *name* as the display label but send from SENDER_EMAIL and set
+  // Reply-To to the admin so replies go back to whoever added the member.
+  const fromAddress = process.env.SENDER_EMAIL;
   try {
     await transporter.sendMail({
-      from: adminName ? `"${adminName}" <${adminEmail}>` : adminEmail,
+      from: adminName ? `"${adminName}" <${fromAddress}>` : fromAddress,
       replyTo: adminEmail,
       to: email,
       subject: "Welcome to Task Manager - Your Login Credentials",
