@@ -67,7 +67,7 @@ import { format, isToday, isTomorrow, isPast } from "date-fns";
 const statusColors = {
     todo: "bg-secondary text-secondary-foreground",
     in_progress: "bg-amber-500 text-white",
-    review: "bg-blue-500 text-white",
+    review: "bg-blue-500 text-white dark:bg-orange-500",
     completed: "bg-accent text-accent-foreground",
 };
 
@@ -80,8 +80,8 @@ const statusLabels = {
 
 const priorityColors = {
     low: "bg-slate-500 text-white",
-    medium: "bg-blue-500 text-white",
-    high: "bg-orange-500 text-white",
+    medium: "bg-blue-500 text-white dark:bg-amber-500",
+    high: "bg-orange-500 text-white dark:bg-orange-600",
     urgent: "bg-red-500 text-white",
 };
 

@@ -53,8 +53,9 @@ src/
     Index.tsx               # legacy redirect-to-"/" helper (not routed)
   contexts/
     AuthContext.tsx         # login/signup/changePassword/logout; user in localStorage
-    MemberContext.tsx       # team members CRUD
-    TaskContext.tsx         # tasks CRUD; Task/TaskStatus/TaskPriority types
+    MemberContext.tsx       # team members + tasks CRUD; mutations update local state
+                            #   optimistically and RETURN the created/updated entity
+    TaskContext.tsx         # member-facing tasks CRUD; updateTask returns the updated Task
   components/
     ProtectedRoute.tsx      # gates routes; redirects to "/login" when unauthenticated
     theme-provider.tsx      # ThemeProvider, useTheme, ThemeToggle
@@ -107,6 +108,20 @@ After login, admins go to `/dashboard`; members go to `/todos/:id` (their tasks)
   the data-heavy dashboards.
 - Icons from `lucide-react`.
 - Use `toast` from `@/components/ui/sonner` for user feedback.
+- **Data mutations are optimistic, not refetch-based.** The context CRUD functions
+  update local state and return the affected entity (or a boolean for deletes). After
+  a mutation, update the page's local list from that return value — do **not** trigger
+  a full `refreshMembers()` / `getTasks()` refetch (the prod backend cold-starts, so a
+  blocking refetch is slow). Always show a per-action loading spinner (`Loader2`) and
+  disable the button while a request is in flight; for `AlertDialog` actions, call
+  `e.preventDefault()` so the dialog stays open until the request resolves.
+- **Task status is editable inline.** On the task board the status `Badge` is a
+  `DropdownMenu` (when `canManage`) — picking a status calls `updateTask({ status })`.
+  No need to open the edit dialog just to change status. See `TaskCard` in
+  `MemberDetail.tsx` (admin) and `TaskDetails.tsx` (member).
+- **`MemberDetail` header** consolidates admin actions into a single "Actions"
+  `DropdownMenu` (this member's attendance, all-members attendance, theme toggle via
+  `useTheme`, logout) instead of scattered header buttons.
 - API base URL must come from `import.meta.env.VITE_API_URL` (set `VITE_API_URL` in
   the environment / Vercel). Don't hardcode backend URLs.
 

@@ -56,7 +56,7 @@ const ForgotPassword = () => {
                 link has been sent. Please check your inbox.
               </p>
               <div className="text-center text-sm">
-                <Link to="/login" className="text-blue-600 hover:underline">
+                <Link to="/login" className="text-blue-600 dark:text-amber-400 hover:underline">
                   Back to Login
                 </Link>
               </div>
@@ -78,7 +78,7 @@ const ForgotPassword = () => {
                 {isLoading ? "Sending..." : "Send Reset Link"}
               </Button>
               <div className="text-center text-sm">
-                <Link to="/login" className="text-blue-600 hover:underline">
+                <Link to="/login" className="text-blue-600 dark:text-amber-400 hover:underline">
                   Back to Login
                 </Link>
               </div>
