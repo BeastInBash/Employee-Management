@@ -94,6 +94,13 @@ After login, admins go to `/dashboard`; members go to `/todos/:id` (their tasks)
 - Style with theme tokens (`bg-background`, `text-foreground`, `text-primary`,
   `text-muted-foreground`, `border-border`, etc.) so light/dark both work. Default
   theme is **dark** (`ThemeProvider defaultTheme="dark"`, key `vite-ui-theme`).
+- **Dark-mode accent is orange + amber.** In `index.css` the `.dark` tokens set
+  `--primary`/`--chart-1`/`--sidebar-primary` to orange and `--ring`/`--chart-2` to
+  amber (light mode `:root` stays neutral). Prefer the `primary`/`ring` tokens for
+  accents so they pick this up automatically. Any hardcoded `bg-blue-*`/`text-blue-*`
+  must carry a `dark:` orange/amber override (e.g. status `review` →
+  `dark:bg-orange-500`, priority `medium` → `dark:bg-amber-500`, links →
+  `dark:text-amber-400`) — no literal blue should appear in dark mode.
 - **Typography:** body & UI use **JetBrains Mono** (`--font-sans`/`--font-mono`,
   applied to `body`); headings (`h1`–`h6`) use **Special Gothic Expanded One**
   (`--font-display`). For non-heading elements that should use the display face

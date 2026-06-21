@@ -143,9 +143,8 @@ const Landing = () => {
             >
                 <div className="container mx-auto flex h-16 items-center justify-between px-4">
                     <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center bg-primary text-primary-foreground">
-                            <Users className="h-5 w-5" />
-                        </div>
+                        <img src="/dark-logo.png" alt="Task Tracker" className="h-9 w-9 dark:hidden" />
+                        <img src="/logo.png" alt="Task Tracker" className="hidden h-9 w-9 dark:block" />
                         <span className="font-display text-lg tracking-tight">Task Tracker</span>
                     </div>
 
@@ -433,9 +432,8 @@ const Landing = () => {
             <footer className="border-t border-border">
                 <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row">
                     <div className="flex items-center gap-2">
-                        <div className="flex h-7 w-7 items-center justify-center bg-primary text-primary-foreground">
-                            <Users className="h-4 w-4" />
-                        </div>
+                        <img src="/dark-logo.png" alt="Task Tracker" className="h-7 w-7 dark:hidden" />
+                        <img src="/logo.png" alt="Task Tracker" className="hidden h-7 w-7 dark:block" />
                         <span className="font-display text-sm">Task Tracker</span>
                     </div>
                     <p className="text-sm text-muted-foreground">
