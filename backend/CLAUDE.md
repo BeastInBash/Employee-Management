@@ -17,7 +17,7 @@ present / partial / absent automatically (see "Attendance model" below).
 
 ## Stack
 
-- **Node.js + Express 5** with **TypeScript** (CommonJS, `ts-node` in dev).
+- **Node.js + Express 5** with **TypeScript** (CommonJS; dev runs via `tsx --watch`).
 - **Prisma 6** ORM over **PostgreSQL** (Neon serverless in prod). Schema in
   `prisma/schema.prisma`, migrations in `prisma/migrations/`.
 - **JWT** auth (`jsonwebtoken`) with **bcrypt**-hashed passwords.
@@ -34,18 +34,25 @@ present / partial / absent automatically (see "Attendance model" below).
 
 ## Commands
 
+> **Tooling note:** the backend now uses **Bun** for installs/scripts (`bun.lock`;
+> `package-lock.json` removed) and **tsx** instead of nodemon+ts-node for dev. The root
+> `CLAUDE.md` still says "backend uses npm" — that's stale; prefer `bun`.
+
 ```bash
-npm install          # install deps (postinstall runs `prisma generate`)
-npm run dev          # nodemon + ts-node, watches ./src, runs src/index.ts
-npm run build        # tsc -> dist/ + prisma generate
-npm start            # build then node dist/index.js
+bun install          # install deps (postinstall runs `prisma generate`)
+bun run dev          # tsx --watch ./src/index.ts
+bun run build        # tsc -> dist/ + prisma generate
+bun start            # build then node dist/index.js
+bun run test         # jest --runInBand
+bun run test:watch   # jest --watch
 
 npx prisma migrate dev --name <name>   # create+apply a migration in dev
 npx prisma generate                    # regenerate the client after schema edits
 npx prisma studio                      # browse the DB
 ```
 
-There is **no test suite** and **no linter** configured.
+There is now a **Jest test suite** in `tests/` (ts-jest, Prisma deep-mocked via
+`tests/singleton.ts` — see "Testing" below). No linter is configured.
 
 ## Project layout
 
@@ -64,10 +71,12 @@ src/
     members.controller.ts     # createMember, getMembers, getMember, deleteMember
     tasks.controller.ts       # createTask, getMemberTasks, updateTask, deleteTask
     attendance.controller.ts  # getMyAttendance + 3 admin report endpoints
+    organization.controller.ts# createOrganization, getMyOrganization, getOrgById (ReBAC, WIP)
     admin.controller.ts       # setUserRole  (NOT mounted on any route)
   middleware/
-    auth.middleware.ts     # authenticate(): verifies Bearer JWT -> req.user
+    auth.middleware.ts     # authenticate(): verifies JWT (from cookie) -> req.user
     roleCheck.ts           # requireAdmin, canManageTask, canViewMemberTasks
+    error.middleware.ts    # handleError: ApiError-aware error handler (statusCode + message)
   cron/
     attendancecron.ts      # 9:00 PM IST EOD attendance finalization
     pingcron.ts            # every 5 min health ping (keep dyno warm)
@@ -77,11 +86,17 @@ src/
     hash.ts                # bcryptjs hash/compare (duplicate of password.ts, unused-ish)
     email.ts               # nodemailer transporter + 2 HTML emails
     attendance.ts          # IST time helpers + the daily-window logic
+    errors/ApiError.ts     # Error subclass w/ statusCode + static badRequest/notFound/etc.
   validation/
     authValidation.ts, memberValidation.ts, taskValidation.ts   # zod schemas
+    orgValidation.ts       # zod schemas for org query params (membership/workspace flags)
 prisma/
-  schema.prisma            # User, Member, Task, DailyAttendance + enums
+  schema.prisma            # User, Member, Task, DailyAttendance, Organization,
+                           #   OrgMembership, Workspace, WorkspaceMembership + enums
   migrations/
+tests/                     # jest + supertest suite (auth, members, tasks, attendance,
+                           #   middleware) + env/singleton/helpers/testApp harness
+ReBAC.md                   # design guide for the Organizations→Workspaces ReBAC work
 ```
 
 ## Data model (`prisma/schema.prisma`)
@@ -102,6 +117,25 @@ prisma/
 
 > **Note the two `role` fields:** `User.role` is the auth role (admin/member);
 > `Member.role` is a job-title string. Don't conflate them.
+
+### ReBAC models (Organizations → Workspaces — **work in progress**)
+
+Added by the in-progress multi-tenancy work (design in `ReBAC.md`). Not yet wired into the
+task/attendance domain (tasks are still flat, keyed to `Member`):
+
+- **Organization** — `name`, `ownerId` (creating User), `createdAt`. Has many
+  `OrgMembership` and `Workspace`. Mapped to table `organization`.
+- **OrgMembership** — user ↔ org edge with `OrgRole` (`owner | admin | member`, default
+  `member`). `@@unique([userId, orgId])`. Table `org_membership`.
+- **Workspace** — `name`, `orgId`; belongs to an Organization, has many
+  `WorkspaceMembership`. Table `workspaces`.
+- **WorkspaceMembership** — user ↔ workspace edge carrying **Option B** boolean perms
+  (`canView` / `canEdit` / `canDelete`, all default **`true`**) + nullable `workspaceId`.
+  `@@unique([userId, workspaceId])`. Table `workspace_memberships`.
+
+> **Known rough edges (vs `ReBAC.md`):** perms default to wide-open `true` (doc wants
+> default-deny); `WorkspaceMembership.workspaceId` is nullable; no `can()` resolver or
+> `authorize()` middleware yet — only org create/read endpoints exist so far.
 
 ## API surface (all under the CORS-allowed origins in `index.ts`)
 
@@ -139,6 +173,14 @@ prisma/
 - `GET /report` *(admin)* — all members' report (`?startDate&endDate` or `?month&year`)
 - `GET /report/:memberId` *(admin)* — one member's report (accepts Member id **or** User id)
 
+**`/api/org`** (all `authenticate`; router uses `error.middleware` — ReBAC, **WIP**)
+- `POST /createOrganization` — creates an Organization + owner `OrgMembership` in one
+  transaction; body `{ name }` (zod: trimmed, min 2)
+- `GET /getMyOrgs` — orgs owned by the caller; `?membership=true&workspace=true` opt-in
+  to include relations
+- `GET /getOrg?orgId=<uuid>` — single org by id; same `membership`/`workspace` include flags
+- No write paths for workspaces/members or any permission gating yet.
+
 See `api-docs.md` for fuller request/response examples.
 
 ## Attendance model (the important domain logic)
@@ -159,8 +201,11 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
 
 ## Auth & security conventions
 
-- Send `Authorization: Bearer <jwt>`. `authenticate` puts the decoded payload
-  (`{ userId, email, role }`) on `req.user`. Tokens last **7d**.
+- `authenticate` now reads the JWT from the **`token` cookie** (`cookie-parser` is mounted
+  in `index.ts`) and puts the decoded payload (`{ userId, email, role }`) on `req.user`.
+  Tokens last **7d**. It still parses the `Authorization: Bearer` header but currently
+  **ignores it** in favour of the cookie — if you need bearer auth, this is the spot to fix.
+  It also no longer try/catches: a bad token throws and is handled by error middleware.
 - Passwords hashed with bcrypt, **cost 10**. New members get `DEFAULT_PASSWORD`
   (`"123456"`) and `isPasswordReset: true`; the client should force a change.
 - Role gating: `requireAdmin` for admin-only; `canManageTask` / `canViewMemberTasks`
@@ -181,13 +226,31 @@ Optional: `PORT` (defaults **3000** in `index.ts`, but `config.ts` exports **300
 inconsistent), `JWT_EXPIRES_IN` (default `"7d"`, though `generateToken` hardcodes `"7d"`
 anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`).
 
+## Testing
+
+- **Jest + ts-jest + supertest**, run with `bun run test` (`jest --runInBand`). Config in
+  `jest.config.js`.
+- **Prisma is deep-mocked**, not hit for real: `tests/singleton.ts` provides a
+  `jest-mock-extended` mock and `tests/env.ts` loads it (plus test env) before any module
+  imports — so each controller's `new PrismaClient()` resolves to the shared mock.
+- `tests/testApp.ts` builds an Express app for supertest; `tests/helpers.ts` has shared
+  fixtures/utilities. Suites cover auth, members, tasks, attendance, and middleware.
+- ts-jest relaxes a few strict-mode diagnostics (`2345/2322/2769`) so test doubles compile;
+  don't rely on that leniency in `src/`.
+
 ## Conventions & gotchas
 
 - Each controller/middleware file `new PrismaClient()`s its own instance instead of
   reusing `config.ts`'s exported `client`. Follow the file you're editing, but prefer
   the shared `client` for new code.
-- Controllers validate with zod and catch `ZodError` → `400 { message, errors }`;
-  everything else → `500`. Keep that shape.
+- **Two error-handling styles coexist.** Older controllers validate with zod and catch
+  `ZodError` → `400 { message, errors }`, everything else → `500`, inside the controller.
+  Newer code (the org controller) **throws** instead — `ApiError.badRequest/notFound/...`
+  or a raw `ZodError` — and lets `error.middleware.ts` (`handleError`) translate it to a
+  status code. `handleError` honours `ApiError.statusCode` but does **not** yet special-case
+  `ZodError` (so a thrown `ZodError` becomes a 500). The org router mounts `handleError`
+  itself; the global handler in `index.ts` is still the hardcoded-500 one. Match the style
+  of the file you're editing.
 - `userId` in task routes means the member's **User** id, not the Member id — the code
   resolves Member via `where: { userId }`. Be careful which id you're passing.
 - `tsconfig` is strict (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) —
@@ -199,5 +262,7 @@ anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`)
   legacy zod schemas in `config.ts` are leftovers from another project. Don't assume
   they're wired in.
 - CORS origins are an allow-list in `index.ts`; add new client origins there.
+- The **keep-alive ping cron is currently disabled** (`startKeepAliveCron()` and its import
+  are commented out in `index.ts`). Only the EOD attendance cron runs.
 </content>
 </invoke>

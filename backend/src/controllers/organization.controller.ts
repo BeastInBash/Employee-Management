@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { OrgRole, PrismaClient } from '@prisma/client';
 import z from 'zod';
-import { getAllOrgQuerySchema, getMyOrgQuerySchema, getOrgQueryschema } from '../validation/orgValidation';
+import { getMyOrgQuerySchema, getOrgQueryschema } from '../validation/orgValidation';
 
 const prisma = new PrismaClient();
 const createOrgSchema = z.object({ name: z.string().trim().min(2, "Name is Required") })
