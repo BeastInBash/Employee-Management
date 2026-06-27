@@ -22,8 +22,12 @@ present / partial / absent automatically (see "Attendance model" below).
   `prisma/schema.prisma`, migrations in `prisma/migrations/`.
 - **JWT** auth (`jsonwebtoken`) with **bcrypt**-hashed passwords.
 - **zod** for request validation.
-- **nodemailer** for transactional email (SMTP, Brevo relay in prod). `resend` is a
-  dependency but not currently wired in.
+- **nodemailer** for transactional email over **Gmail SMTP** (`smtp.gmail.com:587`
+  with a Gmail App Password — 2-Step Verification must be enabled). `resend` is a
+  dependency but not currently wired in. The member-credentials email is sent **from
+  the admin who created the member**: `from` uses the admin name + `SENDER_EMAIL`
+  (Gmail rewrites the From address to the authenticated account, so an arbitrary
+  admin address can't be used directly) and `Reply-To` is set to the admin's email.
 - **node-cron** for two scheduled jobs (EOD attendance + keep-alive ping).
 - Deployed on **Vercel** (`vercel.json`, `@vercel/node`). Prod URL pinged by the
   keep-alive cron: `https://todo-app-fz58.onrender.com` (also references Render).

@@ -32,6 +32,60 @@ enum AttendanceStatus {
     partial
 }
 
+enum OrgRole {
+    owner
+    admin
+    member
+}
+
+model Organization {
+    id          String          @id @default(uuid())
+    name        String
+    ownerId     String
+    createdAt   DateTime        @default(now())
+    memberships OrgMembership[]
+    workspaces  Workspace[]
+
+    @@map("organization")
+}
+
+model OrgMembership {
+    id     String       @id @default(uuid())
+    userId String
+    orgId  String
+    role   OrgRole      @default(member)
+    user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+    org    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+    @@unique([userId, orgId])
+    @@map("org_membership")
+}
+
+model Workspace {
+    id          String                @id @default(uuid())
+    name        String
+    orgId       String
+    createdAt   DateTime              @default(now())
+    org         Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
+    memberships WorkspaceMembership[]
+
+    @@map("workspaces")
+}
+
+model WorkspaceMembership {
+    id          String     @id @default(uuid())
+    userId      String
+    workspaceId String?
+    user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+    workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+    canEdit     Boolean    @default(true)
+    canView     Boolean    @default(true)
+    canDelete   Boolean    @default(true)
+
+    @@unique([userId, workspaceId])
+    @@map("workspace_memberships")
+}
+
 model User {
     id               String    @id @default(uuid())
     email            String    @unique
@@ -44,8 +98,10 @@ model User {
     createdAt        DateTime  @default(now())
     updatedAt        DateTime  @updatedAt
 
-    members        Member[]
-    createdMembers Member[] @relation("CreatedMembers")
+    members              Member[]
+    createdMembers       Member[]              @relation("CreatedMembers")
+    orgMemberships       OrgMembership[]
+    workspaceMemberships WorkspaceMembership[]
 
     @@map("users")
 }

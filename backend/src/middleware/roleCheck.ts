@@ -82,14 +82,15 @@ export async function canViewMemberTasks(
       return;
     }
 
-    // Members can only view their own tasks
-    const memberId = req.params.memberId;
-    if (!memberId) {
-      res.status(400).json({ message: "Member ID is required" });
+    // Members can only view their own tasks. The route param is the member's
+    // User id (matching getMemberTasks, which resolves the member via userId).
+    const userId = req.params.userId;
+    if (!userId) {
+      res.status(400).json({ message: "User ID is required" });
       return;
     }
     const member = await prisma.member.findUnique({
-      where: { id: memberId },
+      where: { userId },
     });
 
     if (!member) {

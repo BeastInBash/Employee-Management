@@ -6,7 +6,9 @@ import memberRoutes from "./routes/members.router";
 import taskRoutes from "./routes/tasks.router";
 import attendanceRouter from "./routes/attendance.router";
 import { startAttendanceCronJobs } from "./cron/attendancecron";
-import { startKeepAliveCron } from "./cron/pingcron";
+import orgRouter from "./routes/organization.router";
+// import { startKeepAliveCron } from "./cron/pingcron";
+import cookieParser from 'cookie-parser'
 
 dotenv.config();
 
@@ -15,7 +17,9 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 
+
 app.use(express.json());
+app.use(cookieParser())
 app.use(cors({
     // origin: ['https://todo-app-212w.vercel.app'],
     origin: ["https://todo-app-z7g1.vercel.app", "https://employee-management-uzdd.vercel.app", "http://localhost:5173"],
@@ -28,9 +32,13 @@ app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/attendance", attendanceRouter);
+app.use('/api/org', orgRouter)
 // Health check
 app.get("/health", (req, res) => {
+    console.log("Working Fine ....")
+
     res.json({ status: "ok", timestamp: new Date().toISOString() });
+
 });
 
 // Error handling middleware
@@ -40,7 +48,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 startAttendanceCronJobs();
-startKeepAliveCron();
+// startKeepAliveCron();
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
