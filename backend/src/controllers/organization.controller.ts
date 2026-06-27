@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
-import ApiError from '../utils/errors/ApiError'
 import { OrgRole, PrismaClient } from '@prisma/client';
 import z from 'zod';
+import { getAllOrgQuerySchema, getMyOrgQuerySchema, getOrgQueryschema } from '../validation/orgValidation';
 
 const prisma = new PrismaClient();
 const createOrgSchema = z.object({ name: z.string().trim().min(2, "Name is Required") })
@@ -37,12 +37,13 @@ export const createOrganization = async (req: Request, res: Response) => {
 
 export const getMyOrganization = async (req: Request, res: Response) => {
     const { userId } = req.user!
+    const { membership, workspace } = getMyOrgQuerySchema.parse(req.query)
     const allOrgs = await prisma.organization.findMany({
         where: {
             ownerId: userId
         }, include: {
-            memberships: true,
-            workspaces: true
+            memberships: membership,
+            workspaces: workspace
         }
     })
     res.json({
@@ -54,16 +55,14 @@ export const getMyOrganization = async (req: Request, res: Response) => {
 }
 
 export const getOrgById = async (req: Request, res: Response) => {
-    const { orgId, membership, workspace } = req.query
-    const includeMembership = membership == "true"
-    const includeWorkspaces = workspace == "true"
+    const { orgId, membership, workspace } = getOrgQueryschema.parse(req.query)
     const org = await prisma.organization.findFirst({
         where: {
             id: orgId as string
         },
         include: {
-            memberships: includeMembership,
-            workspaces: includeWorkspaces
+            memberships: membership,
+            workspaces: workspace
 
         }
 
