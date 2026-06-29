@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { PrismaClient, UserRole, Prisma } from "@prisma/client";
+import { PrismaClient, UserRole, OrgRole, Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 import { createMemberSchema } from "../validation/memberValidation";
 import { hashPassword, DEFAULT_PASSWORD } from "../utils/password";
@@ -23,14 +23,43 @@ export async function createMember(req: Request, res: Response): Promise<void> {
         const validatedData = createMemberSchema.parse(req.body);
         const email = validatedData.email.trim().toLowerCase();
 
+        // The target workspace must exist and the admin must own (or be an
+        // owner/admin of) the org it belongs to — otherwise they can't add
+        // members to it.
+        const workspace = await prisma.workspace.findUnique({
+            where: { id: validatedData.workspaceId },
+            include: { org: { select: { id: true, ownerId: true } } },
+        });
+
+        if (!workspace) {
+            res.status(404).json({ message: "Workspace not found" });
+            return;
+        }
+
+        let authorized = workspace.org.ownerId === req.user.userId;
+        if (!authorized) {
+            const orgMembership = await prisma.orgMembership.findUnique({
+                where: { userId_orgId: { userId: req.user.userId, orgId: workspace.org.id } },
+            });
+            authorized =
+                !!orgMembership &&
+                (orgMembership.role === OrgRole.owner || orgMembership.role === OrgRole.admin);
+        }
+
+        if (!authorized) {
+            res.status(403).json({ message: "You don't have access to this workspace" });
+            return;
+        }
+
         // Check if a user account already exists for this email
         const existingUser = await prisma.user.findUnique({
             where: { email },
-            include: { members: { select: { id: true } } },
+            include: { members: { select: { id: true, workspaceId: true } } },
         });
 
         // Don't let an existing admin account be repurposed as a member, and
-        // don't silently no-op when the person is already a member somewhere.
+        // don't silently no-op when the person is already a member of *this*
+        // workspace (they may legitimately belong to other workspaces).
         if (existingUser) {
             if (existingUser.role === UserRole.admin) {
                 res.status(409).json({
@@ -38,8 +67,8 @@ export async function createMember(req: Request, res: Response): Promise<void> {
                 });
                 return;
             }
-            if (existingUser.members.length > 0) {
-                res.status(409).json({ message: "This person is already a member" });
+            if (existingUser.members.some((m) => m.workspaceId === validatedData.workspaceId)) {
+                res.status(409).json({ message: "This person is already a member of this workspace" });
                 return;
             }
         }
@@ -59,7 +88,7 @@ export async function createMember(req: Request, res: Response): Promise<void> {
                     role: UserRole.member,
                     isPasswordReset: true, // Flag to indicate password needs to be changed
                 },
-                include: { members: { select: { id: true } } },
+                include: { members: { select: { id: true, workspaceId: true } } },
             });
 
             // Look up the admin so the credentials email is sent *from* them
@@ -87,6 +116,7 @@ export async function createMember(req: Request, res: Response): Promise<void> {
                 role: validatedData.role,
                 email,
                 userId: memberUser.id,
+                workspaceId: validatedData.workspaceId,
                 createdById: req.user.userId,
             },
         });
@@ -166,7 +196,7 @@ export async function getMember(req: Request, res: Response): Promise<void> {
         const { memberId } = req.params;
 
         const member = await prisma.member.findUnique({
-            where: { id: memberId! }, // ✅ was: { id: memberId }
+            where: { id: memberId! as string}, // ✅ was: { id: memberId }
             include: { user: { select: { name: true } } },
         });
         console.log("Memeber data", member)
@@ -202,7 +232,7 @@ export async function deleteMember(req: Request, res: Response): Promise<void> {
         }
 
         const member = await prisma.member.findUnique({
-            where: { id: memberId },
+            where: { id: memberId as string},
             include: { user: { select: { id: true, role: true } } },
         });
         if (!member) {
@@ -223,7 +253,7 @@ export async function deleteMember(req: Request, res: Response): Promise<void> {
         if (member.user.role === UserRole.member) {
             await prisma.user.delete({ where: { id: member.user.id } });
         } else {
-            await prisma.member.delete({ where: { id: memberId } });
+            await prisma.member.delete({ where: { id: memberId as string } });
         }
 
         res.json({ message: "Member deleted successfully", memberId });

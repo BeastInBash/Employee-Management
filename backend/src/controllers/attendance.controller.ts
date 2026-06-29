@@ -16,7 +16,7 @@ export async function getMyAttendance(req: Request, res: Response): Promise<void
             return;
         }
 
-        const member = await prisma.member.findUnique({
+        const member = await prisma.member.findFirst({
             where: { userId: req.user.userId },
         });
 
@@ -61,12 +61,15 @@ export async function getMemberAttendanceReport(req: Request, res: Response): Pr
         }
 
         const { memberId } = req.params;
-        console.log("Memeber Id ", memberId)
+        if (typeof memberId !== "string") {
+            res.status(400).json({ message: "Member ID is required" });
+            return;
+        }
         const member = await prisma.member.findFirst({
-            where: { 
+            where: {
                 OR : [
-                    {id: memberId! },
-                    {userId: memberId! }
+                    {id: memberId },
+                    {userId: memberId }
                 ]
             },
             include: { user: { select: { name: true, email: true } } },

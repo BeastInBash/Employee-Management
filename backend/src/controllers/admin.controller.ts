@@ -8,7 +8,7 @@ export async function setUserRole(req: Request, res: Response) {
 
     const { userId } = req.params;
     const { role } = req.body;
-    if (!userId || !role) return res.status(400).json({ error: "userId and role required" });
+    if (typeof userId !== "string" || !role) return res.status(400).json({ error: "userId and role required" });
 
     const user = await client.user.findUnique({ where: { id: userId } });
     if (!user) return res.status(404).json({ error: "User not found" });

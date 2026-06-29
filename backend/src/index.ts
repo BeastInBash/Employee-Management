@@ -9,6 +9,7 @@ import { startAttendanceCronJobs } from "./cron/attendancecron";
 import orgRouter from "./routes/organization.router";
 // import { startKeepAliveCron } from "./cron/pingcron";
 import cookieParser from 'cookie-parser'
+import workspaceRouter from "./routes/workspace.router";
 
 dotenv.config();
 
@@ -33,6 +34,7 @@ app.use("/api/members", memberRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/attendance", attendanceRouter);
 app.use('/api/org', orgRouter)
+app.use('/api/workspace',workspaceRouter)
 // Health check
 app.get("/health", (req, res) => {
     console.log("Working Fine ....")

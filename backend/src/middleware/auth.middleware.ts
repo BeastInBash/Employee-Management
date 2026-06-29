@@ -9,10 +9,12 @@ export function authenticate(
     const authHeader = req.headers.authorization;
     const cookieHeader = req.cookies;
     const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined
-    const cookiesToken = cookieHeader.token
+    const cookiesToken = cookieHeader?.token
 
-
-    const token = cookiesToken;
+    // Prefer the cookie, but fall back to the Authorization: Bearer header so the
+    // client (which stores the JWT in localStorage) works cross-site, where a
+    // sameSite=lax cookie would never be sent.
+    const token = cookiesToken ?? bearerToken;
     const payload = verifyToken(token);
 
     req.user = payload;

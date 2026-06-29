@@ -40,7 +40,7 @@ export async function canManageTask(
 
     // Members can only manage their own tasks
     const taskId = req.params.taskId;
-    if (!taskId) {
+    if (typeof taskId !== "string") {
       res.status(400).json({ message: "Task ID is required" });
       return;
     }
@@ -85,11 +85,11 @@ export async function canViewMemberTasks(
     // Members can only view their own tasks. The route param is the member's
     // User id (matching getMemberTasks, which resolves the member via userId).
     const userId = req.params.userId;
-    if (!userId) {
+    if (typeof userId !== "string") {
       res.status(400).json({ message: "User ID is required" });
       return;
     }
-    const member = await prisma.member.findUnique({
+    const member = await prisma.member.findFirst({
       where: { userId },
     });
 

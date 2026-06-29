@@ -24,7 +24,7 @@ export async function createTask(req: Request, res: Response): Promise<void> {
                 return;
             }
 
-            const member = await prisma.member.findUnique({
+            const member = await prisma.member.findFirst({
                 where: { userId: req.user.userId },
                 select: { id: true },
             });
@@ -41,7 +41,7 @@ export async function createTask(req: Request, res: Response): Promise<void> {
                 return;
             }
 
-            const member = await prisma.member.findUnique({
+            const member = await prisma.member.findFirst({
                 where: { userId: validatedData.userId },
                 select: { id: true },
             });
@@ -98,9 +98,13 @@ export async function getMemberTasks(req: Request, res: Response): Promise<void>
         }
 
         const { userId } = req.params;
+        if (typeof userId !== "string") {
+            res.status(400).json({ message: "User ID is required" });
+            return;
+        }
 
         const member = await prisma.member.findFirst({
-            where: { userId: userId! },
+            where: { userId },
             select: { id: true },
         });
 
@@ -129,7 +133,7 @@ export async function updateTask(req: Request, res: Response): Promise<void> {
         }
 
         const taskId = req.params["taskId"];
-        if (!taskId) {
+        if (typeof taskId !== "string") {
             res.status(400).json({ message: "Task ID is required" });
             return;
         }
@@ -204,7 +208,7 @@ export async function deleteTask(req: Request, res: Response): Promise<void> {
         }
 
         const taskId = req.params["taskId"];
-        if (!taskId) {
+        if (typeof taskId !== "string") {
             res.status(400).json({ message: "Task ID is required" });
             return;
         }

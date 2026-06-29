@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 import { OrgRole, PrismaClient } from '@prisma/client';
 import z from 'zod';
 import { getMyOrgQuerySchema, getOrgQueryschema } from '../validation/orgValidation';
+import ApiError from '../utils/errors/ApiError';
 
 const prisma = new PrismaClient();
 const createOrgSchema = z.object({ name: z.string().trim().min(2, "Name is Required") })
@@ -38,9 +39,13 @@ export const createOrganization = async (req: Request, res: Response) => {
 export const getMyOrganization = async (req: Request, res: Response) => {
     const { userId } = req.user!
     const { membership, workspace } = getMyOrgQuerySchema.parse(req.query)
+    // Orgs the caller owns OR is a member of (a user can belong to orgs they don't own).
     const allOrgs = await prisma.organization.findMany({
         where: {
-            ownerId: userId
+            OR: [
+                { ownerId: userId },
+                { memberships: { some: { userId } } }
+            ]
         }, include: {
             memberships: membership,
             workspaces: workspace
@@ -55,6 +60,7 @@ export const getMyOrganization = async (req: Request, res: Response) => {
 }
 
 export const getOrgById = async (req: Request, res: Response) => {
+    const { userId } = req.user!
     const { orgId, membership, workspace } = getOrgQueryschema.parse(req.query)
     const org = await prisma.organization.findFirst({
         where: {
@@ -67,6 +73,17 @@ export const getOrgById = async (req: Request, res: Response) => {
         }
 
     })
+    if (!org) throw ApiError.notFound("Organization not found")
+
+    // Only the owner or a member of the org may read it (and its memberships/workspaces).
+    const isOwner = org.ownerId === userId
+    if (!isOwner) {
+        const callerMembership = await prisma.orgMembership.findUnique({
+            where: { userId_orgId: { userId, orgId: orgId as string } }
+        })
+        if (!callerMembership) throw ApiError.forbidden("You do not have access to this organization")
+    }
+
     res.json({
         status: 200,
         message: "Fetch Successfull",

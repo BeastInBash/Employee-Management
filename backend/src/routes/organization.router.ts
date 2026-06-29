@@ -14,4 +14,4 @@ orgRouter.get("/getOrg", getOrgById)
 orgRouter.post('/:orgId/workspaces', createWorkspace)
 orgRouter.use(handleError)
 
-export default orgRouter
+export default orgRouter;
