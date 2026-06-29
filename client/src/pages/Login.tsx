@@ -82,7 +82,7 @@ const Login = () => {
       <Card className="w-full shadow-lg">
         <CardHeader className="space-y-1">
           <CardTitle className="font-display text-2xl text-center">
-            Task Tracker
+            Crewly
           </CardTitle>
           <CardDescription className="text-center">
             Manage your projects and tasks efficiently

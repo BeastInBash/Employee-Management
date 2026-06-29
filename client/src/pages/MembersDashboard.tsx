@@ -232,7 +232,7 @@ export const MemberDashboard = () => {
                             <div className="h-7 w-7 rounded-md bg-foreground flex items-center justify-center">
                                 <Users className="h-4 w-4 text-background" />
                             </div>
-                            <span className="font-semibold text-sm tracking-tight">Task Tracker</span>
+                            <span className="font-semibold text-sm tracking-tight">Crewly</span>
                         </div>
                     </div>
 

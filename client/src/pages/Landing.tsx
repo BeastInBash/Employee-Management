@@ -143,9 +143,9 @@ const Landing = () => {
             >
                 <div className="container mx-auto flex h-16 items-center justify-between px-4">
                     <div className="flex items-center gap-2">
-                        <img src="/dark-logo.png" alt="Task Tracker" className="h-9 w-9 dark:hidden" />
-                        <img src="/logo.png" alt="Task Tracker" className="hidden h-9 w-9 dark:block" />
-                        <span className="font-display text-lg tracking-tight">Task Tracker</span>
+                        <img src="/dark-logo.png" alt="Crewly" className="h-9 w-9 dark:hidden" />
+                        <img src="/logo.png" alt="Crewly" className="hidden h-9 w-9 dark:block" />
+                        <span className="font-display text-lg tracking-tight">Crewly</span>
                     </div>
 
                     <nav className="hidden items-center gap-8 md:flex">
@@ -207,7 +207,7 @@ const Landing = () => {
                         variants={fadeUp}
                         className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-muted-foreground"
                     >
-                        Task Tracker brings team management, task assignment, and daily
+                        Crewly brings team management, task assignment, and daily
                         attendance together — so admins stay in control and members always
                         know what's next.
                     </motion.p>
@@ -307,7 +307,7 @@ const Landing = () => {
                         Everything your team needs
                     </h2>
                     <p className="mt-4 text-muted-foreground">
-                        From the first invite to the last completed task — Task Tracker covers
+                        From the first invite to the last completed task — Crewly covers
                         the whole loop without the clutter.
                     </p>
                 </motion.div>
@@ -432,12 +432,12 @@ const Landing = () => {
             <footer className="border-t border-border">
                 <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row">
                     <div className="flex items-center gap-2">
-                        <img src="/dark-logo.png" alt="Task Tracker" className="h-7 w-7 dark:hidden" />
-                        <img src="/logo.png" alt="Task Tracker" className="hidden h-7 w-7 dark:block" />
-                        <span className="font-display text-sm">Task Tracker</span>
+                        <img src="/dark-logo.png" alt="Crewly" className="h-7 w-7 dark:hidden" />
+                        <img src="/logo.png" alt="Crewly" className="hidden h-7 w-7 dark:block" />
+                        <span className="font-display text-sm">Crewly</span>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                        © {new Date().getFullYear()} Task Tracker. All rights reserved.
+                        © {new Date().getFullYear()} Crewly. All rights reserved.
                     </p>
                     <div className="flex items-center gap-4">
                         <Link to="/login" className="text-sm text-muted-foreground transition-colors hover:text-foreground">

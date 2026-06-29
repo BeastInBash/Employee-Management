@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 // import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { OrgProvider } from "./contexts/OrgContext";
 import { MemberProvider } from "./contexts/MemberContext";
 import { ThemeProvider } from "./components/theme-provider";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -28,8 +29,9 @@ const App = () => (
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
         <TooltipProvider>
             <AuthProvider>
-                <MemberProvider>
-                    <TaskProvider>
+                <OrgProvider>
+                    <MemberProvider>
+                        <TaskProvider>
                         <Toaster />
                         <Sonner />
                         <BrowserRouter>
@@ -54,8 +56,9 @@ const App = () => (
                                 <Route path="*" element={<NotFound />} />
                             </Routes>
                         </BrowserRouter>
-                    </TaskProvider>
-                </MemberProvider>
+                        </TaskProvider>
+                    </MemberProvider>
+                </OrgProvider>
             </AuthProvider>
         </TooltipProvider>
     </ThemeProvider>

@@ -30,6 +30,7 @@ export type Member = {
   email: string;
   role: string;
   userId?: string;
+  workspaceId: string;
   createdAt: Date;
   createdById: string;
   user?: {
@@ -116,7 +117,12 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(member),
+        body: JSON.stringify({
+          name: member.name,
+          email: member.email,
+          role: member.role,
+          workspaceId: member.workspaceId,
+        }),
       });
 
       if (!response.ok) {
