@@ -145,7 +145,7 @@ export async function updateTask(req: Request, res: Response): Promise<void> {
             select: {
                 status: true,
                 memberId: true,
-                member: { select: { id: true, email: true } },
+                member: { select: { id: true, userId: true } },
             },
         });
 
@@ -154,9 +154,11 @@ export async function updateTask(req: Request, res: Response): Promise<void> {
             return;
         }
 
+        // Match on the stable userId, not email (Member.email can drift from
+        // User.email and would wrongly block a member from updating their task).
         if (
             req.user.role !== UserRole.admin &&
-            existingTask.member.email !== req.user.email
+            existingTask.member.userId !== req.user.userId
         ) {
             res.status(403).json({ message: "You can only update your own tasks" });
             return;

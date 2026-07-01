@@ -46,7 +46,7 @@ export async function canManageTask(
     }
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      include: { member: true },
+      include: { member: { select: { userId: true } } },
     });
 
     if (!task) {
@@ -54,7 +54,9 @@ export async function canManageTask(
       return;
     }
 
-    if (task.member.email !== req.user.email) {
+    // Match on the stable userId rather than email: Member.email can drift from
+    // User.email, which would wrongly 403 a member from managing their own task.
+    if (task.member.userId !== req.user.userId) {
       res.status(403).json({ message: "You can only manage your own tasks" });
       return;
     }
@@ -91,6 +93,7 @@ export async function canViewMemberTasks(
     }
     const member = await prisma.member.findFirst({
       where: { userId },
+      select: { userId: true },
     });
 
     if (!member) {
@@ -98,7 +101,9 @@ export async function canViewMemberTasks(
       return;
     }
 
-    if (member.email !== req.user.email) {
+    // The route param userId is the member's User id; a member may only view
+    // their own tasks. Compare on userId (stable) rather than email.
+    if (member.userId !== req.user.userId) {
       res.status(403).json({ message: "You can only view your own tasks" });
       return;
     }

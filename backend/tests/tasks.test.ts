@@ -223,11 +223,10 @@ describe("GET /api/tasks/:userId and /member/:userId", () => {
   });
 
   it("lets a member view their own tasks via /member/:userId", async () => {
-    // canViewMemberTasks resolves the member by the userId param and matches email.
-    prismaMock.member.findUnique.mockResolvedValue(
-      makeMember({ id: "member-1", userId: MEMBER.userId, email: MEMBER.email }) as any
+    // canViewMemberTasks resolves the member by the userId param and matches userId.
+    prismaMock.member.findFirst.mockResolvedValue(
+      makeMember({ id: "member-1", userId: MEMBER.userId }) as any
     );
-    prismaMock.member.findFirst.mockResolvedValue({ id: "member-1" } as any);
     prismaMock.task.findMany.mockResolvedValue([] as any);
 
     const res = await request(app)
@@ -235,14 +234,15 @@ describe("GET /api/tasks/:userId and /member/:userId", () => {
       .set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(200);
-    expect(prismaMock.member.findUnique).toHaveBeenCalledWith({
+    expect(prismaMock.member.findFirst).toHaveBeenCalledWith({
       where: { userId: "member-user-id" },
+      select: { userId: true },
     });
   });
 
   it("blocks a member from viewing another member's tasks (403)", async () => {
-    prismaMock.member.findUnique.mockResolvedValue(
-      makeMember({ id: "member-1", email: "someone-else@example.com" }) as any
+    prismaMock.member.findFirst.mockResolvedValue(
+      makeMember({ id: "member-1", userId: "other-user-id" }) as any
     );
 
     const res = await request(app)
@@ -292,7 +292,7 @@ describe("PATCH /api/tasks/:taskId", () => {
     prismaMock.task.findUnique.mockResolvedValue({
       status: TaskStatus.in_progress,
       memberId: "member-1",
-      member: { id: "member-1", email: MEMBER.email },
+      member: { id: "member-1", userId: MEMBER.userId },
     } as any);
     prismaMock.task.update.mockResolvedValue(
       makeTask({ status: TaskStatus.completed }) as any
@@ -326,7 +326,7 @@ describe("PATCH /api/tasks/:taskId", () => {
     prismaMock.task.findUnique.mockResolvedValue({
       status: TaskStatus.todo,
       memberId: "member-1",
-      member: { id: "member-1", email: MEMBER.email },
+      member: { id: "member-1", userId: MEMBER.userId },
     } as any);
     prismaMock.task.update.mockResolvedValue(
       makeTask({ status: TaskStatus.completed }) as any
@@ -349,7 +349,7 @@ describe("PATCH /api/tasks/:taskId", () => {
     prismaMock.task.findUnique.mockResolvedValue({
       status: TaskStatus.completed,
       memberId: "member-1",
-      member: { id: "member-1", email: MEMBER.email },
+      member: { id: "member-1", userId: MEMBER.userId },
     } as any);
     prismaMock.task.update.mockResolvedValue(makeTask() as any);
 
@@ -365,7 +365,7 @@ describe("PATCH /api/tasks/:taskId", () => {
   it("blocks a member from updating a task they don't own (403 from middleware)", async () => {
     prismaMock.task.findUnique.mockResolvedValue({
       ...makeTask(),
-      member: makeMember({ email: "other@example.com" }),
+      member: makeMember({ userId: "other-user-id" }),
     } as any);
 
     const res = await request(app)
