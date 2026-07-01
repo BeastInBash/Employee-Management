@@ -66,15 +66,18 @@ src/
     members.router.ts      # /api/members   (router-level authenticate)
     tasks.router.ts        # /api/tasks     (router-level authenticate)
     attendance.router.ts   # /api/attendance(router-level authenticate)
+    organization.router.ts # /api/org       (authenticate; also POST /:orgId/workspaces)
+    workspace.router.ts    # /api/workspace (authenticate; POST /create-workspace/:orgId)
   controllers/
     auth.controller.ts        # login, signup, changePassword, forgot/resetPassword
     members.controller.ts     # createMember, getMembers, getMember, deleteMember
     tasks.controller.ts       # createTask, getMemberTasks, updateTask, deleteTask
     attendance.controller.ts  # getMyAttendance + 3 admin report endpoints
-    organization.controller.ts# createOrganization, getMyOrganization, getOrgById (ReBAC, WIP)
+    organization.controller.ts# createOrganization, getMyOrganization, getOrgById
+    workspace.controller.ts   # createWorkspace (+ owner WorkspaceMembership, in a txn)
     admin.controller.ts       # setUserRole  (NOT mounted on any route)
   middleware/
-    auth.middleware.ts     # authenticate(): verifies JWT (from cookie) -> req.user
+    auth.middleware.ts     # authenticate(): verifies JWT (cookie, falls back to Bearer) -> req.user
     roleCheck.ts           # requireAdmin, canManageTask, canViewMemberTasks
     error.middleware.ts    # handleError: ApiError-aware error handler (statusCode + message)
   cron/
@@ -105,12 +108,16 @@ ReBAC.md                   # design guide for the Organizations→Workspaces ReB
   (`admin` | `member`), `isPasswordReset` (true = must change pw), `resetToken` /
   `resetTokenExpiry`. An admin User owns the Members they create via
   `createdMembers` (relation `"CreatedMembers"`).
-- **Member** — a User's membership in a team. `userId` (unique → one Member per User),
-  `email`, `role` (free-form string job title, NOT the auth role), `createdById`
-  (the admin who added them). Cascade-deletes with its User.
-- **Task** — belongs to a Member. `title`, `description`, `status` (`todo` |
-  `in_progress` | `review` | `completed`), `priority` (`low|medium|high|urgent`),
-  `dueDate`, `completedAt`. Cascade-deletes with its Member.
+- **Member** — a User's seat in a **workspace**. `userId`, `workspaceId` (required;
+  `@@unique([userId, workspaceId])` → one Member per user *per workspace*, so a user can
+  be a member of several workspaces), `email`, `role` (free-form string job title, NOT
+  the auth role), `createdById` (the admin who added them). Cascade-deletes with its User
+  **and** with its Workspace. **`userId` is no longer globally unique** — look members up
+  with `findFirst({ where: { userId } })`, never `findUnique`.
+- **Task** — belongs to a Member (so it's transitively scoped to that Member's workspace).
+  `title`, `description`, `status` (`todo` | `in_progress` | `review` | `completed`),
+  `priority` (`low|medium|high|urgent`), `dueDate`, `completedAt`. Cascade-deletes with
+  its Member.
 - **DailyAttendance** — one row per `(memberId, date)` (unique). `status`
   (`present` | `absent` | `partial`, default `absent`), `taskSubmittedAt`,
   `allTasksCompletedAt`. `date` is `@db.Date`.
@@ -118,24 +125,31 @@ ReBAC.md                   # design guide for the Organizations→Workspaces ReB
 > **Note the two `role` fields:** `User.role` is the auth role (admin/member);
 > `Member.role` is a job-title string. Don't conflate them.
 
-### ReBAC models (Organizations → Workspaces — **work in progress**)
+### ReBAC models (Organizations → Workspaces)
 
-Added by the in-progress multi-tenancy work (design in `ReBAC.md`). Not yet wired into the
-task/attendance domain (tasks are still flat, keyed to `Member`):
+Multi-tenancy layer (design in `ReBAC.md`). **`Member` is now workspace-scoped** (Option A —
+see `SCHEMA-RELATIONS.md`), so the task/attendance domain lives inside a workspace via
+`Member.workspaceId`. The user↔workspace **permission** layer (`WorkspaceMembership`) is
+still separate from the **domain** layer (`Member`).
 
 - **Organization** — `name`, `ownerId` (creating User), `createdAt`. Has many
   `OrgMembership` and `Workspace`. Mapped to table `organization`.
 - **OrgMembership** — user ↔ org edge with `OrgRole` (`owner | admin | member`, default
   `member`). `@@unique([userId, orgId])`. Table `org_membership`.
 - **Workspace** — `name`, `orgId`; belongs to an Organization, has many
-  `WorkspaceMembership`. Table `workspaces`.
+  `WorkspaceMembership` and **`Member`** (the domain seats). Table `workspaces`.
 - **WorkspaceMembership** — user ↔ workspace edge carrying **Option B** boolean perms
-  (`canView` / `canEdit` / `canDelete`, all default **`true`**) + nullable `workspaceId`.
-  `@@unique([userId, workspaceId])`. Table `workspace_memberships`.
+  (`canView` / `canEdit` / `canDelete`, all default **`true`**). `workspaceId` is **now
+  required** (was nullable). `@@unique([userId, workspaceId])`. Table `workspace_memberships`.
 
-> **Known rough edges (vs `ReBAC.md`):** perms default to wide-open `true` (doc wants
-> default-deny); `WorkspaceMembership.workspaceId` is nullable; no `can()` resolver or
-> `authorize()` middleware yet — only org create/read endpoints exist so far.
+Migration `20260629131555_workspace_scoped_members` added `Member.workspaceId` (with a
+backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`'s
+`userId @unique` for the composite unique.
+
+> **Known rough edges (vs `ReBAC.md`):** perms still default to wide-open `true` (doc wants
+> default-deny); no `can()` resolver or `authorize()` middleware yet. Member-initiated task
+> submission / `GET /attendance/me` resolve the member via `findFirst({ where: { userId } })`
+> and pick an arbitrary workspace when a user belongs to several (see `SCHEMA-RELATIONS.md`).
 
 ## API surface (all under the CORS-allowed origins in `index.ts`)
 
@@ -152,8 +166,10 @@ task/attendance domain (tasks are still flat, keyed to `Member`):
   email is SHA-256 hashed and matched against the stored hash + expiry.
 
 **`/api/members`** (all `authenticate`)
-- `POST /` *(admin)* — create member; creates the User w/ DEFAULT_PASSWORD if new and
-  emails credentials; sets `isPasswordReset: true`
+- `POST /` *(admin)* — create member; body now **requires `workspaceId`** (the controller
+  verifies the workspace exists and the admin owns / is owner-admin of its org); creates
+  the User w/ DEFAULT_PASSWORD if new and emails credentials; sets `isPasswordReset: true`.
+  The "already a member" check is **per workspace** (a user can be a member of several).
 - `GET /` — admin: members they created; member: their own member row(s)
 - `GET /:memberId` *(admin)* — single member by Member id
 - `DELETE /:memberId` *(admin)*
@@ -173,13 +189,20 @@ task/attendance domain (tasks are still flat, keyed to `Member`):
 - `GET /report` *(admin)* — all members' report (`?startDate&endDate` or `?month&year`)
 - `GET /report/:memberId` *(admin)* — one member's report (accepts Member id **or** User id)
 
-**`/api/org`** (all `authenticate`; router uses `error.middleware` — ReBAC, **WIP**)
+**`/api/org`** (all `authenticate`; router uses `error.middleware`)
 - `POST /createOrganization` — creates an Organization + owner `OrgMembership` in one
   transaction; body `{ name }` (zod: trimmed, min 2)
-- `GET /getMyOrgs` — orgs owned by the caller; `?membership=true&workspace=true` opt-in
-  to include relations
+- `GET /getMyOrgs` — orgs owned **or joined** by the caller; `?membership=true&workspace=true`
+  opt-in to include relations (the client calls this with `?workspace=true`)
 - `GET /getOrg?orgId=<uuid>` — single org by id; same `membership`/`workspace` include flags
-- No write paths for workspaces/members or any permission gating yet.
+- `POST /:orgId/workspaces` — create a Workspace in the org + grant the creator a
+  `WorkspaceMembership` (txn); body `{ workspaceName }` (min 2). Caller must own / be
+  owner-admin of the org. **This is the path the client uses.**
+
+**`/api/workspace`** (all `authenticate`)
+- `POST /create-workspace/:orgId` — same `createWorkspace` handler as above, alternate mount.
+
+Still no permission gating (`can()` / `authorize()`) on these yet.
 
 See `api-docs.md` for fuller request/response examples.
 
@@ -201,11 +224,12 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
 
 ## Auth & security conventions
 
-- `authenticate` now reads the JWT from the **`token` cookie** (`cookie-parser` is mounted
-  in `index.ts`) and puts the decoded payload (`{ userId, email, role }`) on `req.user`.
-  Tokens last **7d**. It still parses the `Authorization: Bearer` header but currently
-  **ignores it** in favour of the cookie — if you need bearer auth, this is the spot to fix.
-  It also no longer try/catches: a bad token throws and is handled by error middleware.
+- `authenticate` reads the JWT from the **`token` cookie** (`cookie-parser` is mounted in
+  `index.ts`), and **falls back to the `Authorization: Bearer` header** when the cookie is
+  absent (`cookiesToken ?? bearerToken`) — this is what makes the client work, since it
+  stores the JWT in `localStorage` and a `sameSite=lax` cookie is never sent cross-site.
+  Puts the decoded payload (`{ userId, email, role }`) on `req.user`. Tokens last **7d**.
+  It doesn't try/catch: a bad/absent token throws and is handled by error middleware.
 - Passwords hashed with bcrypt, **cost 10**. New members get `DEFAULT_PASSWORD`
   (`"123456"`) and `isPasswordReset: true`; the client should force a change.
 - Role gating: `requireAdmin` for admin-only; `canManageTask` / `canViewMemberTasks`
@@ -252,7 +276,10 @@ anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`)
   itself; the global handler in `index.ts` is still the hardcoded-500 one. Match the style
   of the file you're editing.
 - `userId` in task routes means the member's **User** id, not the Member id — the code
-  resolves Member via `where: { userId }`. Be careful which id you're passing.
+  resolves Member via `findFirst({ where: { userId } })`. **Use `findFirst`, not
+  `findUnique`**, for member-by-`userId`: `userId` alone is no longer unique now that
+  `Member` is workspace-scoped (`@@unique([userId, workspaceId])`). Be careful which id
+  you're passing.
 - `tsconfig` is strict (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`) —
   hence the `!` assertions and the conditional-spread update pattern in `updateTask`.
   Match that style rather than loosening types.

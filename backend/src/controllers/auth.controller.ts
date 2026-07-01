@@ -62,7 +62,8 @@ export async function login(req: Request, res: Response): Promise<void> {
         const { password, ...userWithoutPassword } = user;
 
         res.cookie("token", token, {
-            maxAge: 4 * 24 * 60 * 60 * 1000,
+            // Match the JWT lifetime (7d) so the cookie doesn't expire early.
+            maxAge: 7 * 24 * 60 * 60 * 1000,
             httpOnly: process.env.NODE_ENV === 'production',
             secure: process.env.NODE_ENV === "production",
             sameSite: 'lax',

@@ -34,30 +34,58 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Decode the JWT payload (no dependency) and return its `exp` in seconds, or null
+// if the token is malformed / has no expiry.
+const getTokenExpiry = (token: string): number | null => {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return null;
+    const json = JSON.parse(
+      atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
+    );
+    return typeof json.exp === "number" ? json.exp : null;
+  } catch {
+    return null;
+  }
+};
+
+// Read the persisted session, but only trust it while the token is still valid.
+// The backend issues a 7-day JWT, so a login keeps the user signed in for a week.
+// Once the token expires we clear it and return null, so the user is cleanly sent
+// back to login instead of lingering in a broken "logged in" state whose API
+// calls all 401.
+const readValidSession = (): User | null => {
+  try {
+    if (typeof window === "undefined") return null;
+    const token = localStorage.getItem("authToken");
+    const stored = localStorage.getItem("user");
+    if (!token || !stored) return null;
+
+    const exp = getTokenExpiry(token);
+    if (exp !== null && exp * 1000 <= Date.now()) {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("user");
+      return null;
+    }
+
+    return JSON.parse(stored) as User;
+  } catch {
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Initialise user synchronously from localStorage to avoid a flash redirect
   // (ProtectedRoute or other consumers often read `isAuthenticated` on first render;
   // loading it in `useEffect` is async and causes an initial `false` -> redirect).
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      if (typeof window === "undefined") return null;
-      const stored = localStorage.getItem("user");
-      return stored ? (JSON.parse(stored) as User) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<User | null>(() => readValidSession());
 
-  // Keep local storage in sync if something else changed it; this is optional.
+  // Re-check the persisted session on mount (e.g. the token expired while the tab
+  // was closed) and keep state in sync if another tab changed it.
   useEffect(() => {
-    const token = localStorage.getItem("authToken");
-    const storedUser = localStorage.getItem("user");
-    if (token && storedUser) {
-      const parsed = JSON.parse(storedUser);
-      // Only update if different to avoid rerenders
-      if (!user || user.id !== parsed.id) {
-        setUser(parsed);
-      }
+    const valid = readValidSession();
+    if ((valid?.id ?? null) !== (user?.id ?? null)) {
+      setUser(valid);
     }
     // We intentionally run this only on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps

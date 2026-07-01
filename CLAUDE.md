@@ -1,7 +1,9 @@
 # CLAUDE.md
 
-Repository-level guidance for the **Task Tracker** monorepo. This is the umbrella context;
-each package has its own detailed `CLAUDE.md`:
+Repository-level guidance for the **Crewly** monorepo (the client UI was rebranded from
+"Task Tracker"; repo/dirs are still `todo-app` and the backend still calls itself Task
+Tracker internally). This is the umbrella context; each package has its own detailed
+`CLAUDE.md`:
 
 - **`backend/CLAUDE.md`** — the Express + Prisma REST API.
 - **`client/CLAUDE.md`** — the React + Vite single-page app.
@@ -11,11 +13,13 @@ cross-cutting picture and the contract between the two.
 
 ## What this app is
 
-**Task Tracker** is a team task & attendance management app where **attendance is derived
-from task activity** rather than entered manually. Two roles:
+**Crewly** is a team task & attendance management app where **attendance is derived
+from task activity** rather than entered manually. Tenancy is **Org → Workspace →
+Members** (a `Member` is a user's seat in one workspace; see the package docs). Two roles:
 
-- **Admin** — signs up, creates team members (who are emailed a default password
-  `123456`), assigns/views tasks, and reviews attendance across the team.
+- **Admin** — signs up, creates organizations & workspaces, adds team members into a
+  workspace (who are emailed a default password `123456`), assigns/views tasks, and
+  reviews attendance across the team.
 - **Member** — created by an admin, submits their daily tasks in a morning window and
   completes them through the day; the system marks them present / partial / absent.
 
@@ -50,11 +54,13 @@ includes `http://localhost:5173`. There is **no test suite** in either package.
 ## The frontend ↔ backend contract
 
 - **Transport:** REST over HTTP. The client calls `${VITE_API_URL}/api/...`; the API
-  mounts `/api/auth`, `/api/members`, `/api/tasks`, `/api/attendance` (plus public
-  `/health`). Full surface is in `backend/CLAUDE.md` / `backend/api-docs.md`.
+  mounts `/api/auth`, `/api/members`, `/api/tasks`, `/api/attendance`, `/api/org`,
+  `/api/workspace` (plus public `/health`). Full surface is in `backend/CLAUDE.md` /
+  `backend/api-docs.md`.
 - **Auth:** JWT bearer tokens. Login/signup return `{ token, user }`; the client stores
   the token in `localStorage.authToken` and sends `Authorization: Bearer <token>` on
-  authenticated requests. Tokens last 7 days.
+  authenticated requests. The backend `authenticate` middleware prefers a `token` cookie
+  but **falls back to the Bearer header**, so this works cross-site. Tokens last 7 days.
 - **First login:** new members get the default password `123456` and `isPasswordReset:
   true`; the client is responsible for forcing a password change.
 - **Shared domain enums** (keep both sides in sync — they are duplicated, not shared):
@@ -63,6 +69,10 @@ includes `http://localhost:5173`. There is **no test suite** in either package.
   - `UserRole = admin | member`
 - **`userId` vs Member id gotcha:** task/attendance endpoints key off the member's
   **User** id, not the Member row id. Be deliberate about which id the client sends.
+- **Workspace scoping:** a `Member` is a user's seat in a workspace (`Member.workspaceId`,
+  `@@unique([userId, workspaceId])`), so a user can be a member of several workspaces and
+  `userId` alone is no longer unique. Creating a member requires a `workspaceId`; the
+  client picks it from the active workspace (`OrgContext`). See the package `CLAUDE.md`s.
 
 ## CORS / origins
 

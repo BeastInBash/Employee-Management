@@ -1,12 +1,15 @@
 # CLAUDE.md
 
-Guidance for working in this repository (the **client** of the Task Tracker app).
+Guidance for working in this repository (the **client** of the Crewly app).
 
 ## What this app is
 
-**Task Tracker** is a team task & attendance management web app. Two roles:
+**Crewly** (formerly "Task Tracker" — the UI was rebranded; the repo/dirs are still
+`todo-app`, and the backend still calls itself Task Tracker) is a team task & attendance
+management web app. Two roles:
 
-- **Admin** — manages team members, assigns and tracks tasks, and reviews attendance across the team.
+- **Admin** — manages organizations & workspaces, adds team members into a workspace,
+  assigns and tracks tasks, and reviews attendance across the team.
 - **Member** — views/updates their own tasks and their own attendance, and can change their password.
 
 The backend is a separate service reached over REST at `import.meta.env.VITE_API_URL`. This repo is the frontend only.
@@ -44,7 +47,9 @@ src/
     Landing.tsx             # public marketing landing page  ->  route "/"
     Login.tsx               # login + signup tabs            ->  "/login"
     ForgotPassword.tsx / ResetPassword.tsx
-    Dashboard.tsx           # admin: team member grid, add/delete member
+    Dashboard.tsx           # admin: org/workspace switcher + create dialogs, workspace-
+                            #   scoped team member grid, add/delete member
+                            #   (members are added into the active workspace)
     MemberDetail.tsx        # a single member's detail
     TaskDetails.tsx         # tasks for a member ("/todos/:memberId")
     MembersDashboard.tsx    # attendance dashboard ("/attendance")
@@ -53,8 +58,12 @@ src/
     Index.tsx               # legacy redirect-to-"/" helper (not routed)
   contexts/
     AuthContext.tsx         # login/signup/changePassword/logout; user in localStorage
+    OrgContext.tsx          # organizations + workspaces; tracks the active org/workspace
+                            #   (persisted to localStorage, auto-selected/validated).
+                            #   createOrganization / createWorkspace / refreshOrgs
     MemberContext.tsx       # team members + tasks CRUD; mutations update local state
-                            #   optimistically and RETURN the created/updated entity
+                            #   optimistically and RETURN the created/updated entity.
+                            #   addMember sends `workspaceId`; Member type carries it
     TaskContext.tsx         # member-facing tasks CRUD; updateTask returns the updated Task
   components/
     ProtectedRoute.tsx      # gates routes; redirects to "/login" when unauthenticated
@@ -78,14 +87,32 @@ After login, admins go to `/dashboard`; members go to `/todos/:id` (their tasks)
   `localStorage.authToken` and the user in `localStorage.user`.
 - `AuthContext` initializes `user` synchronously from `localStorage` to avoid a flash
   redirect on first render.
-- Authenticated requests send `Authorization: Bearer <token>`.
-- New members are created by an admin and emailed a default password (`123456`).
+- Authenticated requests send `Authorization: Bearer <token>`. The backend `authenticate`
+  middleware accepts this header (it prefers a `token` cookie but falls back to Bearer), so
+  the localStorage-token model works cross-site.
+- New members are created by an admin **into a workspace** and emailed a default password (`123456`).
 
-## Domain types (from `TaskContext`)
+## Organizations & workspaces (`OrgContext`)
 
-- `TaskStatus = "todo" | "in_progress" | "review" | "completed"`
-- `TaskPriority = "low" | "medium" | "high" | "urgent"`
+- Tenancy is **Org → Workspace → Members**. `OrgContext` loads the caller's orgs via
+  `GET /org/getMyOrgs?workspace=true` and exposes `organizations`, `activeOrg`,
+  `workspaces`, `activeWorkspace`, plus `setActiveOrgId` / `setActiveWorkspaceId`,
+  `createOrganization`, `createWorkspace`, `refreshOrgs`.
+- The **active org/workspace** are persisted to `localStorage` (`activeOrgId` /
+  `activeWorkspaceId`) and auto-selected/validated (fall back to the first available).
+- The admin **Dashboard** has an org/workspace switcher + "New Org" / "New Workspace"
+  dialogs, onboarding empty-states (create first org → first workspace), and a member grid
+  **scoped to the active workspace**. Adding a member requires an active workspace and
+  sends its `workspaceId` (the `Member` type carries `workspaceId`).
+- Create endpoints: `POST /org/createOrganization` `{ name }`, `POST /org/:orgId/workspaces`
+  `{ workspaceName }`.
+
+## Domain types
+
+- `TaskStatus = "todo" | "in_progress" | "review" | "completed"` (from `TaskContext`)
+- `TaskPriority = "low" | "medium" | "high" | "urgent"` (from `TaskContext`)
 - `UserRole = "admin" | "member"` (from `AuthContext`)
+- `Organization` / `Workspace` (from `OrgContext`); `Member` carries `workspaceId` (from `MemberContext`)
 
 ## Conventions
 
