@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +17,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 const Login = () => {
   const navigate = useNavigate();
-  const { login, signup } = useAuth();
+  const { login, signup, user } = useAuth();
+
+  // If a valid session already exists (e.g. the user reopened the site without
+  // logging out), don't show the login form — send them straight to their area.
+  useEffect(() => {
+    if (!user) return;
+    if (user.role === "admin") {
+      navigate("/dashboard", { replace: true });
+    } else {
+      navigate(`/todos/${user.id}`, { replace: true });
+    }
+  }, [user, navigate]);
 
   // Login form
   const [loginEmail, setLoginEmail] = useState("");

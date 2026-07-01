@@ -1,5 +1,7 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
 import type { Variants } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -132,6 +134,20 @@ const faqs = [
 ];
 
 const Landing = () => {
+    const navigate = useNavigate();
+    const { user } = useAuth();
+
+    // A logged-in user who reopens the site shouldn't be dropped on the public
+    // marketing page and asked to sign in again — send them into the app.
+    useEffect(() => {
+        if (!user) return;
+        if (user.role === "admin") {
+            navigate("/dashboard", { replace: true });
+        } else {
+            navigate(`/todos/${user.id}`, { replace: true });
+        }
+    }, [user, navigate]);
+
     return (
         <div className="min-h-screen bg-background text-foreground">
             {/* Header */}
