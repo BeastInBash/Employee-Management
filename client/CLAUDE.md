@@ -79,14 +79,20 @@ Protected (wrapped by `ProtectedRoute`): `/dashboard`, `/attendance`,
 `/dashboard/member/:memberId/attendance`, `/admin/attendance`,
 `/member/:memberId`, `/todos/:memberId`. Everything else → `NotFound`.
 
-After login, admins go to `/dashboard`; members go to `/todos/:id` (their tasks).
+After login, admins go to `/dashboard`; members go to `/todos/:id` (their tasks). The
+public `/` (Landing) and `/login` pages **redirect an already-authenticated user** to that
+same destination (via a `useEffect` on `user`), so reopening the site while logged in drops
+you back in the app instead of on the marketing/login page.
 
 ## Auth model
 
 - JWT-based. On success the API returns `{ token, user }`; the token is stored in
   `localStorage.authToken` and the user in `localStorage.user`.
 - `AuthContext` initializes `user` synchronously from `localStorage` to avoid a flash
-  redirect on first render.
+  redirect on first render, but only trusts the stored session while the JWT is still
+  valid: `readValidSession()` decodes the token's `exp` (no dependency) and, if it has
+  expired, clears `authToken`/`user` and returns `null`. So a login persists for the full
+  7-day token life and a stale token cleanly forces re-login instead of a broken session.
 - Authenticated requests send `Authorization: Bearer <token>`. The backend `authenticate`
   middleware accepts this header (it prefers a `token` cookie but falls back to Bearer), so
   the localStorage-token model works cross-site.

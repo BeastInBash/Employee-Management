@@ -60,7 +60,9 @@ includes `http://localhost:5173`. There is **no test suite** in either package.
 - **Auth:** JWT bearer tokens. Login/signup return `{ token, user }`; the client stores
   the token in `localStorage.authToken` and sends `Authorization: Bearer <token>` on
   authenticated requests. The backend `authenticate` middleware prefers a `token` cookie
-  but **falls back to the Bearer header**, so this works cross-site. Tokens last 7 days.
+  but **falls back to the Bearer header**, so this works cross-site. Tokens (and the login
+  cookie) last **7 days**; the client keeps the session for the full token life by decoding
+  the JWT `exp` and only clearing storage once it has actually expired.
 - **First login:** new members get the default password `123456` and `isPasswordReset:
   true`; the client is responsible for forcing a password change.
 - **Shared domain enums** (keep both sides in sync — they are duplicated, not shared):
