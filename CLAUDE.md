@@ -96,3 +96,5 @@ routing.
 - Adding a new client origin: update the backend CORS list.
 - Touching attendance logic: the source of truth is the backend (`utils/attendance.ts`
   + the cron job); the client only displays/derives from what the API returns.
+
+
