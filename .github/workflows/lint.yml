@@ -15,11 +15,8 @@ jobs:
         with:
           node-version: '20' 
 
-      - name: Cd into backend
-        run: cd ../../backend/
-
       - name: Install Dependencies
-        run: bun install
+        run:  cd ../../backend && bun install
         
       - name: Generate Prisma Client
         run: bun --bunx prisma generate  
