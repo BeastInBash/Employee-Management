@@ -16,7 +16,7 @@ jobs:
           node-version: '20' 
 
       - name: Cd into backend
-        run: cd ../../backend
+        run: cd ../../backend/
 
       - name: Install Dependencies
         run: bun install
