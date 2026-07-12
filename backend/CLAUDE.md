@@ -230,10 +230,17 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
   stores the JWT in `localStorage` and a `sameSite=lax` cookie is never sent cross-site.
   Puts the decoded payload (`{ userId, email, role }`) on `req.user`. Tokens last **7d**.
   It doesn't try/catch: a bad/absent token throws and is handled by error middleware.
+- The **login cookie `maxAge` is 7d** (`auth.controller.ts`), matching the JWT lifetime —
+  they were previously mismatched (cookie 4d), which expired the session early. The client
+  authenticates via the localStorage Bearer token anyway, but keep the two in sync.
 - Passwords hashed with bcrypt, **cost 10**. New members get `DEFAULT_PASSWORD`
   (`"123456"`) and `isPasswordReset: true`; the client should force a change.
 - Role gating: `requireAdmin` for admin-only; `canManageTask` / `canViewMemberTasks`
-  let members act only on their own resources (matched by **email**).
+  let members act only on their own resources, **matched by `userId`** (`task.member.userId`
+  / `member.userId` vs `req.user.userId`). This was previously matched by **email**, which
+  silently 403'd members whenever `Member.email` drifted from `User.email`; `updateTask`'s
+  in-controller ownership check uses `userId` for the same reason. Prefer `userId` (the
+  stable key) over email for any new ownership check.
 
 ## Env vars
 
