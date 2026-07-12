@@ -3,6 +3,8 @@ import { client } from "../config";
 
 export async function setUserRole(req: Request, res: Response) {
   try {
+      // Testing Workflows
+      console.log("Testing Workflows")
     const actingUserRole = req.user?.role;
     if (actingUserRole !== "admin") return res.status(403).json({ error: "Forbidden" });
 
