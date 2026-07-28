@@ -1,9 +1,23 @@
 import { Request, Response } from "express";
 import { PrismaClient, UserRole, TaskStatus, AttendanceStatus } from "@prisma/client";
 import { createTaskSchema, updateTaskSchema } from "../validation/taskValidation";
-import { isWithinTaskSubmissionWindow, getTodayISTDate } from "../utils/attendance";
+import {
+    getTodayISTDate,
+    isWithinTaskWindow,
+    serializeTaskWindow,
+    taskWindowClosedMessage,
+    toTaskWindow,
+} from "../utils/attendance";
 
 const prisma = new PrismaClient();
+
+// Every member lookup that needs the submission rules pulls the workspace's
+// window along with the member row.
+const taskWindowSelect = {
+    taskWindowEnabled: true,
+    taskWindowStart: true,
+    taskWindowEnd: true,
+} as const;
 
 export async function createTask(req: Request, res: Response): Promise<void> {
     try {
@@ -17,20 +31,24 @@ export async function createTask(req: Request, res: Response): Promise<void> {
         let memberId: string;
 
         if (req.user.role === UserRole.member) {
-            if (!isWithinTaskSubmissionWindow()) {
-                res.status(403).json({
-                    message: "Tasks can only be submitted between 9:00 AM and 11:00 AM IST",
-                });
-                return;
-            }
-
             const member = await prisma.member.findFirst({
                 where: { userId: req.user.userId },
-                select: { id: true },
+                select: { id: true, workspace: { select: taskWindowSelect } },
             });
 
             if (!member) {
                 res.status(404).json({ message: "Member not found" });
+                return;
+            }
+
+            // The window lives on the member's workspace and is off by default,
+            // so members can submit anytime unless an admin restricted it.
+            const window = toTaskWindow(member.workspace);
+            if (!isWithinTaskWindow(window)) {
+                res.status(403).json({
+                    message: taskWindowClosedMessage(window),
+                    taskWindow: serializeTaskWindow(window),
+                });
                 return;
             }
 
@@ -86,6 +104,43 @@ export async function createTask(req: Request, res: Response): Promise<void> {
             res.status(400).json({ message: "Invalid input", errors: error.errors });
             return;
         }
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/**
+ * The submission window that applies to the caller. Members don't know their
+ * workspace id, so the client asks here instead of hitting the workspace route.
+ * Admins are never constrained, so they always get an open window.
+ */
+export async function getMyTaskWindow(req: Request, res: Response): Promise<void> {
+    try {
+        if (!req.user) {
+            res.status(401).json({ message: "Authentication required" });
+            return;
+        }
+
+        if (req.user.role === UserRole.admin) {
+            res.json({ taskWindow: serializeTaskWindow({ ...toTaskWindow(null), enabled: false }) });
+            return;
+        }
+
+        const member = await prisma.member.findFirst({
+            where: { userId: req.user.userId },
+            select: { workspaceId: true, workspace: { select: taskWindowSelect } },
+        });
+
+        if (!member) {
+            res.status(404).json({ message: "Member not found" });
+            return;
+        }
+
+        res.json({
+            workspaceId: member.workspaceId,
+            taskWindow: serializeTaskWindow(toTaskWindow(member.workspace)),
+        });
+    } catch (error) {
+        console.error("Get task window error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 }

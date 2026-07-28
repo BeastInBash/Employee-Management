@@ -11,9 +11,10 @@ that the React client (`../client`) talks to. Two roles:
 - **Member** — created by an admin (emailed a default password `123456`), submits and
   updates their own daily tasks, and views their own attendance.
 
-The core domain idea: **attendance is derived from task activity**. A member submits tasks
-in a morning window and completes them by end of day; the system marks them
-present / partial / absent automatically (see "Attendance model" below).
+The core domain idea: **attendance is derived from task activity**. A member submits their
+tasks (any time by default, or inside an admin-configured window) and completes them by
+end of day; the system marks them present / partial / absent automatically (see
+"Attendance model" below).
 
 ## Stack
 
@@ -93,6 +94,7 @@ src/
   validation/
     authValidation.ts, memberValidation.ts, taskValidation.ts   # zod schemas
     orgValidation.ts       # zod schemas for org query params (membership/workspace flags)
+    workspaceValidation.ts # zod schema for the task-submission-window PATCH
 prisma/
   schema.prisma            # User, Member, Task, DailyAttendance, Organization,
                            #   OrgMembership, Workspace, WorkspaceMembership + enums
@@ -137,7 +139,10 @@ still separate from the **domain** layer (`Member`).
 - **OrgMembership** — user ↔ org edge with `OrgRole` (`owner | admin | member`, default
   `member`). `@@unique([userId, orgId])`. Table `org_membership`.
 - **Workspace** — `name`, `orgId`; belongs to an Organization, has many
-  `WorkspaceMembership` and **`Member`** (the domain seats). Table `workspaces`.
+  `WorkspaceMembership` and **`Member`** (the domain seats). Also carries the task
+  submission window: `taskWindowEnabled` (default **`false`** → members submit anytime),
+  `taskWindowStart` / `taskWindowEnd` (minutes from IST midnight, default 540/660 =
+  9–11 AM). Table `workspaces`.
 - **WorkspaceMembership** — user ↔ workspace edge carrying **Option B** boolean perms
   (`canView` / `canEdit` / `canDelete`, all default **`true`**). `workspaceId` is **now
   required** (was nullable). `@@unique([userId, workspaceId])`. Table `workspace_memberships`.
@@ -175,8 +180,11 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
 - `DELETE /:memberId` *(admin)*
 
 **`/api/tasks`** (all `authenticate`)
-- `POST /` — member: only within 9–11 AM IST window, creates task for self + upserts
-  today's attendance row; admin: must pass `userId` (the member's **User** id)
+- `POST /` — member: creates a task for self + upserts today's attendance row; allowed
+  **anytime** unless the member's workspace has a submission window enabled (403 +
+  `taskWindow` when it's closed); admin: must pass `userId` (the member's **User** id)
+- `GET /task-window` — the window that applies to the caller (`{ workspaceId, taskWindow }`;
+  admins always get an open one). **Must stay declared above `GET /:userId`.**
 - `GET /member/:userId` *(canViewMemberTasks)* and `GET /:userId` — tasks by member's
   **User** id (resolves Member via `userId`)
 - `PATCH /:taskId` *(canManageTask)* — update; completing the last open task can flip
@@ -201,6 +209,12 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
 
 **`/api/workspace`** (all `authenticate`)
 - `POST /create-workspace/:orgId` — same `createWorkspace` handler as above, alternate mount.
+- `GET /:workspaceId/task-window` — read the workspace's task submission window. Any org
+  owner/admin, workspace membership holder, or Member seat in it may read.
+- `PATCH /:workspaceId/task-window` *(admin who owns / owner-admins the org)* — body
+  `{ enabled, startTime?, endTime? }` with `"HH:mm"` 24-hour IST times (required when
+  `enabled`, and they must differ). Omitting the times keeps the stored hours, so the
+  toggle alone can turn the restriction off.
 
 Still no permission gating (`can()` / `authorize()`) on these yet.
 
@@ -210,9 +224,16 @@ See `api-docs.md` for fuller request/response examples.
 
 All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
 
-- **Submission window:** 9:00–11:00 AM IST. Members can only `POST /api/tasks` in this
-  window (`isWithinTaskSubmissionWindow`). Submitting creates/keeps a `DailyAttendance`
-  row (default `absent`, `taskSubmittedAt` set).
+- **Submission window (per workspace, off by default):** members may `POST /api/tasks`
+  **at any time** unless an admin restricts the workspace. The window lives on
+  `Workspace.taskWindowEnabled / taskWindowStart / taskWindowEnd` (start/end are minutes
+  from IST midnight; `end <= start` wraps past midnight) and is enforced in
+  `createTask` via `toTaskWindow` + `isWithinTaskWindow`. A blocked request returns
+  **403** with the message *and* the serialized `taskWindow` so the client can correct a
+  stale copy. Admin-created tasks are never constrained. Submitting creates/keeps a
+  `DailyAttendance` row (default `absent`, `taskSubmittedAt` set).
+  `isWithinTaskSubmissionWindow()` (the old fixed 9–11 AM helper) survives only for the
+  legacy `submissionWindowOpen` field on the admin "today" overview.
 - **Completion → present:** when a member completes a task (`PATCH` status→`completed`),
   `checkAndMarkPresent` checks whether **all of today's tasks** are completed; if so the
   day flips to `present`.
@@ -265,7 +286,10 @@ anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`)
   `jest-mock-extended` mock and `tests/env.ts` loads it (plus test env) before any module
   imports — so each controller's `new PrismaClient()` resolves to the shared mock.
 - `tests/testApp.ts` builds an Express app for supertest; `tests/helpers.ts` has shared
-  fixtures/utilities. Suites cover auth, members, tasks, attendance, and middleware.
+  fixtures/utilities. Suites cover auth, members, tasks, attendance, middleware, and the
+  workspace task-submission window (`workspace.test.ts`, incl. the IST window helpers).
+  **~19 pre-existing failures** (auth-middleware 401s surfacing as 500, plus members/
+  attendance mocks that drifted from the controllers) are unrelated to that suite.
 - ts-jest relaxes a few strict-mode diagnostics (`2345/2322/2769`) so test doubles compile;
   don't rely on that leniency in `src/`.
 

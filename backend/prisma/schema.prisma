@@ -70,6 +70,13 @@ model Workspace {
   memberships WorkspaceMembership[]
   members     Member[]
 
+  // Task submission window, as minutes from IST midnight (540 = 9:00 AM).
+  // Disabled by default: members may submit tasks at any time until an admin
+  // turns the restriction on for the workspace.
+  taskWindowEnabled Boolean @default(false)
+  taskWindowStart   Int     @default(540)
+  taskWindowEnd     Int     @default(660)
+
   @@map("workspaces")
 }
 

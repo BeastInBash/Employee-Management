@@ -18,9 +18,26 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
+// The submission window now lives on the member's workspace and is off by
+// default, so a member can submit at any time unless an admin restricts it.
+const UNRESTRICTED_WORKSPACE = {
+  taskWindowEnabled: false,
+  taskWindowStart: 540,
+  taskWindowEnd: 660,
+};
+
+const RESTRICTED_WORKSPACE = {
+  taskWindowEnabled: true,
+  taskWindowStart: 540, // 9:00 AM IST
+  taskWindowEnd: 660, // 11:00 AM IST
+};
+
 describe("POST /api/tasks (member)", () => {
-  function openWindow() {
-    jest.spyOn(attendance, "isWithinTaskSubmissionWindow").mockReturnValue(true);
+  function openWindow(workspace: object = UNRESTRICTED_WORKSPACE) {
+    prismaMock.member.findFirst.mockResolvedValue({
+      id: "member-1",
+      workspace,
+    } as any);
     jest
       .spyOn(attendance, "getTodayISTDate")
       .mockReturnValue(new Date("2026-06-21T00:00:00.000Z"));
@@ -33,7 +50,6 @@ describe("POST /api/tasks (member)", () => {
 
   it("creates a task inside the window and upserts today's attendance row", async () => {
     openWindow();
-    prismaMock.member.findUnique.mockResolvedValue({ id: "member-1" } as any);
     prismaMock.task.create.mockResolvedValue(makeTask() as any);
     prismaMock.dailyAttendance.upsert.mockResolvedValue({} as any);
 
@@ -59,10 +75,9 @@ describe("POST /api/tasks (member)", () => {
     );
   });
 
-  it("blocks task creation outside the 9–11 AM IST window with 403", async () => {
-    jest
-      .spyOn(attendance, "isWithinTaskSubmissionWindow")
-      .mockReturnValue(false);
+  it("blocks task creation outside a restricted workspace's window with 403", async () => {
+    openWindow(RESTRICTED_WORKSPACE);
+    jest.spyOn(attendance, "isWithinTaskWindow").mockReturnValue(false);
 
     const res = await request(app)
       .post("/api/tasks")
@@ -71,12 +86,29 @@ describe("POST /api/tasks (member)", () => {
 
     expect(res.status).toBe(403);
     expect(res.body.message).toMatch(/9:00 AM and 11:00 AM IST/);
+    expect(res.body.taskWindow).toEqual(
+      expect.objectContaining({ enabled: true, startTime: "09:00", endTime: "11:00" })
+    );
     expect(prismaMock.task.create).not.toHaveBeenCalled();
+  });
+
+  it("lets a member submit at any hour when the workspace has no window", async () => {
+    // No isWithinTaskWindow spy: a disabled window is open regardless of time.
+    openWindow(UNRESTRICTED_WORKSPACE);
+    prismaMock.task.create.mockResolvedValue(makeTask() as any);
+    prismaMock.dailyAttendance.upsert.mockResolvedValue({} as any);
+
+    const res = await request(app)
+      .post("/api/tasks")
+      .set("Authorization", authHeader(MEMBER))
+      .send(validTask);
+
+    expect(res.status).toBe(201);
   });
 
   it("returns 404 when the member row is missing", async () => {
     openWindow();
-    prismaMock.member.findUnique.mockResolvedValue(null);
+    prismaMock.member.findFirst.mockResolvedValue(null);
 
     const res = await request(app)
       .post("/api/tasks")
@@ -89,7 +121,6 @@ describe("POST /api/tasks (member)", () => {
 
   it("defaults status to todo when omitted", async () => {
     openWindow();
-    prismaMock.member.findUnique.mockResolvedValue({ id: "member-1" } as any);
     prismaMock.task.create.mockResolvedValue(makeTask() as any);
     prismaMock.dailyAttendance.upsert.mockResolvedValue({} as any);
 
@@ -149,10 +180,8 @@ describe("POST /api/tasks (member)", () => {
 describe("POST /api/tasks (admin)", () => {
   it("requires userId and is not constrained by the time window", async () => {
     // Window closed — admin should still succeed.
-    jest
-      .spyOn(attendance, "isWithinTaskSubmissionWindow")
-      .mockReturnValue(false);
-    prismaMock.member.findUnique.mockResolvedValue({ id: "member-1" } as any);
+    jest.spyOn(attendance, "isWithinTaskWindow").mockReturnValue(false);
+    prismaMock.member.findFirst.mockResolvedValue({ id: "member-1" } as any);
     prismaMock.task.create.mockResolvedValue(makeTask() as any);
 
     const res = await request(app)
@@ -176,7 +205,7 @@ describe("POST /api/tasks (admin)", () => {
   });
 
   it("returns 404 when the target member does not exist", async () => {
-    prismaMock.member.findUnique.mockResolvedValue(null);
+    prismaMock.member.findFirst.mockResolvedValue(null);
 
     const res = await request(app)
       .post("/api/tasks")
@@ -184,6 +213,56 @@ describe("POST /api/tasks (admin)", () => {
       .send({ ...validTask, userId: "ghost" });
 
     expect(res.status).toBe(404);
+  });
+});
+
+describe("GET /api/tasks/task-window", () => {
+  it("returns the member's workspace window", async () => {
+    prismaMock.member.findFirst.mockResolvedValue({
+      workspaceId: "ws-1",
+      workspace: RESTRICTED_WORKSPACE,
+    } as any);
+
+    const res = await request(app)
+      .get("/api/tasks/task-window")
+      .set("Authorization", authHeader(MEMBER));
+
+    expect(res.status).toBe(200);
+    expect(res.body.workspaceId).toBe("ws-1");
+    expect(res.body.taskWindow).toEqual(
+      expect.objectContaining({
+        enabled: true,
+        startTime: "09:00",
+        endTime: "11:00",
+        label: "9:00 AM – 11:00 AM IST",
+      })
+    );
+  });
+
+  it("reports an always-open window for an unrestricted workspace", async () => {
+    prismaMock.member.findFirst.mockResolvedValue({
+      workspaceId: "ws-1",
+      workspace: UNRESTRICTED_WORKSPACE,
+    } as any);
+
+    const res = await request(app)
+      .get("/api/tasks/task-window")
+      .set("Authorization", authHeader(MEMBER));
+
+    expect(res.status).toBe(200);
+    expect(res.body.taskWindow).toEqual(
+      expect.objectContaining({ enabled: false, open: true, label: "Anytime" })
+    );
+  });
+
+  it("never constrains an admin", async () => {
+    const res = await request(app)
+      .get("/api/tasks/task-window")
+      .set("Authorization", authHeader(ADMIN));
+
+    expect(res.status).toBe(200);
+    expect(res.body.taskWindow.open).toBe(true);
+    expect(prismaMock.member.findFirst).not.toHaveBeenCalled();
   });
 });
 

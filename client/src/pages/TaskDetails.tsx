@@ -38,6 +38,8 @@ import {
     KeyRound,
     LogOut,
     ChevronDown,
+    Clock,
+    Lock,
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -89,7 +91,8 @@ const MemberDetail = () => {
     const { memberId } = useParams();
     const navigate = useNavigate();
     const { user, changePassword, logout } = useAuth();
-    const { getTasks, addTask, updateTask, deleteTask } = useTasks();
+    const { getTasks, addTask, updateTask, deleteTask, taskWindow, refreshTaskWindow } =
+        useTasks();
 
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -192,6 +195,22 @@ const MemberDetail = () => {
         setTaskPriority("medium");
         setTaskDueDate(format(new Date(), "yyyy-MM-dd'T'HH:mm"));
         setCurrentTaskId(null);
+    };
+
+    // A workspace can restrict when members submit tasks. Unrestricted (the
+    // default) means the window is always open.
+    const isWindowRestricted = !!taskWindow?.enabled;
+    const isWindowClosed = isWindowRestricted && !taskWindow.open;
+
+    // Re-check right before opening the form, so a window that closed while the
+    // page sat open doesn't hand the member a dialog that can only fail.
+    const openAddDialog = async () => {
+        const current = await refreshTaskWindow();
+        if (current?.enabled && !current.open) {
+            toast.error(`Task submissions are closed. Open ${current.label}.`);
+            return;
+        }
+        setIsAddDialogOpen(true);
     };
 
     const handleAddTask = () => {
@@ -393,18 +412,48 @@ const MemberDetail = () => {
                         </div>
 
                         <div className="flex items-center gap-4">
+                            {taskWindow && (
+                                <div
+                                    className={`flex items-center gap-2 border px-3 py-2 text-xs ${isWindowClosed
+                                            ? "border-destructive/40 bg-destructive/10 text-destructive"
+                                            : "border-border bg-muted/50 text-muted-foreground"
+                                        }`}
+                                >
+                                    {isWindowClosed ? (
+                                        <Lock className="h-3.5 w-3.5 shrink-0" />
+                                    ) : (
+                                        <Clock className="h-3.5 w-3.5 shrink-0" />
+                                    )}
+                                    <span>
+                                        {isWindowRestricted
+                                            ? isWindowClosed
+                                                ? `Submissions closed · opens ${taskWindow.label}`
+                                                : `Submissions open · ${taskWindow.label}`
+                                            : "Add tasks anytime"}
+                                    </span>
+                                </div>
+                            )}
                             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                                <DialogTrigger asChild>
-                                    <Button className="gap-2">
-                                        <PlusCircle className="h-4 w-4" />
-                                        Add Task
-                                    </Button>
-                                </DialogTrigger>
+                                <Button
+                                    className="gap-2"
+                                    onClick={openAddDialog}
+                                    disabled={isWindowClosed}
+                                    title={
+                                        isWindowClosed
+                                            ? `Your admin restricted task submissions to ${taskWindow.label}`
+                                            : undefined
+                                    }
+                                >
+                                    <PlusCircle className="h-4 w-4" />
+                                    Add Task
+                                </Button>
                                 <DialogContent>
                                     <DialogHeader>
                                         <DialogTitle>Add new task</DialogTitle>
                                         <DialogDescription>
-                                            Assign a new task to {user.name}.
+                                            {isWindowRestricted
+                                                ? `Submissions for this workspace are open ${taskWindow.label}.`
+                                                : `Assign a new task to ${user.name}.`}
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="space-y-4 py-4">
@@ -529,7 +578,8 @@ const MemberDetail = () => {
                             {tasksByStatus["todo"].length === 0 && (
                                 <EmptyState
                                     status="todo"
-                                    onAddTask={() => setIsAddDialogOpen(true)}
+                                    onAddTask={openAddDialog}
+                                    addDisabled={isWindowClosed}
                                 />
                             )}
                         </div>
@@ -559,7 +609,8 @@ const MemberDetail = () => {
                             {tasksByStatus["in_progress"].length === 0 && (
                                 <EmptyState
                                     status="in_progress"
-                                    onAddTask={() => setIsAddDialogOpen(true)}
+                                    onAddTask={openAddDialog}
+                                    addDisabled={isWindowClosed}
                                 />
                             )}
                         </div>
@@ -589,7 +640,8 @@ const MemberDetail = () => {
                             {tasksByStatus["review"].length === 0 && (
                                 <EmptyState
                                     status="review"
-                                    onAddTask={() => setIsAddDialogOpen(true)}
+                                    onAddTask={openAddDialog}
+                                    addDisabled={isWindowClosed}
                                 />
                             )}
                         </div>
@@ -619,7 +671,8 @@ const MemberDetail = () => {
                             {tasksByStatus["completed"].length === 0 && (
                                 <EmptyState
                                     status="completed"
-                                    onAddTask={() => setIsAddDialogOpen(true)}
+                                    onAddTask={openAddDialog}
+                                    addDisabled={isWindowClosed}
                                 />
                             )}
                         </div>
@@ -884,9 +937,11 @@ const TaskCard = ({
 const EmptyState = ({
     status,
     onAddTask,
+    addDisabled = false,
 }: {
     status: TaskStatus;
     onAddTask: () => void;
+    addDisabled?: boolean;
 }) => {
     return (
         <div className="border border-dashed border-muted-foreground/20 rounded-lg p-4 text-center">
@@ -895,7 +950,12 @@ const EmptyState = ({
             </p>
             {status === "todo" && (
 
-                <Button variant="outline" size="sm" onClick={onAddTask}>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={onAddTask}
+                    disabled={addDisabled}
+                >
                     Add Task
                 </Button>
             )}
