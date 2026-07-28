@@ -124,6 +124,7 @@ export const AdminAttendancePanel = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
+    console.log("Working----- workflow")
     const now = new Date();
     const [activeTab, setActiveTab] = useState<"today" | "report">("today");
     const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);

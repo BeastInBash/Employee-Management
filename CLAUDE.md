@@ -20,8 +20,9 @@ Members** (a `Member` is a user's seat in one workspace; see the package docs). 
 - **Admin** — signs up, creates organizations & workspaces, adds team members into a
   workspace (who are emailed a default password `123456`), assigns/views tasks, and
   reviews attendance across the team.
-- **Member** — created by an admin, submits their daily tasks in a morning window and
-  completes them through the day; the system marks them present / partial / absent.
+- **Member** — created by an admin, submits their daily tasks (**any time** by default, or
+  within a window the admin configures per workspace) and completes them through the day;
+  the system marks them present / partial / absent.
 
 ## Repo shape
 
@@ -75,6 +76,13 @@ includes `http://localhost:5173`. There is **no test suite** in either package.
   `@@unique([userId, workspaceId])`), so a user can be a member of several workspaces and
   `userId` alone is no longer unique. Creating a member requires a `workspaceId`; the
   client picks it from the active workspace (`OrgContext`). See the package `CLAUDE.md`s.
+- **Task submission window:** members add their own tasks **anytime** by default. An admin
+  can restrict a workspace to set hours (IST) via `PATCH /api/workspace/:id/task-window`
+  `{ enabled, startTime, endTime }` ("HH:mm"); the backend enforces it on `POST /api/tasks`
+  and the client reads the caller's effective window from `GET /api/tasks/task-window`
+  (`TaskContext.taskWindow`) to gate its "Add task" affordance. Admin-assigned tasks are
+  never blocked. Wire shape: `{ enabled, startMinute, endMinute, startTime, endTime, label,
+  open, currentTimeIST }`.
 
 ## CORS / origins
 
@@ -96,3 +104,5 @@ routing.
 - Adding a new client origin: update the backend CORS list.
 - Touching attendance logic: the source of truth is the backend (`utils/attendance.ts`
   + the cron job); the client only displays/derives from what the API returns.
+
+

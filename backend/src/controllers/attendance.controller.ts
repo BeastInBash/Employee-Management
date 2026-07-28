@@ -5,6 +5,8 @@ import {
     isAfterCompletionDeadline,
     formatDateOnly,
     getTodayISTDate,
+    serializeTaskWindow,
+    toTaskWindow,
 } from "../utils/attendance";
 
 const prisma = new PrismaClient();
@@ -165,6 +167,13 @@ export async function getTodayAttendanceOverview(req: Request, res: Response): P
             where: { createdById: req.user.userId },
             include: {
                 user: { select: { name: true } },
+                workspace: {
+                    select: {
+                        taskWindowEnabled: true,
+                        taskWindowStart: true,
+                        taskWindowEnd: true,
+                    },
+                },
                 attendance: {
                     where: { date: today },
                 },
@@ -178,11 +187,15 @@ export async function getTodayAttendanceOverview(req: Request, res: Response): P
                 status: record?.status ?? AttendanceStatus.absent,
                 taskSubmittedAt: record?.taskSubmittedAt ?? null,
                 allTasksCompletedAt: record?.allTasksCompletedAt ?? null,
+                // Per member, since the window is configured per workspace.
+                taskWindow: serializeTaskWindow(toTaskWindow(member.workspace)),
             };
         });
 
         res.json({
             date: formatDateOnly(new Date()),
+            // Legacy field: the fixed 9–11 AM IST window, kept for back-compat.
+            // Prefer each member's `taskWindow` above.
             submissionWindowOpen: isWithinTaskSubmissionWindow(),
             completionDeadlinePassed: isAfterCompletionDeadline(),
             overview,

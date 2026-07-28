@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "@/components/ui/sonner";
 
@@ -24,8 +24,21 @@ export type Task = {
   completedAt: Date | null;
 };
 
+// The submission window that applies to the signed-in member, as reported by
+// GET /tasks/task-window. `enabled: false` means "submit anytime".
+export type TaskWindowInfo = {
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+  label: string;
+  open: boolean;
+  currentTimeIST: string;
+};
+
 type TaskContextType = {
   tasks: Task[];
+  taskWindow: TaskWindowInfo | null;
+  refreshTaskWindow: () => Promise<TaskWindowInfo | null>;
   getTasks: (memberId: string) => Promise<Task[]>;
   addTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => void;
   updateTask: (id: string, updatedTask: Partial<Task>) => Promise<Task | void>;
@@ -37,8 +50,34 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [taskWindow, setTaskWindow] = useState<TaskWindowInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   console.log(isLoading)
+
+  const refreshTaskWindow = async (): Promise<TaskWindowInfo | null> => {
+    const token = getAuthToken();
+    if (!token) return null;
+    try {
+      const response = await fetch(`${API_BASE_URL}/tasks/task-window`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      const window: TaskWindowInfo | null = data?.taskWindow ?? null;
+      setTaskWindow(window);
+      return window;
+    } catch (error) {
+      console.error("Get task window error:", error);
+      return null;
+    }
+  };
+
+  // Load the window once a user is present so pages can gate their "Add task"
+  // affordance without each of them fetching it.
+  useEffect(() => {
+    if (user) refreshTaskWindow();
+    else setTaskWindow(null);
+  }, [user]);
 
   const addTask = async (
     task: Omit<Task, "id" | "createdAt" | "completedAt">
@@ -50,6 +89,14 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     }
     if (!user) {
       toast.error("You must be logged in");
+      return;
+    }
+    // Cheap client-side guard; the backend is still the authority (and returns
+    // the current window on a 403 so we can correct a stale local copy).
+    if (taskWindow && taskWindow.enabled && !taskWindow.open) {
+      toast.error(
+        `Tasks can only be submitted between ${taskWindow.startTime} and ${taskWindow.endTime} IST`
+      );
       return;
     }
     try {
@@ -70,6 +117,9 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
 
       if (!response.ok) {
         const error = await response.json();
+        // A 403 carries the workspace's current window — adopt it so the UI
+        // stops offering a submission that can't succeed.
+        if (error?.taskWindow) setTaskWindow(error.taskWindow);
         toast.error(error.message || "Failed to create task");
         return;
       }
@@ -245,6 +295,8 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     <TaskContext.Provider
       value={{
         tasks,
+        taskWindow,
+        refreshTaskWindow,
         getTasks,
         addTask,
         updateTask,

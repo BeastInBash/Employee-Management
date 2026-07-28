@@ -10,7 +10,7 @@ deep guidance lives in `CLAUDE.md`. One line per fact.
 
 ## Domain rules (don't break these)
 - **Attendance is derived from tasks**, not entered directly. present / partial / absent.
-- Members can only submit tasks **9–11 AM IST**; all-tasks-completed flips the day to `present`; an EOD cron at **9 PM IST (3:30 PM UTC)** finalizes everyone.
+- Members can submit tasks **anytime**, unless their workspace enables a submission window (`Workspace.taskWindowEnabled/Start/End`, IST minutes) — admins set it via `PATCH /api/workspace/:id/task-window`; all-tasks-completed flips the day to `present`; an EOD cron at **9 PM IST (3:30 PM UTC)** finalizes everyone.
 - IST = UTC+5:30; "today" is stored as UTC-midnight of the IST day (`getTodayISTDate`) to match Prisma `@db.Date`.
 
 ## Easy-to-trip-on gotchas

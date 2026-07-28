@@ -58,13 +58,16 @@ src/
     Index.tsx               # legacy redirect-to-"/" helper (not routed)
   contexts/
     AuthContext.tsx         # login/signup/changePassword/logout; user in localStorage
-    OrgContext.tsx          # organizations + workspaces; tracks the active org/workspace
+    OrgContext.tsx          # organizations + workspaces (each carries its taskWindow);
+                            #   updateTaskWindow() restricts member submissions;
+                            #   tracks the active org/workspace
                             #   (persisted to localStorage, auto-selected/validated).
                             #   createOrganization / createWorkspace / refreshOrgs
     MemberContext.tsx       # team members + tasks CRUD; mutations update local state
                             #   optimistically and RETURN the created/updated entity.
                             #   addMember sends `workspaceId`; Member type carries it
-    TaskContext.tsx         # member-facing tasks CRUD; updateTask returns the updated Task
+    TaskContext.tsx         # member-facing tasks CRUD; updateTask returns the updated Task;
+                            #   taskWindow + refreshTaskWindow gate "Add task"
   components/
     ProtectedRoute.tsx      # gates routes; redirects to "/login" when unauthenticated
     theme-provider.tsx      # ThemeProvider, useTheme, ThemeToggle
@@ -113,12 +116,29 @@ you back in the app instead of on the marketing/login page.
 - Create endpoints: `POST /org/createOrganization` `{ name }`, `POST /org/:orgId/workspaces`
   `{ workspaceName }`.
 
+## Task submission window
+
+- Members can add their own tasks **at any time** by default. Each `Workspace` carries a
+  `taskWindow` (`{ enabled, startTime, endTime }`, "HH:mm" IST) that an admin can switch on
+  from the Dashboard toolbar's **task-window dialog** (`Switch` + two `<input type="time">`),
+  which calls `OrgContext.updateTaskWindow(workspaceId, window)` →
+  `PATCH /workspace/:id/task-window`. Omitting the times keeps the stored hours; a window
+  whose end is ≤ its start wraps past midnight.
+- The member side reads its own effective window from `GET /tasks/task-window` via
+  `TaskContext.taskWindow` / `refreshTaskWindow()` (loaded once per signed-in user).
+  `TaskDetails.tsx` shows an open/closed pill, disables "Add Task" while closed, and
+  re-checks the window on open. `addTask` refuses locally when closed, and adopts the
+  `taskWindow` the API returns on a 403 so a stale copy self-corrects.
+- Admin-assigned tasks are never blocked by the window.
+
 ## Domain types
 
 - `TaskStatus = "todo" | "in_progress" | "review" | "completed"` (from `TaskContext`)
 - `TaskPriority = "low" | "medium" | "high" | "urgent"` (from `TaskContext`)
 - `UserRole = "admin" | "member"` (from `AuthContext`)
-- `Organization` / `Workspace` (from `OrgContext`); `Member` carries `workspaceId` (from `MemberContext`)
+- `Organization` / `Workspace` / `TaskWindow` (from `OrgContext`); `TaskWindowInfo` — the
+  member-facing window incl. `label` / `open` (from `TaskContext`); `Member` carries
+  `workspaceId` (from `MemberContext`)
 
 ## Conventions
 

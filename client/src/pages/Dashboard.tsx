@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useNavigate } from "react-router-dom";
 import {
     PlusCircle,
@@ -41,6 +42,7 @@ import {
     Building2,
     Layers,
     Plus,
+    Clock,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-provider";
 import { toast } from "@/components/ui/sonner";
@@ -83,6 +85,7 @@ const Dashboard = () => {
         setActiveWorkspaceId,
         createOrganization,
         createWorkspace,
+        updateTaskWindow,
     } = useOrg();
     const navigate = useNavigate();
 
@@ -93,11 +96,18 @@ const Dashboard = () => {
     const [isChangingPassword, setIsChangingPassword] = useState(false);
     const [isCreatingOrg, setIsCreatingOrg] = useState(false);
     const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+    const [isSavingTaskWindow, setIsSavingTaskWindow] = useState(false);
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
     const [isOrgDialogOpen, setIsOrgDialogOpen] = useState(false);
     const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
+    const [isTaskWindowDialogOpen, setIsTaskWindowDialogOpen] = useState(false);
+
+    // Draft of the active workspace's task submission window (times are IST).
+    const [windowEnabled, setWindowEnabled] = useState(false);
+    const [windowStart, setWindowStart] = useState("09:00");
+    const [windowEnd, setWindowEnd] = useState("11:00");
 
     const [memberName, setMemberName] = useState("");
     const [memberEmail, setMemberEmail] = useState("");
@@ -196,6 +206,37 @@ const Dashboard = () => {
             }
         } finally {
             setIsCreatingWorkspace(false);
+        }
+    };
+
+    const openTaskWindowDialog = () => {
+        if (!activeWorkspace) {
+            toast.error("Select a workspace first");
+            return;
+        }
+        // Seed the form from what's currently saved for this workspace.
+        setWindowEnabled(activeWorkspace.taskWindow.enabled);
+        setWindowStart(activeWorkspace.taskWindow.startTime);
+        setWindowEnd(activeWorkspace.taskWindow.endTime);
+        setIsTaskWindowDialogOpen(true);
+    };
+
+    const handleSaveTaskWindow = async () => {
+        if (!activeWorkspace) return;
+        if (windowEnabled && windowStart === windowEnd) {
+            toast.error("Start and end time must differ");
+            return;
+        }
+        setIsSavingTaskWindow(true);
+        try {
+            const saved = await updateTaskWindow(activeWorkspace.id, {
+                enabled: windowEnabled,
+                startTime: windowStart,
+                endTime: windowEnd,
+            });
+            if (saved) setIsTaskWindowDialogOpen(false);
+        } finally {
+            setIsSavingTaskWindow(false);
         }
     };
 
@@ -383,6 +424,22 @@ const Dashboard = () => {
                         </div>
 
                         <div className="flex items-center gap-2 sm:ml-auto">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2"
+                                onClick={openTaskWindowDialog}
+                                disabled={!activeWorkspace}
+                                title="Restrict when members can submit tasks"
+                            >
+                                <Clock className="h-4 w-4" />
+                                <span className="hidden sm:inline">
+                                    {activeWorkspace?.taskWindow.enabled
+                                        ? `Tasks ${activeWorkspace.taskWindow.startTime}–${activeWorkspace.taskWindow.endTime}`
+                                        : "Tasks anytime"}
+                                </span>
+                                <span className="sm:hidden">Task Window</span>
+                            </Button>
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -647,6 +704,93 @@ const Dashboard = () => {
                     </>
                 )}
             </main>
+
+            {/* Task submission window dialog (per workspace) */}
+            <Dialog
+                open={isTaskWindowDialogOpen}
+                onOpenChange={setIsTaskWindowDialogOpen}
+            >
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Task submission window</DialogTitle>
+                        <DialogDescription>
+                            Members of{" "}
+                            <span className="font-medium text-foreground">
+                                {activeWorkspace?.name}
+                            </span>{" "}
+                            can add their own tasks at any time. Turn this on to only
+                            accept submissions during set hours (IST).
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="flex items-center justify-between border border-border p-3">
+                            <div className="space-y-0.5 pr-4">
+                                <Label htmlFor="taskWindowEnabled">
+                                    Restrict submission hours
+                                </Label>
+                                <p className="text-xs text-muted-foreground">
+                                    {windowEnabled
+                                        ? "Members can only add tasks inside the window below."
+                                        : "Members can add tasks anytime."}
+                                </p>
+                            </div>
+                            <Switch
+                                id="taskWindowEnabled"
+                                checked={windowEnabled}
+                                onCheckedChange={setWindowEnabled}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="windowStart">Opens at (IST)</Label>
+                                <Input
+                                    id="windowStart"
+                                    type="time"
+                                    value={windowStart}
+                                    disabled={!windowEnabled}
+                                    onChange={(e) => setWindowStart(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="windowEnd">Closes at (IST)</Label>
+                                <Input
+                                    id="windowEnd"
+                                    type="time"
+                                    value={windowEnd}
+                                    disabled={!windowEnabled}
+                                    onChange={(e) => setWindowEnd(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        {windowEnabled && windowEnd <= windowStart && (
+                            <p className="text-xs text-muted-foreground">
+                                This window wraps past midnight — it stays open from{" "}
+                                {windowStart} until {windowEnd} the next day.
+                            </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                            Tasks you assign as an admin are never blocked by this window.
+                        </p>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsTaskWindowDialogOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleSaveTaskWindow}
+                            disabled={isSavingTaskWindow}
+                        >
+                            {isSavingTaskWindow && (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            )}
+                            {isSavingTaskWindow ? "Saving..." : "Save"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Create organization dialog */}
             <Dialog open={isOrgDialogOpen} onOpenChange={setIsOrgDialogOpen}>

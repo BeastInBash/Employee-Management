@@ -16,11 +16,20 @@ const getAuthToken = () => localStorage.getItem("authToken");
 const ACTIVE_ORG_KEY = "activeOrgId";
 const ACTIVE_WORKSPACE_KEY = "activeWorkspaceId";
 
+// The per-workspace task submission window. Disabled means members can submit
+// tasks at any time; times are "HH:mm" in IST (what <input type="time"> uses).
+export type TaskWindow = {
+  enabled: boolean;
+  startTime: string;
+  endTime: string;
+};
+
 export type Workspace = {
   id: string;
   name: string;
   orgId: string;
   createdAt: Date;
+  taskWindow: TaskWindow;
 };
 
 export type Organization = {
@@ -45,9 +54,56 @@ type OrgContextType = {
     name: string,
     orgId?: string
   ) => Promise<Workspace | void>;
+  updateTaskWindow: (
+    workspaceId: string,
+    window: TaskWindow
+  ) => Promise<TaskWindow | void>;
 };
 
 const OrgContext = createContext<OrgContextType | undefined>(undefined);
+
+const DEFAULT_TASK_WINDOW: TaskWindow = {
+  enabled: false,
+  startTime: "09:00",
+  endTime: "11:00",
+};
+
+// "09:00" from minutes-since-IST-midnight, which is how the workspace rows
+// carry the window on the org listing endpoint.
+const minutesToTime = (minutes: number): string => {
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  const hh = String(Math.floor(normalized / 60)).padStart(2, "0");
+  const mm = String(normalized % 60).padStart(2, "0");
+  return `${hh}:${mm}`;
+};
+
+type TaskWindowSource =
+  | {
+      taskWindow?: Partial<TaskWindow> | null;
+      taskWindowEnabled?: boolean;
+      taskWindowStart?: number;
+      taskWindowEnd?: number;
+    }
+  | null
+  | undefined;
+
+// Accepts either the raw workspace columns (GET /org/getMyOrgs) or the
+// serialized `taskWindow` object (PATCH /workspace/:id/task-window).
+const normalizeTaskWindow = (source: TaskWindowSource): TaskWindow => {
+  if (source?.taskWindow) {
+    return {
+      enabled: !!source.taskWindow.enabled,
+      startTime: source.taskWindow.startTime ?? DEFAULT_TASK_WINDOW.startTime,
+      endTime: source.taskWindow.endTime ?? DEFAULT_TASK_WINDOW.endTime,
+    };
+  }
+  if (typeof source?.taskWindowStart !== "number") return DEFAULT_TASK_WINDOW;
+  return {
+    enabled: !!source.taskWindowEnabled,
+    startTime: minutesToTime(source.taskWindowStart),
+    endTime: minutesToTime(source.taskWindowEnd ?? 660),
+  };
+};
 
 // Normalizes the API org shape into our typed model (Date coercion + safe defaults).
 const normalizeOrg = (o: any): Organization => ({
@@ -62,6 +118,7 @@ const normalizeOrg = (o: any): Organization => ({
           name: w.name,
           orgId: w.orgId,
           createdAt: new Date(w.createdAt),
+          taskWindow: normalizeTaskWindow(w),
         })
       )
     : [],
@@ -230,6 +287,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
         name: data.result.workspace.name,
         orgId: data.result.workspace.orgId,
         createdAt: new Date(data.result.workspace.createdAt),
+        taskWindow: normalizeTaskWindow(data.result.workspace),
       };
       // Insert the workspace into its org and select it.
       setOrganizations((prev) =>
@@ -248,6 +306,58 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Admin-only: restrict (or lift the restriction on) when members of a
+  // workspace may submit tasks. Updates local state so the toolbar reflects it
+  // without a refetch, per the project's optimistic-mutation convention.
+  const updateTaskWindow = async (workspaceId: string, window: TaskWindow) => {
+    const token = getAuthToken();
+    if (!token) {
+      toast.error("You must be logged in");
+      return;
+    }
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/workspace/${workspaceId}/task-window`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            enabled: window.enabled,
+            startTime: window.startTime,
+            endTime: window.endTime,
+          }),
+        }
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        toast.error(error.message || "Failed to update the task window");
+        return;
+      }
+      const data = await response.json();
+      const saved = normalizeTaskWindow(data);
+      setOrganizations((prev) =>
+        prev.map((org) => ({
+          ...org,
+          workspaces: org.workspaces.map((ws) =>
+            ws.id === workspaceId ? { ...ws, taskWindow: saved } : ws
+          ),
+        }))
+      );
+      toast.success(
+        saved.enabled
+          ? `Members can submit tasks ${saved.startTime}–${saved.endTime} IST`
+          : "Members can now submit tasks anytime"
+      );
+      return saved;
+    } catch (error) {
+      console.error("Update task window error:", error);
+      toast.error("An error occurred while updating the task window");
+    }
+  };
+
   return (
     <OrgContext.Provider
       value={{
@@ -261,6 +371,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
         refreshOrgs: fetchOrgs,
         createOrganization,
         createWorkspace,
+        updateTaskWindow,
       }}
     >
       {children}
