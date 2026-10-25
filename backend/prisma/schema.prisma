@@ -114,8 +114,12 @@ model WorkspaceMembership {
 model User {
   id               String    @id @default(uuid())
   email            String    @unique
-  password         String
+  // Null for accounts that only sign in with Google (see utils/googleAuth.ts).
+  password         String?
   name             String
+  // Set once the email has been proven (today: a Google sign-in with a verified email).
+  emailVerified    Boolean   @default(false)
+  image            String?
   role             UserRole  @default(member)
   isPasswordReset  Boolean   @default(false)
   resetToken       String?
@@ -265,4 +269,70 @@ model DailyAttendance {
 
   @@unique([memberId, date])
   @@map("daily_attendance")
+}
+
+// ─── Better Auth (Google OAuth handshake only) ──────────────────────────────
+// Better Auth keeps its own identity tables; the app's User is matched by the
+// Google-verified email in utils/googleAuth.ts. Field names follow Better
+// Auth's core schema — don't rename them.
+
+model AuthUser {
+  id            String        @id @default(uuid())
+  name          String
+  email         String        @unique
+  emailVerified Boolean       @default(false)
+  image         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  sessions      AuthSession[]
+  accounts      AuthAccount[]
+
+  @@map("auth_user")
+}
+
+model AuthSession {
+  id        String   @id @default(uuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_session")
+}
+
+model AuthAccount {
+  id                    String    @id @default(uuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  AuthUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("auth_account")
+}
+
+model AuthVerification {
+  id         String   @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("auth_verification")
 }

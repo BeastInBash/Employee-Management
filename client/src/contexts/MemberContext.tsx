@@ -151,7 +151,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
       };
 
       setMembers((prev) => [...prev, newMember]);
-      toast.success("Member added successfully");
+      toast.success("Member added");
 
       // Return the created member so callers can await and react to result
       return newMember;
@@ -203,7 +203,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
       };
 
       setTasks([...tasks, newTask]);
-      toast.success("Task created successfully");
+      toast.success("Task added");
       return newTask as Task;
     } catch (error) {
       console.error("Add task error:", error);
@@ -246,7 +246,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
       };
 
       setTasks(tasks.map((t) => (t.id === id ? updated : t)));
-      toast.success("Task updated successfully");
+      toast.success("Task updated");
       return updated as Task;
     } catch (error) {
       console.error("Update task error:", error);
@@ -279,7 +279,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setTasks(tasks.filter((task) => task.id !== id));
-      toast.success("Task deleted successfully");
+      toast.success("Task deleted");
       return true;
     } catch (error) {
       console.error("Delete task error:", error);
@@ -316,7 +316,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
 
       // Remove locally
       setMembers((prev) => prev.filter((m) => m.id !== id));
-      toast.success("Member deleted successfully");
+      toast.success("Member removed");
       return true;
     } catch (error) {
       console.error("Delete member error:", error);

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle,
-  ArrowLeft,
+  BarChart3,
   CalendarDays,
   ChevronDown,
   Loader2,
@@ -29,7 +29,8 @@ import type {
 import type { TaskPriority, TaskStatus } from "@/contexts/TaskContext";
 import { api, errorMessage } from "@/lib/api";
 import { toast } from "@/components/ui/sonner";
-import { AppHeader } from "@/components/AppHeader";
+import { PageHeader } from "@/components/layout/Page";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -63,7 +64,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AttendanceDot, ColorSwatch, EmptyState, PeoplePicker, PersonAvatar, ProgressMeter, ProjectStatusBadge, RoleBadge } from "@/components/projects/shared";
-import { formatDate, fromDueDateInput, priorityColors, priorityLabels, projectStatusLabels, taskStatusColors, taskStatusLabels } from "@/lib/projectMeta";
+import { formatDate, fromDueDateInput, priorityColors, priorityLabels, projectStatusLabels, taskStatusDots, taskStatusLabels } from "@/lib/projectMeta";
 import { ProjectFormDialog } from "@/components/projects/ProjectFormDialog";
 import { AddPeopleDialog } from "@/components/projects/AddPeopleDialog";
 
@@ -118,26 +119,18 @@ const ProjectDetail = () => {
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-muted/40">
-        <AppHeader />
-        <main className="container mx-auto px-4 py-8">
-          <EmptyState
-            title="Can't open this project"
-            body={loadError}
-            action={<Button onClick={() => navigate("/projects")}>Back to projects</Button>}
-          />
-        </main>
-      </div>
+      <EmptyState
+        title="This project couldn't be opened"
+        body={loadError}
+        action={<Button onClick={() => navigate("/projects")}>Back to projects</Button>}
+      />
     );
   }
 
   if (!detail) {
     return (
-      <div className="min-h-screen bg-muted/40">
-        <AppHeader />
-        <div className="flex justify-center py-24">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+      <div className="flex justify-center py-24">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -151,20 +144,56 @@ const ProjectDetail = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      <AppHeader />
-      <div className="h-1" style={{ backgroundColor: project.color ?? "var(--border)" }} />
-      <main className="container mx-auto px-4 py-6 space-y-6">
-        <Link to="/projects" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          Projects
-        </Link>
+    <>
+      <PageHeader
+        back={{ to: "/projects", label: "Projects" }}
+        title={
+          <span className="flex items-center gap-3">
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: project.color ?? "var(--primary)" }} />
+            <span className="break-words">{project.name}</span>
+          </span>
+        }
+        description={project.description || undefined}
+        actions={
+          (permissions.canManage || permissions.canDelete) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" aria-label="Project actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {permissions.canManage && (
+                  <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
+                    <Pencil className="h-4 w-4" />
+                    Edit details
+                  </DropdownMenuItem>
+                )}
+                {permissions.canManage && (
+                  <DropdownMenuItem onClick={() => navigate(`/reports?scope=project:${project.id}`)}>
+                    <BarChart3 className="h-4 w-4" />
+                    View report
+                  </DropdownMenuItem>
+                )}
+                {permissions.canDelete && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-destructive" onClick={() => setIsDeleteOpen(true)}>
+                      <Trash2 className="h-4 w-4" />
+                      Delete project
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        }
+      />
 
-        <section className="bg-background border border-border">
-          <div className="p-5 flex flex-col lg:flex-row lg:items-start gap-5">
-            <div className="flex-1 min-w-0 space-y-2">
+        <section className="mb-8 rounded-xl border border-border/80 bg-card">
+          <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl break-words">{project.name}</h1>
                 {permissions.canManage ? (
                   <DropdownMenu>
                     <DropdownMenuTrigger className="flex items-center gap-1">
@@ -184,55 +213,26 @@ const ProjectDetail = () => {
                 )}
                 <RoleBadge role={detail.myRole} />
               </div>
-              {project.description && (
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap max-w-3xl">{project.description}</p>
-              )}
-              <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground pt-1">
-                <span className="flex items-center gap-1">
-                  <CalendarDays className="h-3 w-3" />
-                  {formatDate(project.startDate, "No start date")} → {formatDate(project.dueDate, "No due date")}
+              <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  {!project.startDate && !project.dueDate
+                    ? "No dates set"
+                    : `${formatDate(project.startDate, "Open start")} to ${formatDate(project.dueDate, "no due date")}`}
                 </span>
-                <span>{project.people.length} people</span>
+                <span>{project.people.length} {project.people.length === 1 ? "person" : "people"}</span>
                 {project.teams.length > 0 && <span>{project.teams.map((t) => t.name).join(", ")}</span>}
-              </div>
+              </p>
             </div>
-            <div className="flex items-center gap-2 lg:self-start">
-              {(permissions.canManage || permissions.canDelete) && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon" aria-label="Project actions">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {permissions.canManage && (
-                      <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
-                        <Pencil className="h-4 w-4" />
-                        Edit details
-                      </DropdownMenuItem>
-                    )}
-                    {permissions.canDelete && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive" onClick={() => setIsDeleteOpen(true)}>
-                          <Trash2 className="h-4 w-4" />
-                          Delete project
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
+            <dl className="grid grid-cols-4 gap-6 text-right">
+              <HeaderStat label="Tasks" value={stats.total} />
+              <HeaderStat label="Done" value={stats.completed} />
+              <HeaderStat label="Active" value={stats.inProgress} />
+              <HeaderStat label="Overdue" value={stats.overdue} warn={stats.overdue > 0} />
+            </dl>
           </div>
-          <div className="border-t border-border px-5 py-4">
+          <div className="border-t border-border/70 px-5 py-4">
             <ProgressMeter value={stats.progress} />
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-border divide-x divide-border [&>*:nth-child(3)]:border-l-0 sm:[&>*:nth-child(3)]:border-l">
-            <HeaderStat label="Tasks" value={stats.total} />
-            <HeaderStat label="Completed" value={stats.completed} />
-            <HeaderStat label="In progress" value={stats.inProgress} />
-            <HeaderStat label="Overdue" value={stats.overdue} warn={stats.overdue > 0} />
           </div>
         </section>
 
@@ -243,7 +243,7 @@ const ProjectDetail = () => {
             <TabsTrigger value="teams">Teams ({project.teams.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="board" className="mt-4">
+          <TabsContent value="board" className="mt-5">
             <Board
               projectId={project.id}
               people={project.people}
@@ -253,14 +253,13 @@ const ProjectDetail = () => {
               myMemberId={me?.id}
             />
           </TabsContent>
-          <TabsContent value="people" className="mt-4">
+          <TabsContent value="people" className="mt-5">
             <PeoplePanel detail={detail} setDetail={setDetail} reload={load} />
           </TabsContent>
-          <TabsContent value="teams" className="mt-4">
+          <TabsContent value="teams" className="mt-5">
             <TeamsPanel detail={detail} reload={load} />
           </TabsContent>
         </Tabs>
-      </main>
 
       <ProjectFormDialog
         open={isEditOpen}
@@ -328,14 +327,14 @@ const ProjectDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 };
 
 const HeaderStat = ({ label, value, warn }: { label: string; value: number; warn?: boolean }) => (
-  <div className="px-5 py-3">
-    <div className={`font-display text-xl ${warn ? "text-destructive" : ""}`}>{value}</div>
-    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+  <div>
+    <dd className={`text-xl font-semibold tracking-tight tabular-nums ${warn ? "text-destructive" : ""}`}>{value}</dd>
+    <dt className="text-xs text-muted-foreground">{label}</dt>
   </div>
 );
 
@@ -398,7 +397,7 @@ const Board = ({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-          <SelectTrigger className="w-52">
+          <SelectTrigger className="w-52 bg-card">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -425,36 +424,50 @@ const Board = ({
           body="Add people or assign a team from the People and Teams tabs, then start assigning work."
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          {COLUMNS.map((status) => {
-            const column = visible.filter((t) => t.status === status);
-            return (
-              <div key={status} className="bg-background border border-border flex flex-col min-h-40">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                  <span className="flex items-center gap-2 text-xs uppercase tracking-wide">
-                    <span className={`h-2 w-2 inline-block ${taskStatusColors[status]}`} />
-                    {taskStatusLabels[status]}
-                  </span>
-                  <span className="text-xs text-muted-foreground tabular-nums">{column.length}</span>
+        <LayoutGroup>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {COLUMNS.map((status) => {
+              const column = visible.filter((t) => t.status === status);
+              return (
+                <div key={status} className="flex min-h-48 flex-col rounded-xl bg-surface p-2 ring-1 ring-border/70">
+                  <div className="flex items-center justify-between px-2 pb-2 pt-1">
+                    <span className="flex items-center gap-2 text-sm font-medium">
+                      <span className={`h-2 w-2 rounded-full ${taskStatusDots[status]}`} />
+                      {taskStatusLabels[status]}
+                    </span>
+                    <span className="text-xs tabular-nums text-muted-foreground">{column.length}</span>
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    {column.length === 0 && <p className="py-8 text-center text-xs text-muted-foreground">Nothing here</p>}
+                    <AnimatePresence initial={false}>
+                      {column.map((t) => (
+                        // A status change re-parents the card; layoutId lets it glide to its new column.
+                        <motion.div
+                          key={t.id}
+                          layoutId={t.id}
+                          layout="position"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                          transition={{ type: "spring", duration: 0.45, bounce: 0.12 }}
+                        >
+                          <BoardCard
+                            task={t}
+                            canEdit={canEdit(t)}
+                            canDelete={canManage}
+                            isBusy={busyTaskId === t.id}
+                            onStatus={(s) => changeStatus(t, s)}
+                            onDelete={() => setTaskToDelete(t)}
+                          />
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
                 </div>
-                <div className="p-2 space-y-2 flex-1">
-                  {column.length === 0 && <p className="text-xs text-muted-foreground text-center py-6">Nothing here</p>}
-                  {column.map((t) => (
-                    <BoardCard
-                      key={t.id}
-                      task={t}
-                      canEdit={canEdit(t)}
-                      canDelete={canManage}
-                      isBusy={busyTaskId === t.id}
-                      onStatus={(s) => changeStatus(t, s)}
-                      onDelete={() => setTaskToDelete(t)}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </LayoutGroup>
       )}
 
       <AddTaskDialog
@@ -510,7 +523,7 @@ const BoardCard = ({
 }) => {
   const overdue = task.status !== "completed" && new Date(task.dueDate) < new Date();
   return (
-    <div className="border border-border bg-card p-3 space-y-2">
+    <div className="space-y-2.5 rounded-lg border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgb(20_40_28/0.04)]">
       <div className="flex items-start justify-between gap-2">
         <p className={`text-sm leading-snug ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}>
           {task.title}
@@ -526,7 +539,7 @@ const BoardCard = ({
               {canEdit &&
                 COLUMNS.filter((s) => s !== task.status).map((s) => (
                   <DropdownMenuItem key={s} onClick={() => onStatus(s)}>
-                    <span className={`h-2 w-2 inline-block ${taskStatusColors[s]}`} />
+                    <span className={`h-2 w-2 rounded-full ${taskStatusDots[s]}`} />
                     Move to {taskStatusLabels[s]}
                   </DropdownMenuItem>
                 ))}
@@ -547,13 +560,13 @@ const BoardCard = ({
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 min-w-0">
           <PersonAvatar person={task.assignee} className="h-6 w-6 text-[9px]" />
-          <span className="text-xs truncate">{task.assignee.name}</span>
+          <span className="truncate text-xs">{task.assignee.name}</span>
         </span>
-        <Badge className={`${priorityColors[task.priority]} text-[10px]`}>{priorityLabels[task.priority]}</Badge>
+        <Badge className={`${priorityColors[task.priority]} font-medium`}>{priorityLabels[task.priority]}</Badge>
       </div>
-      <div className={`flex items-center gap-1 text-[11px] ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
-        {overdue ? <AlertTriangle className="h-3 w-3" /> : <CalendarDays className="h-3 w-3" />}
-        {overdue ? "Overdue · " : "Due "}
+      <div className={`flex items-center gap-1.5 text-xs ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
+        {overdue ? <AlertTriangle className="h-3.5 w-3.5" /> : <CalendarDays className="h-3.5 w-3.5" />}
+        {overdue ? "Overdue since " : "Due "}
         {formatDate(task.dueDate)}
       </div>
     </div>
@@ -753,18 +766,18 @@ const PeoplePanel = ({
       {sorted.length === 0 ? (
         <EmptyState title="No one here yet" body="Add people directly, or assign a whole team from the Teams tab." />
       ) : (
-        <div className="bg-background border border-border overflow-x-auto">
+        <div className="overflow-x-auto rounded-xl border border-border/80 bg-card">
           <table className="w-full text-sm">
-            <thead className="text-[11px] uppercase tracking-wide text-muted-foreground border-b border-border">
+            <thead className="border-b border-border/70 bg-surface text-xs text-muted-foreground">
               <tr>
-                <th className="text-left font-normal px-4 py-2">Person</th>
-                <th className="text-left font-normal px-4 py-2">Role</th>
-                <th className="text-left font-normal px-4 py-2">Today</th>
-                <th className="text-left font-normal px-4 py-2 min-w-40">Project tasks</th>
+                <th className="px-4 py-2.5 text-left font-medium">Person</th>
+                <th className="px-4 py-2.5 text-left font-medium">Role</th>
+                <th className="px-4 py-2.5 text-left font-medium">Today</th>
+                <th className="min-w-40 px-4 py-2.5 text-left font-medium">Project tasks</th>
                 <th className="px-4 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-border/70">
               {sorted.map((p) => {
                 const canRemove =
                   permissions.canManage && p.projectRole !== null && (p.projectRole !== "lead" || permissions.canAssignLeads);
@@ -924,8 +937,8 @@ const TeamsPanel = ({ detail, reload }: { detail: DetailResponse; reload: () => 
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {project.teams.map((t) => (
-            <div key={t.id} className="bg-background border border-border p-4 flex items-center gap-3">
-              <ColorSwatch color={t.color} className="h-8 w-8" />
+            <div key={t.id} className="flex items-center gap-3 rounded-xl border border-border/80 bg-card p-4">
+              <ColorSwatch color={t.color} className="h-9 w-9" />
               <Link to={`/teams/${t.id}`} className="min-w-0 flex-1 hover:text-primary">
                 <div className="truncate">{t.name}</div>
                 <div className="text-xs text-muted-foreground flex items-center gap-1">

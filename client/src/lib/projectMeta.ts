@@ -1,3 +1,4 @@
+import { format, isToday, isTomorrow } from "date-fns";
 import type { ProjectStatus } from "@/contexts/ProjectContext";
 import type { TaskPriority, TaskStatus } from "@/contexts/TaskContext";
 
@@ -11,18 +12,36 @@ export const projectStatusLabels: Record<ProjectStatus, string> = {
   archived: "Archived",
 };
 
-export const taskStatusLabels: Record<TaskStatus, string> = {
-  todo: "To Do",
-  in_progress: "In Progress",
-  review: "Review",
-  completed: "Completed",
+export const STATUS_ORDER: TaskStatus[] = ["todo", "in_progress", "review", "completed"];
+
+/** "Today, 6:00 PM" / "Tomorrow, 9:30 AM" / "3 Nov 2026, 6:00 PM". */
+export const dueLabel = (due: Date) => {
+  if (isToday(due)) return `Today, ${format(due, "h:mm a")}`;
+  if (isTomorrow(due)) return `Tomorrow, ${format(due, "h:mm a")}`;
+  return format(due, "d MMM yyyy, h:mm a");
 };
 
+export const taskStatusLabels: Record<TaskStatus, string> = {
+  todo: "To do",
+  in_progress: "In progress",
+  review: "In review",
+  completed: "Done",
+};
+
+// Soft tinted pills: a pale fill with a deeper ink of the same hue.
 export const taskStatusColors: Record<TaskStatus, string> = {
-  todo: "bg-secondary text-secondary-foreground",
-  in_progress: "bg-amber-500 text-white",
-  review: "bg-blue-500 text-white dark:bg-orange-500",
-  completed: "bg-accent text-accent-foreground",
+  todo: "bg-muted text-muted-foreground",
+  in_progress: "bg-olive-soft text-olive",
+  review: "bg-[#e6eef1] text-[#3d6274] dark:bg-[#1c2a31] dark:text-[#9ec3d4]",
+  completed: "bg-secondary text-primary",
+};
+
+/** Solid dot colour per status (for column headers and legends). */
+export const taskStatusDots: Record<TaskStatus, string> = {
+  todo: "bg-muted-foreground/50",
+  in_progress: "bg-olive",
+  review: "bg-[#5b8aa0]",
+  completed: "bg-primary",
 };
 
 export const priorityLabels: Record<TaskPriority, string> = {
@@ -33,13 +52,14 @@ export const priorityLabels: Record<TaskPriority, string> = {
 };
 
 export const priorityColors: Record<TaskPriority, string> = {
-  low: "bg-slate-500 text-white",
-  medium: "bg-blue-500 text-white dark:bg-amber-500",
-  high: "bg-orange-500 text-white dark:bg-orange-600",
-  urgent: "bg-red-500 text-white",
+  low: "bg-muted text-muted-foreground",
+  medium: "bg-secondary text-secondary-foreground",
+  high: "bg-[#f5ead2] text-[#7f5410] dark:bg-[#33291a] dark:text-[#e3b764]",
+  urgent: "bg-[#f6e1da] text-[#953720] dark:bg-[#3a221c] dark:text-[#ef9a82]",
 };
 
-export const COLOR_CHOICES = ["#f97316", "#f59e0b", "#10b981", "#06b6d4", "#8b5cf6", "#ec4899", "#ef4444", "#64748b"];
+/** Calm swatches for projects and teams, drawn from the same green/earth palette. */
+export const COLOR_CHOICES = ["#2e5a43", "#6e7b36", "#8fae8a", "#3f7f7a", "#5b8aa0", "#c49a3a", "#b0694f", "#7b6b8f"];
 
 /** "Due 12 Mar" / "No due date" — dates come from the API as ISO strings. */
 export const formatDate = (iso: string | null, empty = "—") =>

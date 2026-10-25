@@ -12,6 +12,10 @@ import cookieParser from 'cookie-parser'
 import workspaceRouter from "./routes/workspace.router";
 import projectsRouter from "./routes/projects.router";
 import teamsRouter from "./routes/teams.router";
+import reportsRouter from "./routes/reports.router";
+import googleRouter from "./routes/google.router";
+import { toNodeHandler } from "better-auth/node";
+import { auth } from "./utils/betterAuth";
 
 dotenv.config();
 
@@ -21,6 +25,8 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 
 
+// Better Auth parses its own bodies, so it must be mounted before express.json().
+app.all("/api/better-auth/*splat", toNodeHandler(auth));
 app.use(express.json());
 app.use(cookieParser())
 app.use(cors({
@@ -31,6 +37,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 // Routes
+app.use("/api/auth", googleRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
 app.use("/api/tasks", taskRoutes);
@@ -39,6 +46,7 @@ app.use('/api/org', orgRouter)
 app.use('/api/workspace',workspaceRouter)
 app.use('/api/projects', projectsRouter)
 app.use('/api/teams', teamsRouter)
+app.use('/api/reports', reportsRouter)
 // Health check
 app.get("/health", (req, res) => {
     console.log("Working Fine ....")

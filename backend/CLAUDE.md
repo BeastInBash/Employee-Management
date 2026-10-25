@@ -22,6 +22,8 @@ end of day; the system marks them present / partial / absent automatically (see
 - **Prisma 6** ORM over **PostgreSQL** (Neon serverless in prod). Schema in
   `prisma/schema.prisma`, migrations in `prisma/migrations/`.
 - **JWT** auth (`jsonwebtoken`) with **bcrypt**-hashed passwords.
+- **Better Auth 1.7** for the **Google OAuth handshake only** (see "Google sign-in"). It's
+  ESM-only and loaded from this CommonJS build via Node's `require(esm)` (Node ≥ 22.12).
 - **zod** for request validation.
 - **nodemailer** for transactional email over **Gmail SMTP** (`smtp.gmail.com:587`
   with a Gmail App Password — 2-Step Verification must be enabled). `resend` is a
@@ -70,6 +72,8 @@ src/
     workspace.router.ts    # /api/workspace (authenticate; POST /create-workspace/:orgId)
     projects.router.ts     # /api/projects  (authenticate + handleError)
     teams.router.ts        # /api/teams     (authenticate + handleError)
+    reports.router.ts      # /api/reports   (authenticate + handleError)
+    google.router.ts       # /api/auth/providers, /api/auth/google, /api/auth/google/complete
   controllers/
     auth.controller.ts        # login, signup, changePassword, forgot/resetPassword
     members.controller.ts     # createMember, getMembers, getMember, deleteMember
@@ -80,6 +84,7 @@ src/
                               #   task window, listWorkspaceMembers
     projects.controller.ts    # projects CRUD, seats, team assignment, project tasks
     teams.controller.ts       # teams CRUD + seats
+    reports.controller.ts     # productivity/attendance report (IST day helpers live here)
     admin.controller.ts       # setUserRole  (NOT mounted on any route)
   middleware/
     auth.middleware.ts     # authenticate(): verifies JWT (cookie, falls back to Bearer) -> req.user
@@ -95,12 +100,15 @@ src/
     email.ts               # nodemailer transporter + 2 HTML emails
     attendance.ts          # IST time helpers + the daily-window logic
     access.ts              # who is admin/lead/member of a workspace, project or team
+    betterAuth.ts          # the Better Auth instance (Google provider, Auth* tables)
+    googleAuth.ts          # resolveGoogleUser(): Google profile → app User (no better-auth import)
     errors/ApiError.ts     # Error subclass w/ statusCode + static badRequest/notFound/etc.
   validation/
     authValidation.ts, memberValidation.ts, taskValidation.ts   # zod schemas
     orgValidation.ts       # zod schemas for org query params (membership/workspace flags)
     workspaceValidation.ts # zod schema for the task-submission-window PATCH
     projectValidation.ts   # zod schemas for projects, teams, seats, project tasks
+    reportValidation.ts    # zod schema for the report query
 prisma/
   schema.prisma            # User, Member, Task, DailyAttendance, Organization,
                            #   OrgMembership, Workspace, WorkspaceMembership + enums
@@ -112,7 +120,9 @@ ReBAC.md                   # design guide for the Organizations→Workspaces ReB
 
 ## Data model (`prisma/schema.prisma`)
 
-- **User** — the auth identity. `email` (unique), `password` (hashed), `name`, `role`
+- **User** — the auth identity. `email` (unique), `password` (hashed; **nullable** for
+  Google-only accounts), `emailVerified` (true once a Google sign-in proved the address),
+  `image`, `name`, `role`
   (`admin` | `member`), `isPasswordReset` (true = must change pw), `resetToken` /
   `resetTokenExpiry`. An admin User owns the Members they create via
   `createdMembers` (relation `"CreatedMembers"`).
@@ -174,7 +184,14 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
 `/health` → `{ status, timestamp }` (public; used by keep-alive cron).
 
 **`/api/auth`** (public unless noted)
-- `POST /login` → `{ token, user, requiresPasswordChange }`
+- `GET /providers` → `{ google: boolean }` (whether Google credentials are configured)
+- `GET /google` → 302 to Google (via Better Auth `signInSocial`); `GET /google/complete` →
+  swaps the Better Auth session for the app JWT, 302 to `CLIENT_URL/auth/callback#token=…`
+  (`&new=1` for a newly created admin, `&notice=password_disabled`), or to
+  `CLIENT_URL/login?error=google_failed|google_unavailable|email_unverified`
+- `GET /me` *(auth)* → `{ user, requiresPasswordChange }`
+- `POST /login` → `{ token, user, requiresPasswordChange }` (401 with a "signs in with
+  Google" message when the account has no password)
 - `POST /signup` → creates an **admin** User, returns `{ token, user }`
 - `POST /change-password` *(auth)* — verify old pw, set new (must differ), clear `isPasswordReset`
 - `POST /forgot-password` — takes `email` only; if the account exists, stores a hashed,
@@ -258,6 +275,20 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
   projects, `permissions`. `PATCH` *(admin/lead)*, `DELETE` *(admin)*.
 - Seats: same `POST/PATCH/DELETE /:teamId/members[/:memberId]` rules as projects.
 
+**`/api/reports`** (`authenticate`; throws → `handleError`)
+- `GET /?scope=workspace|project|team|me&id=<uuid>&from=YYYY-MM-DD&to=YYYY-MM-DD&excludeWeekends=true|false`
+  (default `true`; range ≤ 366 days, `id` required except for `me`). Access: workspace →
+  admin; project/team → admin or that project's/team's lead; `me` → the caller's own seats.
+  Project scope counts only that project's tasks but every participant's attendance.
+- Returns `{ scope, range, summary, trend[], members[] }`. Definitions: **completionRate** =
+  share of tasks *created* in the range that are now completed; **onTimeRate** = share of
+  tasks *completed* in the range with `completedAt <= dueDate`; **overdueOpen** = open tasks
+  past due right now; **avgCycleHours** = created→completed; **attendanceRate** =
+  (present + ½ partial) / recorded rows, Saturdays/Sundays skipped when `excludeWeekends`.
+  Rates are `null` when there's nothing to divide by.
+- Day bucketing is by **IST calendar day** (`istDateKey`); attendance rows are matched as
+  UTC-midnight dates, the same way `getTodayISTDate` writes them.
+
 **Existing task routes and projects:** `POST /api/tasks` accepts an optional `projectId`
 (the assignee must be a participant; the member seat is resolved in the project's
 workspace). `PATCH /api/tasks/:taskId` and `DELETE` also allow the **lead of the task's
@@ -265,6 +296,36 @@ project** (`canLeadTaskProject` in `canManageTask` + the controllers). Task list
 responses include `project: { id, name, color } | null`.
 
 See `api-docs.md` for fuller request/response examples.
+
+## Google sign-in (Better Auth)
+
+Better Auth only runs the OAuth handshake; the app's own JWT stays the session.
+
+- **Flow** — all top-level navigations on the API origin, so Better Auth's `HttpOnly`,
+  `SameSite=Lax` state/session cookies are first-party even with the client on another
+  domain: client → `GET /api/auth/google` → Google → `GET /api/better-auth/callback/google`
+  (Better Auth handler) → `GET /api/auth/google/complete` → client `/auth/callback#token=…`.
+  The token rides in the URL **fragment** (never sent to servers or logged). The Better
+  Auth session is signed out right after the swap.
+- **Tables** — Better Auth keeps its own `AuthUser` / `AuthSession` / `AuthAccount` /
+  `AuthVerification` (`auth_*`, ids via Prisma `@default(uuid())` because
+  `advanced.database.generateId: "uuid"`). Its field names follow Better Auth's core
+  schema — don't rename them.
+- **Matching** (`utils/googleAuth.ts`) — by the Google-verified email (unverified Google
+  emails are refused). Unknown email → new **admin** with no password. Existing account
+  whose `emailVerified` is still false → mark verified and **null the password** (kills
+  the default `123456`, and stops anyone who pre-registered someone else's address from
+  keeping a password into it). Better Auth's own implicit account linking isn't used
+  because it requires `emailVerified` on the local row, which legacy users don't have.
+- **Mounting** — `app.all("/api/better-auth/*splat", toNodeHandler(auth))` must stay
+  **before** `express.json()`. `googleRouter` is mounted on `/api/auth` ahead of `authRoutes`.
+- **Tests** — Jest can't load ESM `better-auth`, so keep its imports in `betterAuth.ts` /
+  `google.router.ts` only (neither is in `tests/testApp.ts`); test logic via
+  `resolveGoogleUser` (`tests/googleAuth.test.ts`).
+- **Google Cloud setup** — OAuth client of type *Web application*; authorized redirect
+  URIs: `http://localhost:3000/api/better-auth/callback/google` and
+  `<BETTER_AUTH_URL>/api/better-auth/callback/google` for each deployed API. No JavaScript
+  origins are needed (the browser never calls Google from the client origin).
 
 ## Attendance model (the important domain logic)
 
@@ -283,6 +344,11 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
 - **Completion → present:** when a member completes a task (`PATCH` status→`completed`),
   `checkAndMarkPresent` checks whether **all of today's tasks** are completed; if so the
   day flips to `present`.
+- **Known quirk:** the cron (and `checkAndMarkPresent`) select "today's tasks" with
+  `createdAt` between `getTodayISTDate()` and +24h — i.e. UTC midnight to UTC midnight, not
+  the IST day. Tasks created 00:00–05:30 IST count toward the previous day. The cron also
+  writes an `absent` row for every member on weekends, which is why reports default to
+  `excludeWeekends`.
 - **EOD finalization (cron):** `attendancecron.ts` runs at **3:30 PM UTC = 9:00 PM IST**.
   For each member: no tasks today → `absent`; some-but-not-all complete → `partial`;
   all complete → `present`. Already-`present` rows are skipped.
@@ -323,6 +389,14 @@ Read from `process.env` (loaded via `dotenv` in `index.ts`). Required:
 - `CLIENT_URL` — base URL of the client app, used to build links in emails (login +
   password-reset). Defaults to `http://localhost:5173`.
 
+Google sign-in (optional — the button hides itself when unset):
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — OAuth client from Google Cloud Console.
+- `BETTER_AUTH_URL` — public URL of **this API** (defaults to `http://localhost:$PORT`).
+  Deliberately not `BACKEND_URL`, which points at prod for the keep-alive ping.
+- `BETTER_AUTH_SECRET` — signs Better Auth cookies; falls back to `JWT_SECRET` if unset.
+  Set a separate one in production.
+- `CLIENT_URL` (above) is also where Google sign-in lands and is Better Auth's trusted origin.
+
 Optional: `PORT` (defaults **3000** in `index.ts`, but `config.ts` exports **3001** —
 inconsistent), `JWT_EXPIRES_IN` (default `"7d"`, though `generateToken` hardcodes `"7d"`
 anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`).
@@ -337,6 +411,7 @@ anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`)
 - `tests/testApp.ts` builds an Express app for supertest; `tests/helpers.ts` has shared
   fixtures/utilities. Suites cover auth, members, tasks, attendance, middleware, the
   workspace task-submission window (`workspace.test.ts`, incl. the IST window helpers), and
+  reports (`reports.test.ts` — metric math, IST bucketing, weekend exclusion, access), and
   projects/teams permissions (`projects.test.ts` — its `standAs()` helper programs the
   lookups `utils/access.ts` makes, so a test can act as admin / lead / member / outsider).
   **~19 pre-existing failures** (auth-middleware 401s surfacing as 500, plus members/

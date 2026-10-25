@@ -6,6 +6,7 @@ import attendanceRouter from "../src/routes/attendance.router";
 import workspaceRouter from "../src/routes/workspace.router";
 import projectsRouter from "../src/routes/projects.router";
 import teamsRouter from "../src/routes/teams.router";
+import reportsRouter from "../src/routes/reports.router";
 
 // Mirrors src/index.ts route wiring but without CORS, the cron jobs, or
 // app.listen(), so the app can be exercised with supertest in-process.
@@ -20,6 +21,7 @@ export function createTestApp(): express.Express {
   app.use("/api/workspace", workspaceRouter);
   app.use("/api/projects", projectsRouter);
   app.use("/api/teams", teamsRouter);
+  app.use("/api/reports", reportsRouter);
 
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", timestamp: new Date().toISOString() });

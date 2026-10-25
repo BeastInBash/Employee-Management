@@ -71,7 +71,7 @@ cd client && bun run lint && bun run build
 
 - **Transport:** REST over HTTP. The client calls `${VITE_API_URL}/api/...`; the API
   mounts `/api/auth`, `/api/members`, `/api/tasks`, `/api/attendance`, `/api/org`,
-  `/api/workspace`, `/api/projects`, `/api/teams` (plus public `/health`). Full surface is in `backend/CLAUDE.md` /
+  `/api/workspace`, `/api/projects`, `/api/teams`, `/api/reports` (plus public `/health`). Full surface is in `backend/CLAUDE.md` /
   `backend/api-docs.md`.
 - **Auth:** JWT bearer tokens. Login/signup return `{ token, user }`; the client stores
   the token in `localStorage.authToken` and sends `Authorization: Bearer <token>` on
@@ -81,6 +81,12 @@ cd client && bun run lint && bun run build
   the JWT `exp` and only clearing storage once it has actually expired.
 - **First login:** new members get the default password `123456` and `isPasswordReset:
   true`; the client is responsible for forcing a password change.
+- **Google sign-in (Better Auth):** the client navigates to `${VITE_API_URL}/auth/google`;
+  Better Auth (mounted at `/api/better-auth`) runs the OAuth handshake on the API's origin,
+  then `/api/auth/google/complete` matches the Google-verified email to a `User`, issues the
+  **same app JWT**, and redirects to `CLIENT_URL/auth/callback#token=…`. Unknown emails
+  become admins; a first Google sign-in to an existing account switches its password off.
+  Details in `backend/CLAUDE.md` → "Google sign-in".
 - **Shared domain enums** (keep both sides in sync — they are duplicated, not shared):
   - `TaskStatus = todo | in_progress | review | completed`
   - `TaskPriority = low | medium | high | urgent`
@@ -111,6 +117,14 @@ project/team (edit details, add/remove regular members, assign tasks, and on pro
 edit/delete project tasks and assign teams); only admins appoint/remove leads or delete.
 Tasks can carry an optional `projectId`. Project/team payloads use **Member** ids
 (`/api/workspace/:id/members` lists them), unlike the task routes, which take **User** ids.
+
+## Reports
+
+`GET /api/reports?scope=workspace|project|team|me&id&from&to&excludeWeekends` returns
+summary KPIs, a per-day trend and a per-person table for an **IST date range** (max 366
+days). Admins report on the workspace and everything in it, leads on what they lead, and
+everyone on themselves (`scope=me`). The client page is `/reports`; CSV export is built
+client-side from the same payload (`client/src/lib/reports.ts`).
 
 ## CORS / origins
 

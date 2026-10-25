@@ -23,6 +23,16 @@ function hashResetToken(token: string): string {
     return crypto.createHash("sha256").update(token).digest("hex");
 }
 
+/** The login cookie mirrors the JWT's 7-day lifetime. */
+export function setAuthCookie(res: Response, token: string): void {
+    res.cookie("token", token, {
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        httpOnly: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === "production",
+        sameSite: 'lax',
+    })
+}
+
 declare global {
     namespace Express {
         interface Request {
@@ -40,6 +50,14 @@ export async function login(req: Request, res: Response): Promise<void> {
 
         if (!user) {
             res.status(401).json({ message: "Invalid email or password" });
+            return;
+        }
+
+        // Google-only accounts have no password to check against.
+        if (!user.password) {
+            res.status(401).json({
+                message: "This account signs in with Google. Use \"Continue with Google\" or reset your password.",
+            });
             return;
         }
 
@@ -61,13 +79,7 @@ export async function login(req: Request, res: Response): Promise<void> {
 
         const { password, ...userWithoutPassword } = user;
 
-        res.cookie("token", token, {
-            // Match the JWT lifetime (7d) so the cookie doesn't expire early.
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            httpOnly: process.env.NODE_ENV === 'production',
-            secure: process.env.NODE_ENV === "production",
-            sameSite: 'lax',
-        })
+        setAuthCookie(res, token);
         res.json({
             token,
             user: userWithoutPassword,
@@ -148,6 +160,13 @@ export async function changePassword(
 
         if (!user) {
             res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        if (!user.password) {
+            res.status(400).json({
+                message: "Your account signs in with Google. Use \"Forgot password\" to set a password.",
+            });
             return;
         }
 
@@ -274,6 +293,34 @@ export async function resetPassword(
             res.status(400).json({ message: "Invalid input", errors: error.issues });
             return;
         }
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** GET /api/auth/me — the signed-in user (used after Google sign-in to load the profile). */
+export async function getMe(req: Request, res: Response): Promise<void> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.userId },
+            select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                image: true,
+                emailVerified: true,
+                isPasswordReset: true,
+                createdAt: true,
+                updatedAt: true,
+            },
+        });
+        if (!user) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+        res.json({ user, requiresPasswordChange: user.isPasswordReset });
+    } catch (error) {
+        console.error("Get me error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 }

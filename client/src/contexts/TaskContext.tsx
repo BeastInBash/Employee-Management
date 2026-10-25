@@ -42,9 +42,9 @@ type TaskContextType = {
   taskWindow: TaskWindowInfo | null;
   refreshTaskWindow: () => Promise<TaskWindowInfo | null>;
   getTasks: (memberId: string) => Promise<Task[]>;
-  addTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => void;
+  addTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => Promise<Task | void>;
   updateTask: (id: string, updatedTask: Partial<Task>) => Promise<Task | void>;
-  deleteTask: (id: string) => void;
+  deleteTask: (id: string) => Promise<boolean>;
 };
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -135,7 +135,8 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       };
 
       setTasks([...tasks, newTask]);
-      toast.success("Task created successfully");
+      toast.success("Task added");
+      return newTask as Task;
     } catch (error) {
       console.error("Add task error:", error);
       toast.error("An error occurred while creating task");
@@ -159,9 +160,6 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       toast.error("You must be logged in");
       return;
     }
-
-    const task = tasks.find((t) => t.id === id);
-    if (!task) return;
 
     try {
       const response = await fetch(`${API_BASE_URL}/tasks/${id}`, {
@@ -188,7 +186,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       };
 
       setTasks(tasks.map((t) => (t.id === id ? updated : t)));
-      toast.success("Task updated successfully");
+      toast.success("Task updated");
       return updated as Task;
     } catch (error) {
       console.error("Update task error:", error);
@@ -209,18 +207,15 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     //     return task;
     //   })
     // );
-    // toast.success("Task updated successfully");
+    // toast.success("Task updated");
   };
 
   const deleteTask = async (id: string) => {
     const token = getAuthToken();
     if (!token) {
       toast.error("You must be logged in");
-      return;
+      return false;
     }
-
-    const task = tasks.find((t) => t.id === id);
-    if (!task) return;
 
     try {
       const response = await fetch(`${API_BASE_URL}/tasks/${id}`, {
@@ -233,14 +228,16 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       if (!response.ok) {
         const error = await response.json();
         toast.error(error.message || "Failed to delete task");
-        return;
+        return false;
       }
 
       setTasks(tasks.filter((task) => task.id !== id));
-      toast.success("Task deleted successfully");
+      toast.success("Task deleted");
+      return true;
     } catch (error) {
       console.error("Delete task error:", error);
       toast.error("An error occurred while deleting task");
+      return false;
     }
 
     // MOCK IMPLEMENTATION (Remove when backend is ready)

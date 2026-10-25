@@ -8,6 +8,8 @@ import { OrgProvider } from "./contexts/OrgContext";
 import { MemberProvider } from "./contexts/MemberContext";
 import { ThemeProvider } from "./components/theme-provider";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { AppShell } from "./components/layout/AppShell";
+import { MotionConfig } from "framer-motion";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -24,6 +26,8 @@ import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Teams from "./pages/Teams";
 import TeamDetail from "./pages/TeamDetail";
+import Reports from "./pages/Reports";
+import AuthCallback from "./pages/AuthCallback";
 import MemberDashboard from "./pages/MembersDashboard";
 import AdminAttendancePanel from "./pages/AdminPanel";
 
@@ -31,7 +35,8 @@ import AdminAttendancePanel from "./pages/AdminPanel";
 
 const App = () => (
     // <QueryClientProvider client={queryClient}>
-    < ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme" >
+    <MotionConfig reducedMotion="user">
+    <ThemeProvider defaultTheme="light" storageKey="crewly-theme">
         <TooltipProvider>
             <AuthProvider>
                 <OrgProvider>
@@ -46,8 +51,10 @@ const App = () => (
                                     <Route path="/login" element={<Login />} />
                                     <Route path="/forgot-password" element={<ForgotPassword />} />
                                     <Route path="/reset-password" element={<ResetPassword />} />
+                                    <Route path="/auth/callback" element={<AuthCallback />} />
 
                                     <Route element={<ProtectedRoute />}>
+                                      <Route element={<AppShell />}>
 
                                         <Route path="/dashboard" element={<Dashboard />} />
                                         <Route path="/attendance" element={<MemberDashboard />} />
@@ -61,6 +68,8 @@ const App = () => (
                                         <Route path="/projects/:projectId" element={<ProjectDetail />} />
                                         <Route path="/teams" element={<Teams />} />
                                         <Route path="/teams/:teamId" element={<TeamDetail />} />
+                                        <Route path="/reports" element={<Reports />} />
+                                      </Route>
                                     </Route>
 
                                     <Route path="*" element={<NotFound />} />
@@ -72,7 +81,8 @@ const App = () => (
                 </OrgProvider>
             </AuthProvider>
         </TooltipProvider>
-    </ThemeProvider >
+    </ThemeProvider>
+    </MotionConfig>
     // </QueryClientProvider>
 );
 
