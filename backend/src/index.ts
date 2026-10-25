@@ -14,8 +14,7 @@ import projectsRouter from "./routes/projects.router";
 import teamsRouter from "./routes/teams.router";
 import reportsRouter from "./routes/reports.router";
 import googleRouter from "./routes/google.router";
-import { toNodeHandler } from "better-auth/node";
-import { auth } from "./utils/betterAuth";
+import { betterAuthHandler } from "./utils/betterAuth";
 
 dotenv.config();
 
@@ -26,7 +25,7 @@ const PORT = process.env.PORT || 3000;
 
 
 // Better Auth parses its own bodies, so it must be mounted before express.json().
-app.all("/api/better-auth/*splat", toNodeHandler(auth));
+app.all("/api/better-auth/*splat", betterAuthHandler);
 app.use(express.json());
 app.use(cookieParser())
 app.use(cors({

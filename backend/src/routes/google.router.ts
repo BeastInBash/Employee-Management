@@ -1,6 +1,5 @@
 import { Router, type Response } from "express";
-import { fromNodeHeaders } from "better-auth/node";
-import { API_URL, CLIENT_URL, auth, googleEnabled } from "../utils/betterAuth";
+import { API_URL, CLIENT_URL, getAuth, googleEnabled, toWebHeaders } from "../utils/betterAuth";
 import { resolveGoogleUser } from "../utils/googleAuth";
 import { generateToken } from "../utils/jwt";
 import { setAuthCookie } from "../controllers/auth.controller";
@@ -33,13 +32,14 @@ googleRouter.get("/providers", (_req, res) => {
 googleRouter.get("/google", async (req, res) => {
     if (!googleEnabled) return toClient(res, "/login?error=google_unavailable");
     try {
+        const auth = await getAuth();
         const response = await auth.api.signInSocial({
             body: {
                 provider: "google",
                 callbackURL: `${API_URL}/api/auth/google/complete`,
                 errorCallbackURL: `${CLIENT_URL}/login?error=google_failed`,
             },
-            headers: fromNodeHeaders(req.headers),
+            headers: toWebHeaders(req.headers),
             asResponse: true,
         });
         const data = (await response.json()) as { url?: string };
@@ -54,8 +54,9 @@ googleRouter.get("/google", async (req, res) => {
 
 /** GET /api/auth/google/complete — Better Auth is done; swap its session for the app's JWT. */
 googleRouter.get("/google/complete", async (req, res) => {
-    const headers = fromNodeHeaders(req.headers);
+    const headers = toWebHeaders(req.headers);
     try {
+        const auth = await getAuth();
         const session = await auth.api.getSession({ headers });
         if (!session) return toClient(res, "/login?error=google_failed");
 
