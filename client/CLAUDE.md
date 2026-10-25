@@ -89,7 +89,7 @@ src/
 
 ## Routing (`src/App.tsx`)
 
-Public: `/` (Landing), `/login`, `/forgot-password`, `/reset-password`.
+Public: `/` (Landing), `/login`, `/forgot-password`, `/reset-password`, `/auth/callback`.
 Protected (wrapped by `ProtectedRoute`): `/dashboard`, `/attendance`,
 `/dashboard/member/:memberId/attendance`, `/admin/attendance`,
 `/member/:memberId`, `/todos/:memberId`, `/projects`, `/projects/:projectId`, `/teams`,
@@ -113,6 +113,13 @@ you back in the app instead of on the marketing/login page.
   middleware accepts this header (it prefers a `token` cookie but falls back to Bearer), so
   the localStorage-token model works cross-site.
 - New members are created by an admin **into a workspace** and emailed a default password (`123456`).
+- **Google sign-in:** `components/auth/GoogleSignInButton.tsx` (on the Login card) asks
+  `GET /auth/providers` and renders only when Google is configured; clicking does a full-page
+  `window.location.assign(VITE_API_URL + "/auth/google")`. The API returns to
+  **`/auth/callback`** (`pages/AuthCallback.tsx`, public route) with `#token=…`; the page
+  strips the fragment, calls `AuthContext.loginWithToken(token)` (stores the token, loads
+  `GET /auth/me`) and routes like a normal login. Failures come back as
+  `/login?error=google_failed|google_unavailable|email_unverified`, which `Login.tsx` toasts.
 
 ## Organizations & workspaces (`OrgContext`)
 

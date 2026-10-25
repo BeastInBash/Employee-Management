@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,28 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "@/components/ui/sonner";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+
+// Reasons the API sends back to /login?error=… after a Google attempt.
+const GOOGLE_ERRORS: Record<string, string> = {
+  google_failed: "Google sign-in didn't complete. Please try again.",
+  google_unavailable: "Google sign-in isn't set up on this server yet.",
+  email_unverified: "Your Google account's email isn't verified, so we can't use it to sign in.",
+};
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 const Login = () => {
   const navigate = useNavigate();
   const { login, signup, user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Surface a failed Google attempt once, then drop the param so a refresh is clean.
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (!error) return;
+    toast.error(GOOGLE_ERRORS[error] ?? GOOGLE_ERRORS.google_failed);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   // If a valid session already exists (e.g. the user reopened the site without
   // logging out), don't show the login form — send them straight to their area.
@@ -99,7 +117,8 @@ const Login = () => {
             Manage your projects and tasks efficiently
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <GoogleSignInButton />
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="login">Login</TabsTrigger>

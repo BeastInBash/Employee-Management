@@ -81,6 +81,12 @@ cd client && bun run lint && bun run build
   the JWT `exp` and only clearing storage once it has actually expired.
 - **First login:** new members get the default password `123456` and `isPasswordReset:
   true`; the client is responsible for forcing a password change.
+- **Google sign-in (Better Auth):** the client navigates to `${VITE_API_URL}/auth/google`;
+  Better Auth (mounted at `/api/better-auth`) runs the OAuth handshake on the API's origin,
+  then `/api/auth/google/complete` matches the Google-verified email to a `User`, issues the
+  **same app JWT**, and redirects to `CLIENT_URL/auth/callback#token=…`. Unknown emails
+  become admins; a first Google sign-in to an existing account switches its password off.
+  Details in `backend/CLAUDE.md` → "Google sign-in".
 - **Shared domain enums** (keep both sides in sync — they are duplicated, not shared):
   - `TaskStatus = todo | in_progress | review | completed`
   - `TaskPriority = low | medium | high | urgent`

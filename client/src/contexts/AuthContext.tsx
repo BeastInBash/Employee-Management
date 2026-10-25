@@ -25,6 +25,8 @@ type AuthContextType = {
     newPassword: string
   ) => Promise<boolean>;
   logout: () => void;
+  /** Adopt a JWT issued by an external sign-in (Google) and load the user. */
+  loginWithToken: (token: string) => Promise<User | null>;
   isAuthenticated: boolean;
 };
 
@@ -246,6 +248,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // return false;
   };
 
+  const loginWithToken = async (token: string): Promise<User | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      localStorage.setItem("authToken", token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
+      return data.user as User;
+    } catch (error) {
+      console.error("Token login error:", error);
+      return null;
+    }
+  };
+
   const logout = () => {
     /* ============================================
        BACKEND API CALL (Uncomment when backend is ready)
@@ -277,6 +296,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signup,
         changePassword,
         logout,
+        loginWithToken,
         isAuthenticated: !!user,
       }}
     >

@@ -25,6 +25,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import Teams from "./pages/Teams";
 import TeamDetail from "./pages/TeamDetail";
 import Reports from "./pages/Reports";
+import AuthCallback from "./pages/AuthCallback";
 import MemberDashboard from "./pages/MembersDashboard";
 import AdminAttendancePanel from "./pages/AdminPanel";
 
@@ -47,6 +48,7 @@ const App = () => (
                                     <Route path="/login" element={<Login />} />
                                     <Route path="/forgot-password" element={<ForgotPassword />} />
                                     <Route path="/reset-password" element={<ResetPassword />} />
+                                    <Route path="/auth/callback" element={<AuthCallback />} />
 
                                     <Route element={<ProtectedRoute />}>
 
