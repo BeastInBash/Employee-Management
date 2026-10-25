@@ -15,19 +15,27 @@ const GoogleMark = () => (
 );
 
 /**
- * "Continue with Google". Renders nothing until the API confirms Google
- * sign-in is configured (GET /auth/providers), so environments without
- * credentials don't show a button that can't work.
+ * "Sign in with Google". Shown straight away and hidden only when the API
+ * explicitly reports Google isn't configured (GET /auth/providers), so a slow
+ * or cold-starting API never makes the button flicker away.
  */
-export const GoogleSignInButton = () => {
-  const [enabled, setEnabled] = useState(false);
+export const GoogleSignInButton = ({
+  label = "Continue with Google",
+  dividerLabel = "or",
+}: {
+  label?: string;
+  dividerLabel?: string;
+}) => {
+  const [enabled, setEnabled] = useState(true);
   const [isRedirecting, setIsRedirecting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch(`${API_BASE_URL}/auth/providers`)
-      .then((r) => (r.ok ? r.json() : { google: false }))
-      .then((d) => !cancelled && setEnabled(!!d.google))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d && d.google === false) setEnabled(false);
+      })
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -41,7 +49,7 @@ export const GoogleSignInButton = () => {
       <Button
         type="button"
         variant="outline"
-        className="h-10 w-full gap-2"
+        className="h-11 w-full gap-2.5 bg-card text-[15px]"
         disabled={isRedirecting}
         onClick={() => {
           setIsRedirecting(true);
@@ -50,11 +58,11 @@ export const GoogleSignInButton = () => {
         }}
       >
         {isRedirecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleMark />}
-        Continue with Google
+        {label}
       </Button>
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
-        or
+        {dividerLabel}
         <span className="h-px flex-1 bg-border" />
       </div>
     </div>
