@@ -41,7 +41,7 @@ export const GoogleSignInButton = () => {
       <Button
         type="button"
         variant="outline"
-        className="w-full gap-2"
+        className="h-10 w-full gap-2"
         disabled={isRedirecting}
         onClick={() => {
           setIsRedirecting(true);
@@ -52,7 +52,7 @@ export const GoogleSignInButton = () => {
         {isRedirecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleMark />}
         Continue with Google
       </Button>
-      <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-muted-foreground">
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span className="h-px flex-1 bg-border" />
         or
         <span className="h-px flex-1 bg-border" />

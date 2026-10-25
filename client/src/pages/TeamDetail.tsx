@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BarChart3, Loader2, MoreHorizontal, Pencil, Trash2, UserMinus, UserPlus } from "lucide-react";
+import { BarChart3, Loader2, MoreHorizontal, Pencil, Trash2, UserMinus, UserPlus } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectContext";
 import type { Permissions, ScopeAccess, ScopeRole, TeamDetail as TeamDetailData, TeamMemberRow } from "@/contexts/ProjectContext";
 import { api, errorMessage } from "@/lib/api";
 import { toast } from "@/components/ui/sonner";
-import { AppHeader } from "@/components/AppHeader";
+import { PageHeader, Section } from "@/components/layout/Page";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -59,26 +59,18 @@ const TeamDetail = () => {
 
   if (loadError) {
     return (
-      <div className="min-h-screen bg-muted/40">
-        <AppHeader />
-        <main className="container mx-auto px-4 py-8">
-          <EmptyState
-            title="Can't open this team"
-            body={loadError}
-            action={<Button onClick={() => navigate("/teams")}>Back to teams</Button>}
-          />
-        </main>
-      </div>
+      <EmptyState
+        title="This team couldn't be opened"
+        body={loadError}
+        action={<Button onClick={() => navigate("/teams")}>Back to teams</Button>}
+      />
     );
   }
 
   if (!detail) {
     return (
-      <div className="min-h-screen bg-muted/40">
-        <AppHeader />
-        <div className="flex justify-center py-24">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+      <div className="flex justify-center py-24">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -120,25 +112,19 @@ const TeamDetail = () => {
   );
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      <AppHeader />
-      <div className="h-1" style={{ backgroundColor: team.color ?? "var(--border)" }} />
-      <main className="container mx-auto px-4 py-6 space-y-6">
-        <Link to="/teams" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" />
-          Teams
-        </Link>
-
-        <section className="bg-background border border-border">
-          <div className="p-5 flex flex-wrap items-start gap-4">
-            <div className="flex-1 min-w-0 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl break-words">{team.name}</h1>
-                <RoleBadge role={detail.myRole} />
-              </div>
-              {team.description && <p className="text-sm text-muted-foreground max-w-3xl">{team.description}</p>}
-            </div>
-            <div className="flex items-center gap-2">
+    <>
+      <PageHeader
+        back={{ to: "/teams", label: "Teams" }}
+        title={
+          <span className="flex flex-wrap items-center gap-3">
+            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: team.color ?? "var(--primary)" }} />
+            <span className="break-words">{team.name}</span>
+            <RoleBadge role={detail.myRole} />
+          </span>
+        }
+        description={team.description || undefined}
+        actions={
+            <>
               {permissions.canManage && (
                 <Button onClick={() => setIsAddOpen(true)}>
                   <UserPlus className="h-4 w-4" />
@@ -173,33 +159,33 @@ const TeamDetail = () => {
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 border-t border-border divide-x divide-border [&>*:nth-child(3)]:border-l-0 sm:[&>*:nth-child(3)]:border-l">
-            <Stat label="People" value={team.members.length} />
-            <Stat label="Present today" value={`${present}${partial ? ` +${partial}` : ""}`} />
-            <Stat label="Open tasks" value={openTasks} />
-            <Stat label="Overdue" value={overdue} warn={overdue > 0} />
-          </div>
-        </section>
+            </>
+        }
+      />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <section className="lg:col-span-2 space-y-3">
-            <h2 className="text-sm uppercase tracking-wide text-muted-foreground">Roster</h2>
+        <dl className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="People" value={team.members.length} />
+          <Stat label="Present today" value={partial ? `${present} + ${partial} partial` : present} />
+          <Stat label="Open tasks" value={openTasks} />
+          <Stat label="Overdue" value={overdue} warn={overdue > 0} />
+        </dl>
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <Section title="Roster" className="lg:col-span-2">
             {sorted.length === 0 ? (
-              <EmptyState title="No one on this team yet" body="Add people from the workspace to get started." />
+              <EmptyState icon={UserPlus} title="No one on this team yet" body="Add people from the workspace to get started." />
             ) : (
-              <div className="bg-background border border-border overflow-x-auto">
+              <div className="overflow-x-auto rounded-xl border border-border/80 bg-card">
                 <table className="w-full text-sm">
-                  <thead className="text-[11px] uppercase tracking-wide text-muted-foreground border-b border-border">
+                  <thead className="border-b border-border/70 bg-surface text-xs text-muted-foreground">
                     <tr>
-                      <th className="text-left font-normal px-4 py-2">Person</th>
-                      <th className="text-left font-normal px-4 py-2">Today</th>
-                      <th className="text-left font-normal px-4 py-2">Tasks</th>
-                      <th className="px-4 py-2" />
+                      <th className="px-4 py-2.5 text-left font-medium">Person</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Today</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Tasks</th>
+                      <th className="px-4 py-2.5" />
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border/70">
                     {sorted.map((m) => {
                       const canRemove = permissions.canManage && (m.teamRole !== "lead" || permissions.canAssignLeads);
                       return (
@@ -219,12 +205,12 @@ const TeamDetail = () => {
                           <td className="px-4 py-3">
                             <AttendanceDot status={m.todayAttendance} showLabel />
                           </td>
-                          <td className="px-4 py-3 text-xs">
+                          <td className="px-4 py-3 text-sm">
                             <span className="tabular-nums">
-                              {m.stats.completed}/{m.stats.total}
+                              {m.stats.completed} of {m.stats.total}
                             </span>{" "}
                             <span className="text-muted-foreground">done</span>
-                            {m.stats.overdue > 0 && <span className="text-destructive"> · {m.stats.overdue} overdue</span>}
+                            {m.stats.overdue > 0 && <span className="text-destructive">, {m.stats.overdue} overdue</span>}
                           </td>
                           <td className="px-4 py-3 text-right">
                             {(canRemove || permissions.canAssignLeads) && (
@@ -257,31 +243,29 @@ const TeamDetail = () => {
                 </table>
               </div>
             )}
-          </section>
+          </Section>
 
-          <section className="space-y-3">
-            <h2 className="text-sm uppercase tracking-wide text-muted-foreground">Projects</h2>
+          <Section title="Projects">
             {team.projects.length === 0 ? (
-              <p className="text-sm text-muted-foreground border border-dashed border-border bg-background p-4">
-                Not assigned to any project yet. Assign this team from a project's Teams tab.
+              <p className="rounded-xl border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
+                Not on any project yet. Assign this team from a project's Teams tab.
               </p>
             ) : (
-              <div className="bg-background border border-border divide-y divide-border">
+              <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
                 {team.projects.map((p) => (
-                  <Link key={p.id} to={`/projects/${p.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
+                  <Link key={p.id} to={`/projects/${p.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/60">
                     <ColorSwatch color={p.color} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm">{p.name}</div>
-                      <div className="text-xs text-muted-foreground">Due {formatDate(p.dueDate, "—")}</div>
+                      <div className="text-xs text-muted-foreground">{p.dueDate ? `Due ${formatDate(p.dueDate)}` : "No due date"}</div>
                     </div>
                     <ProjectStatusBadge status={p.status} />
                   </Link>
                 ))}
               </div>
             )}
-          </section>
+          </Section>
         </div>
-      </main>
 
       <TeamFormDialog
         open={isEditOpen}
@@ -337,14 +321,14 @@ const TeamDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </>
   );
 };
 
 const Stat = ({ label, value, warn }: { label: string; value: string | number; warn?: boolean }) => (
-  <div className="px-5 py-3">
-    <div className={`font-display text-xl ${warn ? "text-destructive" : ""}`}>{value}</div>
-    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+  <div className="rounded-lg bg-card px-4 py-3 ring-1 ring-border/70">
+    <dd className={`text-xl font-semibold tracking-tight ${warn ? "text-destructive" : ""}`}>{value}</dd>
+    <dt className="text-xs text-muted-foreground">{label}</dt>
   </div>
 );
 

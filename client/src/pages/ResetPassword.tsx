@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { CheckCircle2, Loader2 } from "lucide-react";
+import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -21,12 +22,12 @@ const ResetPassword = () => {
     setError("");
 
     if (newPassword !== confirmPassword) {
-      setError("Passwords do not match");
+      setError("The two passwords don't match.");
       return;
     }
 
     if (newPassword.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError("Use at least 6 characters.");
       return;
     }
 
@@ -45,10 +46,10 @@ const ResetPassword = () => {
         setSuccess(true);
         setTimeout(() => navigate("/login"), 2000);
       } else {
-        setError(data.message || "Failed to reset password");
+        setError(data.message || "The password couldn't be reset. The link may have expired.");
       }
-    } catch (error) {
-      setError("An error occurred. Please try again.");
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
     } finally {
       setIsLoading(false);
     }
@@ -56,58 +57,64 @@ const ResetPassword = () => {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Invalid Link</CardTitle>
-            <CardDescription>This password reset link is invalid.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      <AuthLayout
+        title="This link doesn't work"
+        description="It's missing its reset code. Ask for a new link and use the newest email."
+        footer={
+          <Link to="/forgot-password" className="text-primary hover:underline">
+            Send a new link
+          </Link>
+        }
+      >
+        <Button asChild className="w-full">
+          <Link to="/login">Back to sign in</Link>
+        </Button>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Reset Password</CardTitle>
-          <CardDescription>Enter your new password</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {success ? (
-            <p className="text-green-600">Password reset successfully! Redirecting to login...</p>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
-              </div>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Resetting..." : "Reset Password"}
-              </Button>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <AuthLayout
+      title={success ? "Password updated" : "Choose a new password"}
+      description={success ? "Taking you to sign in…" : "At least 6 characters. You'll use it the next time you sign in."}
+    >
+      {success ? (
+        <div className="flex items-center gap-3 rounded-xl bg-secondary p-4 text-sm text-secondary-foreground">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+          All set. Sign in with your new password.
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">New password</Label>
+            <Input
+              id="newPassword"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm new password</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Update password
+          </Button>
+        </form>
+      )}
+    </AuthLayout>
   );
 };
 

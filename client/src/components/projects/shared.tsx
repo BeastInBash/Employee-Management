@@ -18,37 +18,38 @@ import type { AttendanceStatus, Person, ProjectStatus, ScopeAccess, ScopeRole } 
 
 // ─── labels & colours ────────────────────────────────────────────────────────
 
-const projectStatusStyles: Record<ProjectStatus, string> = {
-  planning: "border-border text-muted-foreground",
-  active: "border-primary text-primary",
-  on_hold: "border-amber-500 text-amber-600 dark:text-amber-400",
-  completed: "border-emerald-600 text-emerald-600 dark:text-emerald-400",
-  archived: "border-border text-muted-foreground line-through",
+const projectStatusStyles: Record<ProjectStatus, { pill: string; dot: string }> = {
+  planning: { pill: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/60" },
+  active: { pill: "bg-secondary text-primary", dot: "bg-primary" },
+  on_hold: { pill: "bg-[#f5ead2] text-[#7f5410] dark:bg-[#33291a] dark:text-[#e3b764]", dot: "bg-[#c49a3a]" },
+  completed: { pill: "bg-olive-soft text-olive", dot: "bg-olive" },
+  archived: { pill: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/40" },
 };
 
 export const ProjectStatusBadge = ({ status }: { status: ProjectStatus }) => (
-  <Badge variant="outline" className={cn("uppercase tracking-wide text-[10px]", projectStatusStyles[status])}>
+  <Badge className={cn("gap-1.5 font-medium", projectStatusStyles[status].pill)}>
+    <span className={cn("h-1.5 w-1.5 rounded-full", projectStatusStyles[status].dot)} />
     {projectStatusLabels[status]}
   </Badge>
 );
 
 const attendanceStyles: Record<AttendanceStatus, string> = {
-  present: "bg-emerald-500",
-  partial: "bg-amber-500",
-  absent: "bg-muted-foreground/40",
+  present: "bg-[var(--viz-present)]",
+  partial: "bg-[var(--viz-partial)]",
+  absent: "bg-[var(--viz-absent)]/50",
 };
 
-/** A small square + label for today's derived attendance. */
+/** A small dot + label for today's derived attendance. */
 export const AttendanceDot = ({ status, showLabel = false }: { status: AttendanceStatus; showLabel?: boolean }) => (
-  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" title={`Today: ${status}`}>
-    <span className={cn("h-2 w-2 inline-block", attendanceStyles[status])} />
+  <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground" title={`Today: ${status}`}>
+    <span className={cn("h-2 w-2 rounded-full", attendanceStyles[status])} />
     {showLabel && <span className="capitalize">{status}</span>}
   </span>
 );
 
 export const RoleBadge = ({ role }: { role: ScopeRole | ScopeAccess }) => {
-  if (role === "lead") return <Badge className="text-[10px] uppercase">Lead</Badge>;
-  if (role === "admin") return <Badge variant="secondary" className="text-[10px] uppercase">Admin</Badge>;
+  if (role === "lead") return <Badge className="bg-primary/10 text-primary font-medium">Lead</Badge>;
+  if (role === "admin") return <Badge className="bg-muted text-muted-foreground font-medium">Admin</Badge>;
   return null;
 };
 
@@ -65,7 +66,7 @@ const initials = (name: string) =>
 export const PersonAvatar = ({ person, className }: { person: Pick<Person, "name">; className?: string }) => (
   <span
     className={cn(
-      "inline-flex h-8 w-8 shrink-0 items-center justify-center border border-border bg-muted text-[11px] font-medium",
+      "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-semibold text-secondary-foreground",
       className
     )}
     title={person.name}
@@ -79,10 +80,10 @@ export const AvatarStack = ({ people, max = 4 }: { people: Person[]; max?: numbe
   return (
     <span className="flex -space-x-2">
       {people.slice(0, max).map((p) => (
-        <PersonAvatar key={p.id} person={p} className="h-7 w-7 bg-background" />
+        <PersonAvatar key={p.id} person={p} className="h-7 w-7 ring-2 ring-card" />
       ))}
       {people.length > max && (
-        <span className="inline-flex h-7 w-7 items-center justify-center border border-border bg-background text-[10px]">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-card">
           +{people.length - max}
         </span>
       )}
@@ -93,16 +94,19 @@ export const AvatarStack = ({ people, max = 4 }: { people: Person[]; max?: numbe
 /** A thin progress meter with the percentage beside it. */
 export const ProgressMeter = ({ value, className }: { value: number; className?: string }) => (
   <div className={cn("flex items-center gap-3", className)}>
-    <div className="h-1.5 flex-1 bg-muted overflow-hidden">
-      <div className="h-full bg-primary transition-[width]" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+      <div
+        className="h-full rounded-full bg-olive transition-[width] duration-500 ease-[var(--ease-out)]"
+        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+      />
     </div>
-    <span className="text-xs tabular-nums text-muted-foreground w-9 text-right">{value}%</span>
+    <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">{value}%</span>
   </div>
 );
 
 export const ColorSwatch = ({ color, className }: { color: string | null; className?: string }) => (
   <span
-    className={cn("inline-block h-3 w-3 shrink-0 border border-border", className)}
+    className={cn("inline-block h-3 w-3 shrink-0 rounded-full", className)}
     style={{ backgroundColor: color ?? "var(--muted)" }}
   />
 );
@@ -115,7 +119,11 @@ export const ColorPicker = ({ value, onChange }: { value: string | undefined; on
         type="button"
         aria-label={`Color ${c}`}
         onClick={() => onChange(c)}
-        className={cn("h-7 w-7 border-2", value === c ? "border-foreground" : "border-transparent")}
+        aria-pressed={value === c}
+        className={cn(
+          "h-7 w-7 rounded-full ring-offset-2 ring-offset-card transition-shadow",
+          value === c ? "ring-2 ring-foreground/70" : "hover:ring-2 hover:ring-border"
+        )}
         style={{ backgroundColor: c }}
       />
     ))}
@@ -203,11 +211,23 @@ export const PeoplePicker = ({
 };
 
 
-export const EmptyState = ({ title, body, action }: { title: string; body: string; action?: ReactNode }) => (
-  <div className="border border-dashed border-border bg-background py-16 px-6 text-center">
-    <FolderKanban className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
-    <h3 className="text-lg mb-2">{title}</h3>
-    <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">{body}</p>
+export const EmptyState = ({
+  title,
+  body,
+  action,
+  icon: Icon = FolderKanban,
+}: {
+  title: string;
+  body: string;
+  action?: ReactNode;
+  icon?: typeof FolderKanban;
+}) => (
+  <div className="rounded-xl border border-dashed border-border bg-card/60 px-6 py-14 text-center">
+    <span className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-secondary text-primary">
+      <Icon className="h-5 w-5" />
+    </span>
+    <h3 className="mb-1.5 text-base">{title}</h3>
+    <p className="mx-auto mb-5 max-w-sm text-sm text-muted-foreground">{body}</p>
     {action}
   </div>
 );

@@ -1,34 +1,17 @@
-import { useState, useEffect, useCallback } from "react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { format, getDay, getDaysInMonth, startOfMonth } from "date-fns";
+import { ChevronDown, ChevronLeft, ChevronRight, Clock, Users } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useOrg } from "@/contexts/OrgContext";
 import { toast } from "@/components/ui/sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/Page";
+import { EmptyState, PersonAvatar } from "@/components/projects/shared";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ThemeToggle } from "@/components/theme-provider";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-    CheckCircle2,
-    XCircle,
-    Clock,
-    Users,
-    LogOut,
-    ArrowLeft,
-    ClipboardList,
-    CalendarDays,
-    TrendingUp,
-    ChevronRight,
-    Circle,
-} from "lucide-react";
-import { format, getDaysInMonth, startOfMonth, getDay } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 const getAuthToken = () => localStorage.getItem("authToken");
@@ -51,17 +34,9 @@ interface AttendanceRecord {
     allTasksCompletedAt: string | null;
 }
 
-interface MemberSummary {
-    present: number;
-    absent: number;
-    partial: number;
-    total: number;
-    attendancePercentage: number;
-}
-
 interface MemberReport {
     member: MemberInfo;
-    summary: MemberSummary;
+    summary: { present: number; absent: number; partial: number; total: number; attendancePercentage: number };
     attendance: AttendanceRecord[];
 }
 
@@ -74,8 +49,6 @@ interface TodayOverviewEntry {
 
 interface TodayOverviewResponse {
     date: string;
-    submissionWindowOpen: boolean;
-    completionDeadlinePassed: boolean;
     overview: TodayOverviewEntry[];
 }
 
@@ -84,656 +57,355 @@ interface AllMembersReportResponse {
     generatedAt: string;
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-const MONTHS = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
-];
-
-const STATUS_CONFIG: Record<
-    AttendanceStatus,
-    { label: string; textColor: string; bgColor: string; mutedBg: string; icon: React.ReactNode }
-> = {
-    present: {
-        label: "Present",
-        textColor: "text-emerald-600 dark:text-emerald-400",
-        bgColor: "bg-emerald-500",
-        mutedBg: "bg-emerald-50 dark:bg-emerald-950/40",
-        icon: <CheckCircle2 className="h-3.5 w-3.5" />,
-    },
-    absent: {
-        label: "Absent",
-        textColor: "text-red-600 dark:text-red-400",
-        bgColor: "bg-red-500",
-        mutedBg: "bg-red-50 dark:bg-red-950/40",
-        icon: <XCircle className="h-3.5 w-3.5" />,
-    },
-    partial: {
-        label: "Partial",
-        textColor: "text-amber-600 dark:text-amber-400",
-        bgColor: "bg-amber-500",
-        mutedBg: "bg-amber-50 dark:bg-amber-950/40",
-        icon: <Clock className="h-3.5 w-3.5" />,
-    },
+const STATUS: Record<AttendanceStatus, { label: string; pill: string; dot: string; cell: string }> = {
+    present: { label: "Present", pill: "bg-secondary text-primary", dot: "bg-[var(--viz-present)]", cell: "bg-secondary text-primary" },
+    partial: { label: "Partial", pill: "bg-olive-soft text-olive", dot: "bg-[var(--viz-partial)]", cell: "bg-olive-soft text-olive" },
+    absent: { label: "Absent", pill: "bg-destructive/8 text-destructive", dot: "bg-destructive/70", cell: "bg-destructive/8 text-destructive" },
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+const ORDER: AttendanceStatus[] = ["present", "partial", "absent"];
 
+/** The admin's view of everyone's attendance: today, and month by month. */
 export const AdminAttendancePanel = () => {
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
+    const { activeWorkspace } = useOrg();
     const navigate = useNavigate();
 
-    console.log("Working----- workflow")
     const now = new Date();
-    const [activeTab, setActiveTab] = useState<"today" | "report">("today");
-    const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-
-    const [todayData, setTodayData] = useState<TodayOverviewResponse | null>(null);
-    const [reportData, setReportData] = useState<AllMembersReportResponse | null>(null);
+    const [tab, setTab] = useState<"today" | "month">("today");
+    const [month, setMonth] = useState(now.getMonth() + 1);
+    const [year, setYear] = useState(now.getFullYear());
+    const [today, setToday] = useState<TodayOverviewResponse | null>(null);
+    const [report, setReport] = useState<AllMembersReportResponse | null>(null);
     const [todayLoading, setTodayLoading] = useState(false);
     const [reportLoading, setReportLoading] = useState(false);
 
-    const years = Array.from({ length: 3 }, (_, i) => now.getFullYear() - i);
-
-    const fetchToday = useCallback(async () => {
+    const fetchJson = async <T,>(path: string): Promise<T | null> => {
         const token = getAuthToken();
-        if (!token) return;
+        if (!token) return null;
+        const res = await fetch(`${API_BASE_URL}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            toast.error(err.message ?? "Attendance couldn't be loaded");
+            return null;
+        }
+        return res.json();
+    };
+
+    const loadToday = useCallback(async () => {
         setTodayLoading(true);
         try {
-            const res = await fetch(`${API_BASE_URL}/attendance/today`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) {
-                const err = await res.json();
-                toast.error(err.message ?? "Failed to fetch today's overview");
-                return;
-            }
-            setTodayData(await res.json());
-        } catch {
-            toast.error("An error occurred while fetching today's data");
+            const data = await fetchJson<TodayOverviewResponse>("/attendance/today");
+            if (data) setToday(data);
         } finally {
             setTodayLoading(false);
         }
     }, []);
 
-    const fetchReport = useCallback(async () => {
-        const token = getAuthToken();
-        if (!token) return;
+    const loadReport = useCallback(async () => {
         setReportLoading(true);
         try {
-            const res = await fetch(
-                `${API_BASE_URL}/attendance/report?month=${selectedMonth}&year=${selectedYear}`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (!res.ok) {
-                const err = await res.json();
-                toast.error(err.message ?? "Failed to fetch report");
-                return;
-            }
-            setReportData(await res.json());
-        } catch {
-            toast.error("An error occurred while fetching report");
+            const data = await fetchJson<AllMembersReportResponse>(`/attendance/report?month=${month}&year=${year}`);
+            if (data) setReport(data);
         } finally {
             setReportLoading(false);
         }
-    }, [selectedMonth, selectedYear]);
+    }, [month, year]);
 
     useEffect(() => {
-        if (!user) { navigate("/"); return; }
-        if (user.role !== "admin") { navigate("/dashboard"); return; }
-        fetchToday();
-    }, [user, navigate, fetchToday]);
-
-    useEffect(() => {
-        if (activeTab === "report") fetchReport();
-    }, [activeTab, fetchReport]);
-
-    const handleLogout = () => { logout(); navigate("/"); };
-
-    // Today tab stats
-    const todayStats = todayData
-        ? {
-            present: todayData.overview.filter((e) => e.status === "present").length,
-            absent: todayData.overview.filter((e) => e.status === "absent").length,
-            partial: todayData.overview.filter((e) => e.status === "partial").length,
-            total: todayData.overview.length,
+        if (!user) return;
+        if (user.role !== "admin") {
+            navigate("/attendance", { replace: true });
+            return;
         }
-        : null;
+        loadToday();
+    }, [user, navigate, loadToday]);
+
+    useEffect(() => {
+        if (tab === "month") loadReport();
+    }, [tab, loadReport]);
 
     if (!user) return null;
 
-    return (
-        <div className="min-h-screen bg-background">
-            {/* Header */}
-            <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-sm">
-                <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => navigate("/dashboard")}
-                        >
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                        <div className="flex items-center gap-2.5">
-                            <div className="h-7 w-7 rounded-md bg-foreground flex items-center justify-center">
-                                <ClipboardList className="h-4 w-4 text-background" />
-                            </div>
-                            <div>
-                                <span className="font-semibold text-sm tracking-tight">Attendance Panel</span>
-                                <span className="hidden sm:inline text-xs text-muted-foreground ml-2">
-                                    Admin · {user.name}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <ThemeToggle />
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>
-                            <LogOut className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
-            </header>
-
-            <main className="mx-auto max-w-6xl px-4 py-8 space-y-6">
-                {/* Page title */}
-                <div className="flex items-start justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">Attendance Overview</h1>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                            Monitor your team's daily task completion and attendance
-                        </p>
-                    </div>
-                    <Badge variant="outline" className="hidden sm:flex items-center gap-1.5 text-xs">
-                        <Users className="h-3 w-3" />
-                        {todayData?.overview.length ?? "—"} members
-                    </Badge>
-                </div>
-
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "today" | "report")}>
-                    <TabsList className="h-9">
-                        <TabsTrigger value="today" className="text-sm gap-1.5">
-                            <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500" />
-                            Today
-                        </TabsTrigger>
-                        <TabsTrigger value="report" className="text-sm gap-1.5">
-                            <CalendarDays className="h-3.5 w-3.5" />
-                            Monthly Report
-                        </TabsTrigger>
-                    </TabsList>
-
-                    {/* ── TODAY TAB ─────────────────────────────────────────────────── */}
-                    <TabsContent value="today" className="mt-6 space-y-6">
-                        {todayLoading ? (
-                            <TodaySkeletons />
-                        ) : todayData ? (
-                            <>
-                                {/* Window status banner */}
-                                <WindowStatusBanner
-                                    submissionWindowOpen={todayData.submissionWindowOpen}
-                                    completionDeadlinePassed={todayData.completionDeadlinePassed}
-                                    date={todayData.date}
-                                />
-
-                                {/* Today summary cards */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                    <TodaySummaryCard label="Total" value={todayStats!.total} icon={<Users className="h-4 w-4" />} color="default" />
-                                    <TodaySummaryCard label="Present" value={todayStats!.present} icon={<CheckCircle2 className="h-4 w-4" />} color="emerald" />
-                                    <TodaySummaryCard label="Partial" value={todayStats!.partial} icon={<Clock className="h-4 w-4" />} color="amber" />
-                                    <TodaySummaryCard label="Absent" value={todayStats!.absent} icon={<XCircle className="h-4 w-4" />} color="red" />
-                                </div>
-
-                                {/* Member list */}
-                                <Card className="border-border">
-                                    <CardHeader className="px-5 pt-5 pb-3">
-                                        <CardTitle className="text-sm font-medium">
-                                            Team Status — {format(new Date(todayData.date + "T00:00:00"), "EEEE, MMMM d")}
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="px-5 pb-5">
-                                        {todayData.overview.length === 0 ? (
-                                            <EmptyTeam />
-                                        ) : (
-                                            <div className="space-y-1.5">
-                                                {todayData.overview.map((entry) => (
-                                                    <TodayMemberRow
-                                                        key={entry.member.id}
-                                                        entry={entry}
-                                                        onViewAttendance={() =>
-                                                            navigate(`/dashboard/member/${entry.member.id}/attendance`)
-                                                        }
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </>
-                        ) : null}
-                    </TabsContent>
-
-                    {/* ── REPORT TAB ────────────────────────────────────────────────── */}
-                    <TabsContent value="report" className="mt-6 space-y-6">
-                        {/* Month / Year selector */}
-                        <div className="flex items-center gap-3">
-                            <Select
-                                value={String(selectedMonth)}
-                                onValueChange={(v) => setSelectedMonth(Number(v))}
-                            >
-                                <SelectTrigger className="h-8 w-36 text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {MONTHS.map((m, i) => (
-                                        <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            <Select
-                                value={String(selectedYear)}
-                                onValueChange={(v) => setSelectedYear(Number(v))}
-                            >
-                                <SelectTrigger className="h-8 w-24 text-sm">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {years.map((y) => (
-                                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-
-                            {reportData && (
-                                <span className="text-xs text-muted-foreground ml-auto">
-                                    Generated {format(new Date(reportData.generatedAt), "MMM d, hh:mm a")}
-                                </span>
-                            )}
-                        </div>
-
-                        {reportLoading ? (
-                            <ReportSkeletons />
-                        ) : reportData ? (
-                            <>
-                                {/* Team aggregate summary */}
-                                <TeamAggregateSummary report={reportData.report} />
-
-                                {/* Per-member cards */}
-                                <div className="space-y-3">
-                                    {reportData.report.length === 0 ? (
-                                        <EmptyTeam />
-                                    ) : (
-                                        reportData.report.map((memberReport) => (
-                                            <MemberReportCard
-                                                key={memberReport.member.id}
-                                                report={memberReport}
-                                                month={selectedMonth}
-                                                year={selectedYear}
-                                                onViewDetail={() =>
-                                                    navigate(`/dashboard/member/${memberReport.member.id}/attendance`)
-                                                }
-                                            />
-                                        ))
-                                    )}
-                                </div>
-                            </>
-                        ) : null}
-                    </TabsContent>
-                </Tabs>
-            </main>
-        </div>
-    );
-};
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-const WindowStatusBanner = ({
-    submissionWindowOpen,
-    completionDeadlinePassed,
-    date,
-}: {
-    submissionWindowOpen: boolean;
-    completionDeadlinePassed: boolean;
-    date: string;
-}) => {
-    let message = "Submission window is closed (opens 9:00 AM – 11:00 AM IST)";
-    let style = "bg-muted/60 border-border text-muted-foreground";
-
-    if (submissionWindowOpen) {
-        message = "Submission window is open — members can submit tasks until 11:00 AM IST";
-        style = "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900 text-emerald-700 dark:text-emerald-300";
-    } else if (completionDeadlinePassed) {
-        message = "Completion deadline passed — attendance has been finalized for today";
-        style = "bg-muted/60 border-border text-muted-foreground";
-    }
-
-    return (
-        <div className={`rounded-lg border px-4 py-3 text-sm flex items-center justify-between ${style}`}>
-            <span>{message}</span>
-            <span className="text-xs opacity-70 shrink-0 ml-4">
-                {format(new Date(date + "T00:00:00"), "MMM d, yyyy")}
-            </span>
-        </div>
-    );
-};
-
-const TodaySummaryCard = ({
-    label,
-    value,
-    icon,
-    color,
-}: {
-    label: string;
-    value: number;
-    icon: React.ReactNode;
-    color: "default" | "emerald" | "red" | "amber";
-}) => {
-    const colorMap = {
-        default: "text-foreground",
-        emerald: "text-emerald-600 dark:text-emerald-400",
-        red: "text-red-600 dark:text-red-400",
-        amber: "text-amber-600 dark:text-amber-400",
+    const counts = today
+        ? Object.fromEntries(ORDER.map((s) => [s, today.overview.filter((e) => e.status === s).length]))
+        : null;
+    const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear();
+    const shift = (delta: number) => {
+        const d = new Date(year, month - 1 + delta, 1);
+        setMonth(d.getMonth() + 1);
+        setYear(d.getFullYear());
     };
+    const taskWindow = activeWorkspace?.taskWindow;
+    const openMember = (id: string) => navigate(`/dashboard/member/${id}/attendance`);
 
     return (
-        <Card className="border-border">
-            <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        {label}
-                    </span>
-                    <span className={colorMap[color]}>{icon}</span>
-                </div>
-                <p className="text-3xl font-bold tabular-nums">{value}</p>
-            </CardContent>
-        </Card>
+        <>
+            <PageHeader
+                title="Attendance"
+                description="Nobody clocks in: a day counts as present when someone finishes everything they planned, partial when they finish some of it."
+                actions={
+                    taskWindow && (
+                        <span className="inline-flex h-9 items-center gap-2 rounded-full bg-card px-3.5 text-sm text-muted-foreground ring-1 ring-border/80">
+                            <Clock className="h-3.5 w-3.5" />
+                            {taskWindow.enabled ? `Tasks accepted ${taskWindow.startTime}–${taskWindow.endTime} IST` : "Tasks accepted anytime"}
+                        </span>
+                    )
+                }
+            />
+
+            <Tabs value={tab} onValueChange={(v) => setTab(v as "today" | "month")}>
+                <TabsList>
+                    <TabsTrigger value="today">Today</TabsTrigger>
+                    <TabsTrigger value="month">By month</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="today" className="mt-6 space-y-6">
+                    {todayLoading && !today ? (
+                        <div className="space-y-3">
+                            <Skeleton className="h-28 rounded-xl" />
+                            <Skeleton className="h-64 rounded-xl" />
+                        </div>
+                    ) : today && counts ? (
+                        <>
+                            <section className="rounded-xl border border-border/80 bg-card p-5 sm:p-6">
+                                <div className="flex flex-wrap items-end justify-between gap-4">
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">
+                                            {format(new Date(`${today.date}T00:00:00`), "EEEE, d MMMM")}
+                                        </p>
+                                        <p className="mt-1 text-[32px] font-semibold leading-none tracking-tight">
+                                            {counts.present} of {today.overview.length}{" "}
+                                            <span className="text-lg font-medium text-muted-foreground">present so far</span>
+                                        </p>
+                                    </div>
+                                    <dl className="flex gap-6 text-sm">
+                                        {ORDER.map((s) => (
+                                            <div key={s} className="flex items-center gap-2">
+                                                <span className={cn("h-2 w-2 rounded-full", STATUS[s].dot)} />
+                                                <dt className="text-muted-foreground">{STATUS[s].label}</dt>
+                                                <dd className="font-semibold tabular-nums">{counts[s]}</dd>
+                                            </div>
+                                        ))}
+                                    </dl>
+                                </div>
+                                {/* One bar, three parts: the day's split at a glance. */}
+                                {today.overview.length > 0 && (
+                                    <div className="mt-5 flex h-2.5 gap-[2px] overflow-hidden rounded-full bg-muted">
+                                        {ORDER.map((s) =>
+                                            counts[s]! > 0 ? (
+                                                <motion.span
+                                                    key={s}
+                                                    className={STATUS[s].dot}
+                                                    initial={{ flexGrow: 0 }}
+                                                    animate={{ flexGrow: counts[s] }}
+                                                    transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+                                                    style={{ flexBasis: 0 }}
+                                                />
+                                            ) : null
+                                        )}
+                                    </div>
+                                )}
+                            </section>
+
+                            {today.overview.length === 0 ? (
+                                <EmptyState icon={Users} title="No one to show yet" body="Add members on the Members page and their day will appear here." />
+                            ) : (
+                                <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
+                                    {today.overview.map((entry) => (
+                                        <li key={entry.member.id}>
+                                            <button
+                                                onClick={() => openMember(entry.member.id)}
+                                                className="flex w-full items-center gap-4 px-5 py-3.5 text-left transition-colors hover:bg-accent/50 focus-visible:bg-accent/50 focus-visible:outline-none active:scale-100"
+                                            >
+                                                <PersonAvatar person={entry.member} className="h-9 w-9 text-xs" />
+                                                <span className="min-w-0 flex-1">
+                                                    <span className="block truncate text-[15px] font-medium">{entry.member.name}</span>
+                                                    <span className="block truncate text-sm text-muted-foreground">
+                                                        {entry.taskSubmittedAt
+                                                            ? `Tasks in at ${format(new Date(entry.taskSubmittedAt), "h:mm a")}`
+                                                            : "No tasks yet today"}
+                                                        {entry.allTasksCompletedAt &&
+                                                            `, all done at ${format(new Date(entry.allTasksCompletedAt), "h:mm a")}`}
+                                                    </span>
+                                                </span>
+                                                <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium", STATUS[entry.status].pill)}>
+                                                    <span className={cn("h-1.5 w-1.5 rounded-full", STATUS[entry.status].dot)} />
+                                                    {STATUS[entry.status].label}
+                                                </span>
+                                                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </>
+                    ) : null}
+                </TabsContent>
+
+                <TabsContent value="month" className="mt-6 space-y-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-1 rounded-full bg-card p-1 ring-1 ring-border/80">
+                            <Button variant="ghost" size="icon-sm" className="rounded-full" onClick={() => shift(-1)} aria-label="Previous month">
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <span className="min-w-32 text-center text-sm font-medium">{format(new Date(year, month - 1), "MMMM yyyy")}</span>
+                            <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="rounded-full"
+                                onClick={() => shift(1)}
+                                disabled={isCurrentMonth}
+                                aria-label="Next month"
+                            >
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        {report && (
+                            <span className="text-xs text-muted-foreground">Updated {format(new Date(report.generatedAt), "d MMM, h:mm a")}</span>
+                        )}
+                    </div>
+
+                    {reportLoading && !report ? (
+                        <div className="space-y-3">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <Skeleton key={i} className="h-16 rounded-xl" />
+                            ))}
+                        </div>
+                    ) : report ? (
+                        report.report.length === 0 ? (
+                            <EmptyState icon={Users} title="No one to show yet" body="Add members on the Members page to see their month." />
+                        ) : (
+                            <div className={cn("space-y-6 transition-opacity", reportLoading && "opacity-50")}>
+                                <TeamSummary report={report.report} />
+                                <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
+                                    {report.report.map((r) => (
+                                        <MemberMonthRow key={r.member.id} report={r} month={month} year={year} onOpen={() => openMember(r.member.id)} />
+                                    ))}
+                                </ul>
+                            </div>
+                        )
+                    ) : null}
+                </TabsContent>
+            </Tabs>
+        </>
     );
 };
 
-const TodayMemberRow = ({
-    entry,
-    onViewAttendance,
-}: {
-    entry: TodayOverviewEntry;
-    onViewAttendance: () => void;
-}) => {
-    const config = STATUS_CONFIG[entry.status];
+// ─── Sub-components ─────────────────────────────────────────────────────────
 
-    return (
-        <div className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors group">
-            <div className="flex items-center gap-3 min-w-0">
-                <div className={`h-2 w-2 rounded-full shrink-0 ${config.bgColor}`} />
-                <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{entry.member.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                        {entry.taskSubmittedAt
-                            ? `Submitted ${format(new Date(entry.taskSubmittedAt), "hh:mm a")}`
-                            : entry.status === "absent"
-                                ? "No tasks submitted"
-                                : "—"}
-                        {entry.allTasksCompletedAt &&
-                            ` · Done ${format(new Date(entry.allTasksCompletedAt), "hh:mm a")}`}
-                    </p>
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-                <Badge
-                    variant="secondary"
-                    className={`text-xs hidden sm:flex ${config.textColor}`}
-                >
-                    {config.label}
-                </Badge>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={onViewAttendance}
-                >
-                    <ChevronRight className="h-3.5 w-3.5" />
-                </Button>
-            </div>
-        </div>
-    );
-};
-
-const TeamAggregateSummary = ({ report }: { report: MemberReport[] }) => {
-    if (report.length === 0) return null;
-
+const TeamSummary = ({ report }: { report: MemberReport[] }) => {
     const totals = report.reduce(
         (acc, r) => ({
             present: acc.present + r.summary.present,
-            absent: acc.absent + r.summary.absent,
             partial: acc.partial + r.summary.partial,
+            absent: acc.absent + r.summary.absent,
             total: acc.total + r.summary.total,
         }),
-        { present: 0, absent: 0, partial: 0, total: 0 }
+        { present: 0, partial: 0, absent: 0, total: 0 }
     );
-
-    const avgRate =
-        totals.total > 0 ? Math.round((totals.present / totals.total) * 100) : 0;
-
+    const rate = totals.total > 0 ? Math.round((totals.present / totals.total) * 100) : 0;
     return (
-        <Card className="border-border">
-            <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-4">
-                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-                        Team Aggregate
-                    </p>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl bg-card px-4 py-3.5 ring-1 ring-border/70">
+                <dd className="text-2xl font-semibold tracking-tight">{rate}%</dd>
+                <dt className="text-xs text-muted-foreground">Team attendance</dt>
+            </div>
+            {ORDER.map((s) => (
+                <div key={s} className="rounded-xl bg-card px-4 py-3.5 ring-1 ring-border/70">
+                    <dd className="text-2xl font-semibold tracking-tight tabular-nums">{totals[s]}</dd>
+                    <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className={cn("h-1.5 w-1.5 rounded-full", STATUS[s].dot)} />
+                        {STATUS[s].label} days
+                    </dt>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
-                    <div>
-                        <p className="text-2xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
-                            {avgRate}%
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Avg attendance rate</p>
-                    </div>
-                    <div>
-                        <p className="text-2xl font-bold tabular-nums">{totals.present}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Total present days</p>
-                    </div>
-                    <div>
-                        <p className="text-2xl font-bold tabular-nums">{totals.partial}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Total partial days</p>
-                    </div>
-                    <div>
-                        <p className="text-2xl font-bold tabular-nums">{totals.absent}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Total absent days</p>
-                    </div>
-                </div>
-                <div className="mt-4 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                    <div
-                        className="h-full rounded-full bg-emerald-500 transition-all duration-700"
-                        style={{ width: `${avgRate}%` }}
-                    />
-                </div>
-            </CardContent>
-        </Card>
+            ))}
+        </dl>
     );
 };
 
-const MemberReportCard = ({
-    report,
-    month,
-    year,
-    onViewDetail,
-}: {
-    report: MemberReport;
-    month: number;
-    year: number;
-    onViewDetail: () => void;
-}) => {
+/** A member's month: summary row that expands into a mini calendar. */
+const MemberMonthRow = ({ report, month, year, onOpen }: { report: MemberReport; month: number; year: number; onOpen: () => void }) => {
     const { member, summary, attendance } = report;
     const [expanded, setExpanded] = useState(false);
-
-    const attendanceMap = new Map(attendance.map((r) => [r.date.slice(0, 10), r]));
-    const daysInMonth = getDaysInMonth(new Date(year, month - 1));
-    const firstDayOfWeek = getDay(startOfMonth(new Date(year, month - 1)));
-    const calendarCells: (number | null)[] = [
-        ...Array.from({ length: firstDayOfWeek }, () => null),
-        ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+    const records = new Map(attendance.map((r) => [r.date.slice(0, 10), r]));
+    const firstWeekday = getDay(startOfMonth(new Date(year, month - 1)));
+    const cells: (number | null)[] = [
+        ...Array.from({ length: firstWeekday }, () => null),
+        ...Array.from({ length: getDaysInMonth(new Date(year, month - 1)) }, (_, i) => i + 1),
     ];
-
     const now = new Date();
     const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear();
 
     return (
-        <Card className="border-border overflow-hidden">
-            {/* Member row */}
-            <div
-                className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-muted/30 transition-colors"
-                onClick={() => setExpanded((e) => !e)}
-            >
-                <div className="flex items-center gap-4 min-w-0">
-                    {/* Avatar */}
-                    <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-semibold uppercase">
-                        {member.name.slice(0, 2)}
-                    </div>
-                    <div className="min-w-0">
-                        <p className="text-sm font-medium">{member.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-4 shrink-0">
-                    {/* Mini stat pills */}
-                    <div className="hidden sm:flex items-center gap-2">
-                        <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                            {summary.present}P
+        <li>
+            <div className="flex items-center gap-4 px-5 py-3.5">
+                <button
+                    onClick={() => setExpanded((e) => !e)}
+                    aria-expanded={expanded}
+                    className="flex min-w-0 flex-1 items-center gap-4 text-left focus-visible:outline-2 focus-visible:outline-ring active:scale-100"
+                >
+                    <PersonAvatar person={member} className="h-9 w-9 text-xs" />
+                    <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-medium">{member.name}</span>
+                        <span className="block truncate text-sm text-muted-foreground">
+                            {summary.present} present, {summary.partial} partial, {summary.absent} absent
                         </span>
-                        <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                            {summary.partial}Pa
-                        </span>
-                        <span className="text-xs text-red-600 dark:text-red-400 font-medium">
-                            {summary.absent}A
-                        </span>
-                    </div>
-
-                    {/* Rate bar */}
-                    <div className="flex items-center gap-2">
-                        <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden hidden sm:block">
-                            <div
-                                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
-                                style={{ width: `${summary.attendancePercentage}%` }}
-                            />
-                        </div>
-                        <span className="text-sm font-semibold tabular-nums w-10 text-right">
-                            {summary.attendancePercentage}%
-                        </span>
-                    </div>
-
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onViewDetail();
-                        }}
-                    >
-                        <ChevronRight className="h-3.5 w-3.5" />
-                    </Button>
-                </div>
+                    </span>
+                    <span className="hidden w-24 overflow-hidden rounded-full bg-muted sm:block">
+                        <span
+                            className="block h-1.5 rounded-full bg-olive transition-[width] duration-500"
+                            style={{ width: `${summary.attendancePercentage}%` }}
+                        />
+                    </span>
+                    <span className="w-11 text-right text-sm font-semibold tabular-nums">{summary.attendancePercentage}%</span>
+                    <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200", expanded && "rotate-180")} />
+                </button>
+                <Button variant="ghost" size="sm" onClick={onOpen}>
+                    Details
+                </Button>
             </div>
-
-            {/* Expanded mini calendar */}
-            {expanded && (
-                <div className="border-t border-border px-5 py-4 bg-muted/20">
-                    <div className="grid grid-cols-7 mb-1">
-                        {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                            <div key={i} className="text-center text-[10px] text-muted-foreground py-1">
-                                {d}
-                            </div>
-                        ))}
-                    </div>
-                    <div className="grid grid-cols-7 gap-0.5">
-                        {calendarCells.map((day, idx) => {
-                            if (!day) return <div key={`e-${idx}`} className="aspect-square" />;
-
-                            const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-                            const record = attendanceMap.get(dateStr);
-                            const isFuture = isCurrentMonth && day > now.getDate();
-
-                            const base = "aspect-square flex items-center justify-center rounded text-[10px] font-medium select-none";
-
-                            if (isFuture) {
-                                return <div key={dateStr} className={`${base} text-muted-foreground/20`}>{day}</div>;
-                            }
-
-                            if (!record) {
-                                return (
-                                    <div key={dateStr} className={`${base} text-muted-foreground/50 bg-muted/30`}>
-                                        {day}
+            <AnimatePresence initial={false}>
+                {expanded && (
+                    <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                        className="overflow-hidden"
+                    >
+                        <div className="bg-surface px-5 py-4">
+                            <div className="mx-auto grid max-w-md grid-cols-7 gap-1">
+                                {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                                    <div key={i} className="py-1 text-center text-[11px] text-muted-foreground">
+                                        {d}
                                     </div>
-                                );
-                            }
-
-                            const cellStyle: Record<AttendanceStatus, string> = {
-                                present: "bg-emerald-500 text-white",
-                                absent: "bg-red-500 text-white",
-                                partial: "bg-amber-500 text-white",
-                            };
-
-                            return (
-                                <div
-                                    key={dateStr}
-                                    title={STATUS_CONFIG[record.status].label}
-                                    className={`${base} ${cellStyle[record.status]}`}
-                                >
-                                    {day}
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Legend */}
-                    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50">
-                        {(Object.entries(STATUS_CONFIG) as [AttendanceStatus, typeof STATUS_CONFIG[AttendanceStatus]][]).map(
-                            ([status, config]) => (
-                                <div key={status} className="flex items-center gap-1.5">
-                                    <div className={`h-2 w-2 rounded-sm ${config.bgColor}`} />
-                                    <span className="text-[10px] text-muted-foreground">{config.label}</span>
-                                </div>
-                            )
-                        )}
-                    </div>
-                </div>
-            )}
-        </Card>
+                                ))}
+                                {cells.map((day, i) => {
+                                    if (!day) return <div key={`b-${i}`} className="aspect-square" />;
+                                    const key = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                                    const record = records.get(key);
+                                    const future = isCurrentMonth && day > now.getDate();
+                                    return (
+                                        <div
+                                            key={key}
+                                            title={record ? STATUS[record.status].label : undefined}
+                                            className={cn(
+                                                "flex aspect-square items-center justify-center rounded-md text-[11px] tabular-nums",
+                                                future ? "text-muted-foreground/40" : record ? STATUS[record.status].cell : "bg-card text-muted-foreground"
+                                            )}
+                                        >
+                                            {day}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </li>
     );
 };
-
-const EmptyTeam = () => (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Users className="h-8 w-8 text-muted-foreground/30 mb-3" />
-        <p className="text-sm font-medium text-muted-foreground">No members found</p>
-        <p className="text-xs text-muted-foreground/60 mt-1">
-            Add members from the dashboard to see their attendance
-        </p>
-    </div>
-);
-
-const TodaySkeletons = () => (
-    <div className="space-y-4">
-        <Skeleton className="h-11 rounded-lg" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
-        </div>
-        <Skeleton className="h-64 rounded-xl" />
-    </div>
-);
-
-const ReportSkeletons = () => (
-    <div className="space-y-3">
-        <Skeleton className="h-24 rounded-xl" />
-        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}
-    </div>
-);
 
 export default AdminAttendancePanel;

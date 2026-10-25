@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Download, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
 import { useProjects } from "@/contexts/ProjectContext";
-import { AppHeader } from "@/components/AppHeader";
+import { PageHeader, Section } from "@/components/layout/Page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,17 +117,12 @@ const Reports = () => {
   const waitingForScopes = isAdmin && orgsLoading;
 
   return (
-    <div className="min-h-screen bg-muted/40">
-      <AppHeader />
-      <main className="container mx-auto px-4 py-8 space-y-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl">Reports</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Productivity and attendance{report ? ` for ${report.scope.name}` : ""}.
-            </p>
-          </div>
-          {report && (
+    <>
+      <PageHeader
+        title="Reports"
+        description={`How work and attendance are going${report ? ` for ${report.scope.name}` : ""}, over the period you choose.`}
+        actions={
+          report && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline">
@@ -140,11 +135,12 @@ const Reports = () => {
                 <DropdownMenuItem onClick={() => exportDailyCsv(report)}>Daily breakdown</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          )}
-        </div>
+          )
+        }
+      />
 
         {/* Filters: one row, date range first, scoping everything below. */}
-        <div className="bg-background border border-border p-3 flex flex-wrap items-end gap-3">
+        <div className="mb-8 flex flex-wrap items-end gap-3 rounded-xl border border-border/80 bg-card p-4">
           <div className="space-y-1">
             <Label className="text-xs text-muted-foreground">Period</Label>
             <ToggleGroup
@@ -225,7 +221,7 @@ const Reports = () => {
 
         {waitingForScopes || (isLoading && !report) ? (
           <div className="flex justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : !scopeValue ? (
           <EmptyState
@@ -237,12 +233,12 @@ const Reports = () => {
             }
           />
         ) : error && !report ? (
-          <EmptyState title="Couldn't load this report" body={error} />
+          <EmptyState title="This report couldn't be loaded" body={error} />
         ) : report ? (
           // Refetch keeps the frame: previous numbers stay, dimmed, while loading.
-          <div className={cn("space-y-6 transition-opacity", isLoading && "opacity-50")} aria-busy={isLoading}>
-            <p className="text-xs text-muted-foreground">
-              {formatDay(report.range.from, true)} – {formatDay(report.range.to, true)} · {report.range.days} days ·{" "}
+          <div className={cn("space-y-6 transition-opacity duration-200", isLoading && "opacity-50")} aria-busy={isLoading}>
+            <p className="text-sm text-muted-foreground">
+              {formatDay(report.range.from, true)} to {formatDay(report.range.to, true)}, {report.range.days} days,{" "}
               {report.summary.people} {report.summary.people === 1 ? "person" : "people"}
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
@@ -259,7 +255,7 @@ const Reports = () => {
               <StatTile
                 label="Attendance"
                 value={formatPct(report.summary.attendanceRate)}
-                hint={`${report.summary.presentDays} present · ${report.summary.partialDays} partial`}
+                hint={`${report.summary.presentDays} present, ${report.summary.partialDays} partial`}
               />
             </div>
 
@@ -271,8 +267,7 @@ const Reports = () => {
             <MembersTable members={report.members} />
           </div>
         ) : null}
-      </main>
-    </div>
+    </>
   );
 };
 
@@ -314,16 +309,15 @@ const MembersTable = ({ members }: { members: ReportMember[] }) => {
   }
 
   return (
-    <section className="space-y-3">
-      <h2 className="text-sm uppercase tracking-wide text-muted-foreground">People</h2>
-      <div className="bg-background border border-border overflow-x-auto">
+    <Section title="People">
+      <div className="overflow-x-auto rounded-xl border border-border/80 bg-card">
         <table className="w-full text-sm">
-          <thead className="text-[11px] uppercase tracking-wide text-muted-foreground border-b border-border">
+          <thead className="border-b border-border/70 bg-surface text-xs text-muted-foreground">
             <tr>
               {COLUMNS.map((c) => (
                 <th
                   key={c.key}
-                  className={cn("font-normal px-4 py-2 whitespace-nowrap", c.align === "right" ? "text-right" : "text-left")}
+                  className={cn("whitespace-nowrap px-4 py-2.5 font-medium", c.align === "right" ? "text-right" : "text-left")}
                   aria-sort={sort.key === c.key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
                 >
                   <button
@@ -338,7 +332,7 @@ const MembersTable = ({ members }: { members: ReportMember[] }) => {
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-border tabular-nums">
+          <tbody className="divide-y divide-border/70 tabular-nums">
             {sorted.map((m) => (
               <tr key={m.id}>
                 <td className="px-4 py-3">
@@ -368,7 +362,7 @@ const MembersTable = ({ members }: { members: ReportMember[] }) => {
       <p className="text-xs text-muted-foreground">
         Completed shows tasks finished in the period over tasks created in it. Attendance counts a partial day as half.
       </p>
-    </section>
+    </Section>
   );
 };
 

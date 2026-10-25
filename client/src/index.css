@@ -3,19 +3,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
- 
-
 @theme inline {
-  /* Sharp corners across the whole UI — no rounding anywhere */
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
-  --radius-xl: 0px;
-  /* Typography: Carrois Gothic SC for display/headings,
-     JetBrains Mono for body & UI */
-  --font-sans: "JetBrains Mono", ui-monospace, "Cascadia Code", "Courier New", monospace;
-  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Courier New", monospace;
-  --font-display: "Carrois Gothic SC", "JetBrains Mono", ui-sans-serif, sans-serif;
+  /* Radius hierarchy: controls 10px, menus/inputs 12px, cards 16px, sheets 20px.
+     Badges, avatars and switches stay full pills (rounded-full). */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  /* One family: Onest. Personality comes from weight and tight tracking. */
+  --font-sans: "Onest", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Onest", ui-sans-serif, system-ui, sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -34,6 +34,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-olive: var(--olive);
+  --color-olive-soft: var(--olive-soft);
+  --color-surface: var(--surface);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -49,100 +52,110 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* ── Light (default): white surfaces on a sage-tinted off-white canvas,
+   deep forest green primary, olive for progress and highlights. ── */
 :root {
-  --radius: 0px;
-  /* Report charts — validated (dataviz validate_palette.js) against #fff / #0a0a0a.
-     Completed rides the accent; created/absent are recessive grays (>= 3:1);
-     present/partial use the fixed status steps and always ship with labels. */
-  --viz-completed: var(--primary);
-  --viz-created: #8a8a8a;
-  --viz-present: #0ca30c;
-  --viz-partial: #fab219;
-  --viz-absent: #8a8a8a;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.875rem;
+  --background: #f3f5ee; /* canvas */
+  --surface: #f8f9f4; /* subtle inset areas (table heads, wells) */
+  --foreground: #1c2a21;
+  --card: #ffffff;
+  --card-foreground: #1c2a21;
+  --popover: #ffffff;
+  --popover-foreground: #1c2a21;
+  --primary: #2e5a43; /* forest */
+  --primary-foreground: #f6f8f2;
+  --secondary: #e6ecdf; /* sage fill */
+  --secondary-foreground: #24402f;
+  --muted: #ecefe6;
+  --muted-foreground: #5c6a5f;
+  --accent: #e9eee3;
+  --accent-foreground: #1c2a21;
+  --olive: #6e7b36;
+  --olive-soft: #eef0dc;
+  --destructive: #b4492f;
+  --border: #e1e5da;
+  --input: #d9dfd1;
+  --ring: #7f9c6a;
+  --chart-1: #2e5a43;
+  --chart-2: #6e7b36;
+  --chart-3: #8fae8a;
+  --chart-4: #c9b46a;
+  --chart-5: #5c6a5f;
+  /* The one bold block: a deep forest sidebar. */
+  --sidebar: #1f3a2b;
+  --sidebar-foreground: #dfe8dc;
+  --sidebar-primary: #f3f5ee;
+  --sidebar-primary-foreground: #1f3a2b;
+  --sidebar-accent: rgb(255 255 255 / 0.07);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: #9fc18f;
+  /* Report charts — validated with the dataviz palette script against #fff.
+     present/partial/absent always ship with labels + a table view. */
+  --viz-completed: #2e5a43;
+  --viz-created: #8a9686;
+  --viz-present: #2f7d4f;
+  --viz-partial: #d19a1e;
+  --viz-absent: #7d8679;
 }
 
+/* ── Dark: "forest night", built from the same palette. ── */
 .dark {
-  --viz-created: #757575;
-  --viz-absent: #757575;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  /* Dark mode brand accent: orange (primary) + amber (ring/secondary highlights) */
-  --primary: oklch(0.72 0.19 50);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.77 0.16 70);
-  --chart-1: oklch(0.72 0.19 50);
-  --chart-2: oklch(0.79 0.16 78);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.72 0.19 50);
-  --sidebar-primary-foreground: oklch(0.205 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.77 0.16 70);
+  --background: #121915;
+  --surface: #151d18;
+  --foreground: #e6ece3;
+  --card: #18211b;
+  --card-foreground: #e6ece3;
+  --popover: #1b251e;
+  --popover-foreground: #e6ece3;
+  --primary: #8dbf97;
+  --primary-foreground: #10201a;
+  --secondary: #22302a;
+  --secondary-foreground: #d7e3d3;
+  --muted: #1f2a23;
+  --muted-foreground: #9aa89c;
+  --accent: #243128;
+  --accent-foreground: #e6ece3;
+  --olive: #b5c26e;
+  --olive-soft: #2a3122;
+  --destructive: #e07a5f;
+  --border: #26332b;
+  --input: #2f3d34;
+  --ring: #8dbf97;
+  --chart-1: #8dbf97;
+  --chart-2: #b5c26e;
+  --chart-3: #5f8f6b;
+  --chart-4: #d9c27a;
+  --chart-5: #9aa89c;
+  --sidebar: #0e1411;
+  --sidebar-foreground: #c9d6c6;
+  --sidebar-primary: #8dbf97;
+  --sidebar-primary-foreground: #0e1411;
+  --sidebar-accent: rgb(255 255 255 / 0.05);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.06);
+  --sidebar-ring: #8dbf97;
+  --viz-completed: #8dbf97;
+  --viz-created: #6f7d72;
+  --viz-present: #2f8a55;
+  --viz-partial: #e6bb4f;
+  --viz-absent: #727f75;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  /* Enforce sharp corners everywhere, overriding any rounded-* utility
-     (including rounded-full on avatars, badges, switches, etc.) */
-  *,
-  ::before,
-  ::after {
-    border-radius: 0 !important;
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+    font-feature-settings: "ss01", "cv11";
   }
   h1,
   h2,
@@ -151,6 +164,38 @@
   h5,
   h6 {
     font-family: var(--font-display);
-    font-weight: 400;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+  /* Pressable things answer the press. Kept to transform so it never
+     fights colour transitions. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    transition-property: transform, background-color, border-color, color, box-shadow, opacity;
+    transition-duration: 160ms;
+    transition-timing-function: var(--ease-out);
+  }
+  button:not(:disabled):active,
+  [role="button"]:not([aria-disabled="true"]):active {
+    transform: scale(0.97);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button:not(:disabled):active,
+    [role="button"]:not([aria-disabled="true"]):active {
+      transform: none;
+    }
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }

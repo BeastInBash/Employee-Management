@@ -1,474 +1,261 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { BarChart3, Check, Clock, FolderKanban, KeyRound, ShieldCheck, UsersRound } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Variants } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-    Card,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
-import { ThemeToggle } from "@/components/theme-provider";
-import {
-    Users,
-    ListChecks,
-    CalendarCheck,
-    ShieldCheck,
-    ArrowRight,
-    Github,
-    LayoutDashboard,
-    Bell,
-    Clock,
-    CheckCircle2,
-} from "lucide-react";
-
-// Subtle, reusable motion primitives — short distance, gentle easing.
-const fadeUp: Variants = {
-    hidden: { opacity: 0, y: 16 },
-    show: {
-        opacity: 1,
-        y: 0,
-        transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
-    },
-};
-
-const stagger: Variants = {
-    hidden: {},
-    show: { transition: { staggerChildren: 0.08 } },
-};
-
-// Reveal-on-scroll wrapper used across sections.
-const inView = {
-    initial: "hidden",
-    whileInView: "show",
-    viewport: { once: true, amount: 0.2 },
-} as const;
+import { Leaf } from "@/components/layout/Leaf";
+import { cn } from "@/lib/utils";
 
 const features = [
     {
-        icon: Users,
-        title: "Team management",
-        description:
-            "Add team members, assign roles, and keep your whole org in one tidy roster. New members are onboarded with email invites.",
+        icon: FolderKanban,
+        title: "Projects with a lead",
+        body: "Give every project an owner. Leads assign work and keep it moving without needing admin rights.",
     },
     {
-        icon: ListChecks,
-        title: "Task tracking",
-        description:
-            "Move work from To-do to In progress, Review, and Done. Set priorities from low to urgent and never lose sight of due dates.",
+        icon: UsersRound,
+        title: "Teams",
+        body: "Group people the way you already work, then bring a whole team onto a project in one step.",
     },
     {
-        icon: CalendarCheck,
-        title: "Attendance",
-        description:
-            "Members mark attendance daily; admins get a clear panel to review presence across the team at a glance.",
+        icon: BarChart3,
+        title: "Reports you can hand over",
+        body: "On-time rate, open work and attendance for any person, team or project. Export to CSV.",
+    },
+    {
+        icon: Clock,
+        title: "Submission hours",
+        body: "Want plans in by 10 AM? Set the hours per workspace. Leave it off and people add tasks anytime.",
+    },
+    {
+        icon: KeyRound,
+        title: "Google sign-in",
+        body: "People sign in with the work account they already have. No new password to forget.",
     },
     {
         icon: ShieldCheck,
-        title: "Role-based access",
-        description:
-            "Admins see and manage everything. Members focus on their own tasks and attendance. Secure JWT auth throughout.",
-    },
-    {
-        icon: LayoutDashboard,
-        title: "Clean dashboards",
-        description:
-            "Purpose-built views for admins and members, so everyone lands exactly where they need to be after signing in.",
-    },
-    {
-        icon: Bell,
-        title: "Stay in the loop",
-        description:
-            "Instant feedback on every action with lightweight toasts, plus password self-service for members.",
+        title: "Sensible access",
+        body: "Admins see everything, leads see what they lead, everyone else sees their own work.",
     },
 ];
 
-const steps = [
-    {
-        step: "01",
-        title: "Create your team",
-        description:
-            "Sign up as an admin and invite members with a single click. They receive credentials by email.",
-    },
-    {
-        step: "02",
-        title: "Assign the work",
-        description:
-            "Break work into tasks, set priorities and due dates, and assign them to the right people.",
-    },
-    {
-        step: "03",
-        title: "Track & deliver",
-        description:
-            "Watch tasks flow to done and keep attendance in check — all from one dashboard.",
-    },
+const demoTasks = [
+    { id: "a", title: "Reply to the Hartley quote" },
+    { id: "b", title: "Finish the spring menu photos" },
+    { id: "c", title: "Update the stock sheet" },
 ];
 
-const stats = [
-    { value: "4", label: "Task stages", icon: ListChecks },
-    { value: "2", label: "Roles built in", icon: ShieldCheck },
-    { value: "Daily", label: "Attendance check", icon: Clock },
-    { value: "1", label: "Dashboard to rule them", icon: LayoutDashboard },
-];
+/**
+ * The hero's one interactive moment: tick off a teammate's day and watch her
+ * attendance resolve itself, which is the whole idea of the product.
+ */
+const DayDemo = () => {
+    const [done, setDone] = useState<Record<string, boolean>>({ a: true });
+    const count = demoTasks.filter((t) => done[t.id]).length;
+    const status = count === demoTasks.length ? "present" : count > 0 ? "partial" : "absent";
+    const label = { present: "Present", partial: "Partial", absent: "Not started" }[status];
 
-const faqs = [
-    {
-        q: "Who can add team members?",
-        a: "Admins. They invite members, who receive login credentials by email and can change their password on first sign-in.",
-    },
-    {
-        q: "What task stages are supported?",
-        a: "To-do, In progress, Review, and Completed — each with a priority of low, medium, high, or urgent.",
-    },
-    {
-        q: "How does attendance work?",
-        a: "Members mark their attendance, and admins review the whole team from a dedicated attendance panel.",
-    },
-    {
-        q: "Is my data secure?",
-        a: "Access is gated by role and protected with token-based authentication on every request.",
-    },
-];
+    return (
+        <div className="relative">
+            <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-[0_32px_80px_-40px_rgb(20_40_28/0.45)] sm:p-6">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-secondary-foreground">
+                            PS
+                        </span>
+                        <div>
+                            <p className="text-[15px] font-medium">Priya Shah</p>
+                            <p className="text-sm text-muted-foreground">Today, 3 tasks planned</p>
+                        </div>
+                    </div>
+                    <AnimatePresence mode="wait" initial={false}>
+                        <motion.span
+                            key={status}
+                            initial={{ opacity: 0, transform: "scale(0.92)" }}
+                            animate={{ opacity: 1, transform: "scale(1)" }}
+                            exit={{ opacity: 0, transform: "scale(0.96)", transition: { duration: 0.1 } }}
+                            transition={{ type: "spring", duration: 0.35, bounce: 0.25 }}
+                            className={cn(
+                                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium",
+                                status === "present" && "bg-primary text-primary-foreground",
+                                status === "partial" && "bg-olive-soft text-olive",
+                                status === "absent" && "bg-muted text-muted-foreground"
+                            )}
+                            aria-live="polite"
+                        >
+                            {status === "present" && <Check className="h-3.5 w-3.5" />}
+                            {label}
+                        </motion.span>
+                    </AnimatePresence>
+                </div>
+                <ul className="space-y-2">
+                    {demoTasks.map((t) => {
+                        const checked = !!done[t.id];
+                        return (
+                            <li key={t.id}>
+                                <button
+                                    onClick={() => setDone((d) => ({ ...d, [t.id]: !d[t.id] }))}
+                                    aria-pressed={checked}
+                                    className="flex w-full items-center gap-3 rounded-xl bg-surface px-3.5 py-3 text-left ring-1 ring-border/70 transition-colors hover:bg-accent/60 focus-visible:outline-2 focus-visible:outline-ring"
+                                >
+                                    <span
+                                        className={cn(
+                                            "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors duration-200",
+                                            checked ? "border-primary bg-primary text-primary-foreground" : "border-input bg-card"
+                                        )}
+                                    >
+                                        <motion.span initial={false} animate={{ opacity: checked ? 1 : 0, scale: checked ? 1 : 0.6 }} transition={{ duration: 0.15 }}>
+                                            <Check className="h-3 w-3" strokeWidth={3} />
+                                        </motion.span>
+                                    </span>
+                                    <span className={cn("text-sm transition-colors", checked && "text-muted-foreground line-through decoration-muted-foreground/40")}>
+                                        {t.title}
+                                    </span>
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+                <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <motion.div
+                        className="h-full rounded-full bg-olive"
+                        initial={false}
+                        animate={{ width: `${(count / demoTasks.length) * 100}%` }}
+                        transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+                    />
+                </div>
+            </div>
+            <p className="mt-4 text-center text-sm text-muted-foreground">Tick off Priya's day and watch her attendance.</p>
+        </div>
+    );
+};
 
 const Landing = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    // A logged-in user who reopens the site shouldn't be dropped on the public
-    // marketing page and asked to sign in again — send them into the app.
+    // A signed-in visitor goes straight back into the app.
     useEffect(() => {
         if (!user) return;
-        if (user.role === "admin") {
-            navigate("/dashboard", { replace: true });
-        } else {
-            navigate(`/todos/${user.id}`, { replace: true });
-        }
+        navigate(user.role === "admin" ? "/dashboard" : `/todos/${user.id}`, { replace: true });
     }, [user, navigate]);
 
     return (
         <div className="min-h-screen bg-background text-foreground">
-            {/* Header */}
-            <motion.header
-                initial={{ y: -24, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60"
-            >
-                <div className="container mx-auto flex h-16 items-center justify-between px-4">
-                    <div className="flex items-center gap-2">
-                        <img src="/dark-logo.png" alt="Crewly" className="h-9 w-9 dark:hidden" />
-                        <img src="/logo.png" alt="Crewly" className="hidden h-9 w-9 dark:block" />
-                        <span className="font-display text-lg tracking-tight">Crewly</span>
-                    </div>
+            <header className="mx-auto flex h-16 max-w-[1180px] items-center justify-between px-5 sm:px-8">
+                <Link to="/" className="flex items-center gap-2 font-semibold tracking-tight">
+                    <Leaf className="h-5 w-5 text-primary" />
+                    Crewly
+                </Link>
+                <nav className="flex items-center gap-1 sm:gap-2">
+                    <a href="#how" className="hidden rounded-sm px-3 py-2 text-sm text-muted-foreground hover:text-foreground sm:block">
+                        How it works
+                    </a>
+                    <a href="#features" className="hidden rounded-sm px-3 py-2 text-sm text-muted-foreground hover:text-foreground sm:block">
+                        Features
+                    </a>
+                    <Button variant="ghost" asChild>
+                        <Link to="/login">Sign in</Link>
+                    </Button>
+                    <Button asChild>
+                        <Link to="/login?tab=signup">Get started</Link>
+                    </Button>
+                </nav>
+            </header>
 
-                    <nav className="hidden items-center gap-8 md:flex">
-                        <a href="#features" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-                            Features
-                        </a>
-                        <a href="#how-it-works" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-                            How it works
-                        </a>
-                        <a href="#faq" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-                            FAQ
-                        </a>
-                    </nav>
-
-                    <div className="flex items-center gap-2">
-                        <ThemeToggle />
-                        <Button variant="ghost" asChild className="hidden sm:inline-flex">
-                            <Link to="/login">Sign in</Link>
-                        </Button>
-                        <Button asChild>
-                            <Link to="/login">Get started</Link>
-                        </Button>
-                    </div>
-                </div>
-            </motion.header>
-
-            {/* Hero */}
-            <section className="relative overflow-hidden">
-                {/* decorative gradient glow */}
-                <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-x-0 -top-40 -z-10 mx-auto h-[28rem] max-w-5xl bg-gradient-to-tr from-chart-1/30 via-chart-4/20 to-chart-2/30 blur-3xl"
-                />
-                <motion.div
-                    variants={stagger}
-                    initial="hidden"
-                    animate="show"
-                    className="container mx-auto px-4 py-20 text-center md:py-28"
-                >
-                    <motion.div variants={fadeUp} className="flex justify-center">
-                        <Badge variant="secondary" className="mb-6 gap-1.5 px-3 py-1">
-                            <span className="inline-block h-2 w-2 bg-chart-2" />
-                            Tasks &amp; attendance, in one place
-                        </Badge>
-                    </motion.div>
-
-                    <motion.h1
-                        variants={fadeUp}
-                        className="mx-auto max-w-3xl text-balance text-4xl tracking-tight sm:text-5xl md:text-6xl"
-                    >
-                        Keep your team{" "}
-                        <span className="bg-gradient-to-r from-chart-1 to-chart-4 bg-clip-text text-transparent">
-                            on task
-                        </span>{" "}
-                        and on time
-                    </motion.h1>
-
-                    <motion.p
-                        variants={fadeUp}
-                        className="mx-auto mt-6 max-w-2xl text-pretty text-lg text-muted-foreground"
-                    >
-                        Crewly brings team management, task assignment, and daily
-                        attendance together — so admins stay in control and members always
-                        know what's next.
-                    </motion.p>
-
+            <main>
+                <section className="mx-auto grid max-w-[1180px] items-center gap-14 px-5 pb-24 pt-12 sm:px-8 lg:grid-cols-[1.1fr_1fr] lg:pt-20">
                     <motion.div
-                        variants={fadeUp}
-                        className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
+                        initial={{ opacity: 0, transform: "translateY(8px)" }}
+                        animate={{ opacity: 1, transform: "translateY(0px)" }}
+                        transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
                     >
-                        <Button size="lg" asChild className="gap-2">
-                            <Link to="/login">
-                                Start tracking
-                                <ArrowRight className="h-4 w-4" />
-                            </Link>
-                        </Button>
-                        <Button size="lg" variant="outline" asChild>
-                            <a href="#features">See features</a>
-                        </Button>
-                    </motion.div>
-
-                    {/* App preview mockup */}
-                    <motion.div
-                        variants={fadeUp}
-                        className="relative mx-auto mt-16 max-w-4xl"
-                    >
-                        <div className="border border-border bg-card p-2 shadow-2xl shadow-black/10">
-                            <div className="border border-border bg-muted/40">
-                                {/* window chrome */}
-                                <div className="flex items-center gap-1.5 border-b border-border px-4 py-3">
-                                    <span className="h-3 w-3 bg-chart-5/70" />
-                                    <span className="h-3 w-3 bg-chart-4/70" />
-                                    <span className="h-3 w-3 bg-chart-2/70" />
-                                    <div className="ml-3 flex items-center gap-2 text-xs text-muted-foreground">
-                                        <Users className="h-3.5 w-3.5" />
-                                        Team Members
-                                    </div>
-                                </div>
-                                {/* fake member grid */}
-                                <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
-                                    {[
-                                        { name: "Aisha Khan", role: "Frontend Dev", done: 12 },
-                                        { name: "Marco Silva", role: "Backend Dev", done: 8 },
-                                        { name: "Lena Park", role: "Designer", done: 15 },
-                                    ].map((m, i) => (
-                                        <motion.div
-                                            key={m.name}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.5 + i * 0.1, duration: 0.4 }}
-                                            className="border border-border bg-card p-4 text-left"
-                                        >
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex h-8 w-8 items-center justify-center bg-secondary text-xs font-semibold text-secondary-foreground">
-                                                    {m.name
-                                                        .split(" ")
-                                                        .map((p) => p[0])
-                                                        .join("")}
-                                                </div>
-                                                <div>
-                                                    <div className="text-sm font-medium leading-none">{m.name}</div>
-                                                    <div className="text-xs text-muted-foreground">{m.role}</div>
-                                                </div>
-                                            </div>
-                                            <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-                                                <CheckCircle2 className="h-3.5 w-3.5 text-chart-2" />
-                                                {m.done} tasks done
-                                            </div>
-                                        </motion.div>
-                                    ))}
-                                </div>
-                            </div>
+                        <h1 className="max-w-[16ch] text-[44px] font-semibold leading-[1.05] tracking-[-0.035em] sm:text-[60px]">
+                            Attendance that takes care of itself.
+                        </h1>
+                        <p className="mt-6 max-w-[52ch] text-lg leading-relaxed text-muted-foreground">
+                            Your team plans the day as a short list of tasks. Finish the list and Crewly marks you present. No
+                            clock-ins, no timesheets, just the work, with projects, teams and leads for the people running a
+                            small business.
+                        </p>
+                        <div className="mt-9 flex flex-wrap gap-3">
+                            <Button size="lg" asChild>
+                                <Link to="/login?tab=signup">Create your workspace</Link>
+                            </Button>
+                            <Button size="lg" variant="outline" asChild>
+                                <Link to="/login">Sign in</Link>
+                            </Button>
                         </div>
                     </motion.div>
-                </motion.div>
-            </section>
-
-            {/* Stats strip */}
-            <section className="border-y border-border bg-muted/30">
-                <motion.div
-                    variants={stagger}
-                    {...inView}
-                    className="container mx-auto grid grid-cols-2 gap-6 px-4 py-10 md:grid-cols-4"
-                >
-                    {stats.map((s) => (
-                        <motion.div key={s.label} variants={fadeUp} className="text-center">
-                            <s.icon className="mx-auto mb-2 h-5 w-5 text-muted-foreground" />
-                            <div className="font-display text-2xl">{s.value}</div>
-                            <div className="text-sm text-muted-foreground">{s.label}</div>
-                        </motion.div>
-                    ))}
-                </motion.div>
-            </section>
-
-            {/* Features */}
-            <section id="features" className="container mx-auto px-4 py-20 md:py-28">
-                <motion.div variants={fadeUp} {...inView} className="mx-auto max-w-2xl text-center">
-                    <h2 className="text-3xl tracking-tight sm:text-4xl">
-                        Everything your team needs
-                    </h2>
-                    <p className="mt-4 text-muted-foreground">
-                        From the first invite to the last completed task — Crewly covers
-                        the whole loop without the clutter.
-                    </p>
-                </motion.div>
-
-                <motion.div
-                    variants={stagger}
-                    {...inView}
-                    className="mt-14 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
-                >
-                    {features.map((f) => (
-                        <motion.div
-                            key={f.title}
-                            variants={fadeUp}
-                            whileHover={{ y: -4 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 24 }}
-                        >
-                            <Card className="h-full transition-shadow hover:shadow-md">
-                                <CardHeader>
-                                    <div className="mb-2 flex h-11 w-11 items-center justify-center bg-secondary text-secondary-foreground">
-                                        <f.icon className="h-5 w-5" />
-                                    </div>
-                                    <CardTitle className="text-lg">{f.title}</CardTitle>
-                                    <CardDescription className="leading-relaxed">
-                                        {f.description}
-                                    </CardDescription>
-                                </CardHeader>
-                            </Card>
-                        </motion.div>
-                    ))}
-                </motion.div>
-            </section>
-
-            {/* How it works */}
-            <section id="how-it-works" className="border-t border-border bg-muted/30">
-                <div className="container mx-auto px-4 py-20 md:py-28">
-                    <motion.div variants={fadeUp} {...inView} className="mx-auto max-w-2xl text-center">
-                        <h2 className="text-3xl tracking-tight sm:text-4xl">
-                            Up and running in three steps
-                        </h2>
-                        <p className="mt-4 text-muted-foreground">
-                            No lengthy setup. Create a team, assign work, and start delivering.
-                        </p>
-                    </motion.div>
-
                     <motion.div
-                        variants={stagger}
-                        {...inView}
-                        className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-3"
+                        initial={{ opacity: 0, transform: "translateY(12px)" }}
+                        animate={{ opacity: 1, transform: "translateY(0px)" }}
+                        transition={{ duration: 0.6, delay: 0.12, ease: [0.23, 1, 0.32, 1] }}
                     >
-                        {steps.map((s, i) => (
-                            <motion.div key={s.step} variants={fadeUp} className="relative">
-                                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center bg-primary font-display text-lg text-primary-foreground">
-                                    {s.step}
+                        <DayDemo />
+                    </motion.div>
+                </section>
+
+                <section id="how" className="border-y border-border/70 bg-card">
+                    <div className="mx-auto max-w-[1180px] px-5 py-20 sm:px-8">
+                        <h2 className="max-w-[24ch] text-3xl tracking-tight sm:text-4xl">A working day, the way Crewly sees it</h2>
+                        <ol className="mt-12 grid gap-10 md:grid-cols-3">
+                            {[
+                                ["Plan in the morning", "Each person adds what they'll get done today. Admins and leads can assign tasks too."],
+                                ["Work through it", "Tasks move from to do to done. Leads see their project's progress as it happens."],
+                                ["Attendance settles itself", "Everything done means present. Some of it means partial. Nothing planned means absent."],
+                            ].map(([title, body], i) => (
+                                <li key={title} className="relative pl-6">
+                                    <span className={cn("absolute left-0 top-2 h-2.5 w-2.5 rounded-full", i === 2 ? "bg-primary" : "bg-olive/60")} />
+                                    <h3 className="text-lg">{title}</h3>
+                                    <p className="mt-2 max-w-[38ch] text-muted-foreground">{body}</p>
+                                </li>
+                            ))}
+                        </ol>
+                    </div>
+                </section>
+
+                <section id="features" className="mx-auto max-w-[1180px] px-5 py-24 sm:px-8">
+                    <h2 className="max-w-[26ch] text-3xl tracking-tight sm:text-4xl">Everything a small team needs, and nothing it doesn't</h2>
+                    <div className="mt-12 grid gap-x-12 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+                        {features.map((f) => (
+                            <div key={f.title} className="flex gap-4">
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+                                    <f.icon className="h-5 w-5" />
+                                </span>
+                                <div>
+                                    <h3 className="text-base">{f.title}</h3>
+                                    <p className="mt-1.5 text-[15px] leading-relaxed text-muted-foreground">{f.body}</p>
                                 </div>
-                                {i < steps.length - 1 && (
-                                    <ArrowRight className="absolute right-4 top-3 hidden h-5 w-5 text-muted-foreground md:block" />
-                                )}
-                                <h3 className="mb-2 text-xl">{s.title}</h3>
-                                <p className="text-muted-foreground">{s.description}</p>
-                            </motion.div>
+                            </div>
                         ))}
-                    </motion.div>
-                </div>
-            </section>
-
-            {/* FAQ */}
-            <section id="faq" className="container mx-auto px-4 py-20 md:py-28">
-                <div className="mx-auto max-w-3xl">
-                    <motion.h2
-                        variants={fadeUp}
-                        {...inView}
-                        className="text-center text-3xl tracking-tight sm:text-4xl"
-                    >
-                        Frequently asked
-                    </motion.h2>
-                    <motion.div
-                        variants={stagger}
-                        {...inView}
-                        className="mt-12 grid gap-6 sm:grid-cols-2"
-                    >
-                        {faqs.map((item) => (
-                            <motion.div
-                                key={item.q}
-                                variants={fadeUp}
-                                className="border border-border bg-card p-6"
-                            >
-                                <h3 className="text-base font-semibold">{item.q}</h3>
-                                <p className="mt-2 text-sm text-muted-foreground">{item.a}</p>
-                            </motion.div>
-                        ))}
-                    </motion.div>
-                </div>
-            </section>
-
-            {/* CTA */}
-            <section className="container mx-auto px-4 pb-20 md:pb-28">
-                <motion.div
-                    variants={fadeUp}
-                    {...inView}
-                    className="relative overflow-hidden border border-border bg-card px-6 py-14 text-center md:py-20"
-                >
-                    <div
-                        aria-hidden
-                        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-chart-1/10 via-transparent to-chart-2/10"
-                    />
-                    <h2 className="mx-auto max-w-2xl text-3xl tracking-tight sm:text-4xl">
-                        Ready to get your team on track?
-                    </h2>
-                    <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-                        Create your account and start assigning tasks in minutes.
-                    </p>
-                    <Button size="lg" asChild className="mt-8 gap-2">
-                        <Link to="/login">
-                            Get started — it's free
-                            <ArrowRight className="h-4 w-4" />
-                        </Link>
-                    </Button>
-                </motion.div>
-            </section>
-
-            {/* Footer */}
-            <footer className="border-t border-border">
-                <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row">
-                    <div className="flex items-center gap-2">
-                        <img src="/dark-logo.png" alt="Crewly" className="h-7 w-7 dark:hidden" />
-                        <img src="/logo.png" alt="Crewly" className="hidden h-7 w-7 dark:block" />
-                        <span className="font-display text-sm">Crewly</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                        © {new Date().getFullYear()} Crewly. All rights reserved.
-                    </p>
-                    <div className="flex items-center gap-4">
-                        <Link to="/login" className="text-sm text-muted-foreground transition-colors hover:text-foreground">
-                            Sign in
-                        </Link>
-                        <a
-                            href="https://github.com/Thebeast01"
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                            <Github className="h-5 w-5" />
-                            <span className="sr-only">GitHub</span>
-                        </a>
+                </section>
+
+                <section className="mx-auto max-w-[1180px] px-5 pb-24 sm:px-8">
+                    <div className="flex flex-col items-start justify-between gap-6 rounded-[28px] bg-sidebar px-8 py-12 text-sidebar-foreground sm:flex-row sm:items-center sm:px-12">
+                        <div>
+                            <h2 className="text-2xl tracking-tight text-white sm:text-3xl">Set up your team this afternoon.</h2>
+                            <p className="mt-2 text-sidebar-foreground/75">Create a workspace, add your people, and tomorrow's attendance takes care of itself.</p>
+                        </div>
+                        <Button size="lg" asChild className="bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90">
+                            <Link to="/login?tab=signup">Get started</Link>
+                        </Button>
                     </div>
+                </section>
+            </main>
+
+            <footer className="border-t border-border/70">
+                <div className="mx-auto flex max-w-[1180px] flex-col items-center justify-between gap-3 px-5 py-8 text-sm text-muted-foreground sm:flex-row sm:px-8">
+                    <span className="flex items-center gap-2">
+                        <Leaf className="h-4 w-4 text-primary" />
+                        Crewly
+                    </span>
+                    <span>© {new Date().getFullYear()} Crewly</span>
+                    <a href="https://github.com/Thebeast01" target="_blank" rel="noreferrer" className="hover:text-foreground">
+                        GitHub
+                    </a>
                 </div>
             </footer>
         </div>

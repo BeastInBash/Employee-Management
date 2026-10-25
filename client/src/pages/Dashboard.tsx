@@ -1,17 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import type { Variants } from "framer-motion";
+import { Building2, Clock, Layers, Loader2, MoreHorizontal, Plus, Search, Settings2, Trash2, UserPlus, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMembers } from "@/contexts/MemberContext";
+import type { Member } from "@/contexts/MemberContext";
 import { useOrg } from "@/contexts/OrgContext";
+import { PageHeader } from "@/components/layout/Page";
+import { EmptyState, PersonAvatar } from "@/components/projects/shared";
 import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/components/ui/sonner";
 import {
     Dialog,
     DialogContent,
@@ -19,36 +20,15 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { useNavigate } from "react-router-dom";
-import {
-    PlusCircle,
-    LogOut,
-    Users,
-    KeyRound,
-    Trash2,
-    Loader2,
-    Building2,
-    Layers,
-    Plus,
-    Clock,
-    FolderKanban,
-    UsersRound,
-    BarChart3,
-} from "lucide-react";
-import { ThemeToggle } from "@/components/theme-provider";
-import { toast } from "@/components/ui/sonner";
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -60,23 +40,8 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// Subtle, once-only entrance motion (per the project's animation conventions).
-const fadeUp: Variants = {
-    hidden: { opacity: 0, y: 12 },
-    show: {
-        opacity: 1,
-        y: 0,
-        transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
-    },
-};
-
-const stagger: Variants = {
-    hidden: {},
-    show: { transition: { staggerChildren: 0.06 } },
-};
-
 const Dashboard = () => {
-    const { user, logout, changePassword } = useAuth();
+    const { user } = useAuth();
     const { getUserMembers, addMember, deleteMember } = useMembers();
     const {
         organizations,
@@ -84,872 +49,544 @@ const Dashboard = () => {
         workspaces,
         activeWorkspace,
         isLoading: isOrgLoading,
-        setActiveOrgId,
-        setActiveWorkspaceId,
         createOrganization,
         createWorkspace,
         updateTaskWindow,
     } = useOrg();
     const navigate = useNavigate();
 
-    // Per-action loading state so buttons can show spinners and stay disabled
-    // while a request is in flight.
-    const [isAddingMember, setIsAddingMember] = useState(false);
-    const [isDeletingMember, setIsDeletingMember] = useState(false);
-    const [isChangingPassword, setIsChangingPassword] = useState(false);
-    const [isCreatingOrg, setIsCreatingOrg] = useState(false);
-    const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
-    const [isSavingTaskWindow, setIsSavingTaskWindow] = useState(false);
-
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+    const [query, setQuery] = useState("");
+    const [isAddOpen, setIsAddOpen] = useState(false);
     const [isOrgDialogOpen, setIsOrgDialogOpen] = useState(false);
     const [isWorkspaceDialogOpen, setIsWorkspaceDialogOpen] = useState(false);
     const [isTaskWindowDialogOpen, setIsTaskWindowDialogOpen] = useState(false);
-
-    // Draft of the active workspace's task submission window (times are IST).
-    const [windowEnabled, setWindowEnabled] = useState(false);
-    const [windowStart, setWindowStart] = useState("09:00");
-    const [windowEnd, setWindowEnd] = useState("11:00");
-
-    const [memberName, setMemberName] = useState("");
-    const [memberEmail, setMemberEmail] = useState("");
-    const [memberRole, setMemberRole] = useState("");
-    const [memberWorkspaceId, setMemberWorkspaceId] = useState("");
-
-    const [orgName, setOrgName] = useState("");
-    const [workspaceName, setWorkspaceName] = useState("");
-
-    // delete dialog state
-    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-    const [memberToDeleteId, setMemberToDeleteId] = useState<string | null>(null);
-    const [memberToDeleteName, setMemberToDeleteName] = useState<string | null>(
-        null
-    );
-
-    const [oldPassword, setOldPassword] = useState("");
-    const [newPassword, setNewPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
+    const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+    const [isDeletingMember, setIsDeletingMember] = useState(false);
 
     const isAdmin = user?.role === "admin";
 
     // Members the current user can see, scoped to the active workspace for admins.
     const allUserMembers = user ? getUserMembers(user.id) : [];
     const userMembers =
-        isAdmin && activeWorkspace
-            ? allUserMembers.filter((m) => m.workspaceId === activeWorkspace.id)
-            : allUserMembers;
+        isAdmin && activeWorkspace ? allUserMembers.filter((m) => m.workspaceId === activeWorkspace.id) : allUserMembers;
+
+    const visible = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return userMembers;
+        return userMembers.filter((m) =>
+            [m.user?.name, m.email, m.role].some((v) => v?.toLowerCase().includes(q))
+        );
+    }, [userMembers, query]);
 
     // Org/workspace onboarding gates (admin only).
     const needsOrg = isAdmin && !isOrgLoading && organizations.length === 0;
-    const needsWorkspace =
-        isAdmin && organizations.length > 0 && workspaces.length === 0;
-
-    const handleAddMember = async () => {
-        if (!user) return;
-
-        const targetWorkspaceId = memberWorkspaceId || activeWorkspace?.id;
-        if (!targetWorkspaceId) {
-            toast.error("Create or select a workspace first");
-            return;
-        }
-
-        setIsAddingMember(true);
-        try {
-            const created = await addMember({
-                name: memberName,
-                email: memberEmail,
-                role: memberRole,
-                workspaceId: targetWorkspaceId,
-                createdById: user.id,
-            });
-
-            // addMember already inserts the new member into local state, so there's
-            // no need for a full (slow) refetch — just close/reset the form.
-            if (created) {
-                setMemberName("");
-                setMemberEmail("");
-                setMemberRole("");
-                setMemberWorkspaceId("");
-                setIsDialogOpen(false);
-            }
-        } finally {
-            setIsAddingMember(false);
-        }
-    };
-
-    const handleCreateOrg = async () => {
-        if (orgName.trim().length < 2) {
-            toast.error("Organization name must be at least 2 characters");
-            return;
-        }
-        setIsCreatingOrg(true);
-        try {
-            const created = await createOrganization(orgName.trim());
-            if (created) {
-                setOrgName("");
-                setIsOrgDialogOpen(false);
-            }
-        } finally {
-            setIsCreatingOrg(false);
-        }
-    };
-
-    const handleCreateWorkspace = async () => {
-        if (workspaceName.trim().length < 2) {
-            toast.error("Workspace name must be at least 2 characters");
-            return;
-        }
-        setIsCreatingWorkspace(true);
-        try {
-            const created = await createWorkspace(workspaceName.trim());
-            if (created) {
-                setWorkspaceName("");
-                setIsWorkspaceDialogOpen(false);
-            }
-        } finally {
-            setIsCreatingWorkspace(false);
-        }
-    };
-
-    const openTaskWindowDialog = () => {
-        if (!activeWorkspace) {
-            toast.error("Select a workspace first");
-            return;
-        }
-        // Seed the form from what's currently saved for this workspace.
-        setWindowEnabled(activeWorkspace.taskWindow.enabled);
-        setWindowStart(activeWorkspace.taskWindow.startTime);
-        setWindowEnd(activeWorkspace.taskWindow.endTime);
-        setIsTaskWindowDialogOpen(true);
-    };
-
-    const handleSaveTaskWindow = async () => {
-        if (!activeWorkspace) return;
-        if (windowEnabled && windowStart === windowEnd) {
-            toast.error("Start and end time must differ");
-            return;
-        }
-        setIsSavingTaskWindow(true);
-        try {
-            const saved = await updateTaskWindow(activeWorkspace.id, {
-                enabled: windowEnabled,
-                startTime: windowStart,
-                endTime: windowEnd,
-            });
-            if (saved) setIsTaskWindowDialogOpen(false);
-        } finally {
-            setIsSavingTaskWindow(false);
-        }
-    };
-
-    const handleChangePassword = async () => {
-        if (newPassword !== confirmPassword) {
-            toast.error("Passwords do not match");
-            return;
-        }
-
-        if (newPassword.length < 6) {
-            toast.error("Password must be at least 6 characters");
-            return;
-        }
-
-        setIsChangingPassword(true);
-        try {
-            const success = await changePassword(oldPassword, newPassword);
-
-            if (success) {
-                setOldPassword("");
-                setNewPassword("");
-                setConfirmPassword("");
-                setIsPasswordDialogOpen(false);
-            }
-        } finally {
-            setIsChangingPassword(false);
-        }
-    };
-
-    const handleLogout = () => {
-        logout();
-        navigate("/");
-    };
+    const needsWorkspace = isAdmin && organizations.length > 0 && workspaces.length === 0;
 
     if (!user) {
         navigate("/");
         return null;
     }
 
+    const taskWindow = activeWorkspace?.taskWindow;
+
     return (
-        <div className="min-h-screen bg-muted/40">
-            <header className="bg-background border-b border-border sticky top-0 z-10">
-                <div className="container mx-auto px-4 py-4 flex flex-wrap justify-between items-center gap-y-3 gap-x-4">
-                    <div className="flex items-center gap-2">
-                        <Users className="h-6 w-6 text-primary" />
-                        <h1 className="text-xl sm:text-2xl font-bold text-primary">
-                            Crewly
-                        </h1>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                        <Button variant="outline" size="sm" onClick={() => navigate("/projects")}>
-                            <FolderKanban className="h-4 w-4" />
-                            Projects
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => navigate("/teams")}>
-                            <UsersRound className="h-4 w-4" />
-                            Teams
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => navigate("/reports")}>
-                            <BarChart3 className="h-4 w-4" />
-                            Reports
-                        </Button>
-                        {isAdmin && (
-                            <Button
-                                size="sm"
-                                onClick={() => navigate("/admin/attendance")}
-                            >
-                                Attendance Panel
-                            </Button>
-                        )}
-                        <ThemeToggle />
-                        <span className="hidden sm:inline text-sm text-muted-foreground">
-                            Hello, {user.name} ({user.role === "admin" ? "Admin" : "Member"})
-                        </span>
-                        {user.role === "member" && (
-                            <Dialog
-                                open={isPasswordDialogOpen}
-                                onOpenChange={setIsPasswordDialogOpen}
-                            >
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" size="sm" className="gap-2">
-                                        <KeyRound className="h-4 w-4" />
-                                        Change Password
+        <>
+            <PageHeader
+                title="Members"
+                description={
+                    isAdmin
+                        ? activeWorkspace
+                            ? `Everyone in ${activeWorkspace.name}. Open someone to see their tasks and attendance.`
+                            : "Add the people on your team, then follow their work and attendance."
+                        : "Your profile and tasks."
+                }
+                actions={
+                    isAdmin &&
+                    !needsOrg &&
+                    !needsWorkspace && (
+                        <>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline">
+                                        <Settings2 className="h-4 w-4" />
+                                        Workspace
                                     </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                    <DialogHeader>
-                                        <DialogTitle>Change Your Password</DialogTitle>
-                                        <DialogDescription>
-                                            Update your password to keep your account secure.
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="space-y-4 py-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="oldPassword">Current Password</Label>
-                                            <Input
-                                                id="oldPassword"
-                                                type="password"
-                                                value={oldPassword}
-                                                onChange={(e) => setOldPassword(e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="newPassword">New Password</Label>
-                                            <Input
-                                                id="newPassword"
-                                                type="password"
-                                                value={newPassword}
-                                                onChange={(e) => setNewPassword(e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="confirmPassword">
-                                                Confirm New Password
-                                            </Label>
-                                            <Input
-                                                id="confirmPassword"
-                                                type="password"
-                                                value={confirmPassword}
-                                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                            />
-                                        </div>
-                                    </div>
-                                    <DialogFooter>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => setIsPasswordDialogOpen(false)}
-                                        >
-                                            Cancel
-                                        </Button>
-                                        <Button
-                                            onClick={handleChangePassword}
-                                            disabled={
-                                                !oldPassword ||
-                                                !newPassword ||
-                                                !confirmPassword ||
-                                                isChangingPassword
-                                            }
-                                        >
-                                            {isChangingPassword && (
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                            )}
-                                            Change Password
-                                        </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
-                        )}
-                        <Button variant="ghost" size="icon" onClick={handleLogout}>
-                            <LogOut className="h-5 w-5" />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-64">
+                                    <DropdownMenuItem
+                                        disabled={!activeWorkspace}
+                                        onClick={() => setIsTaskWindowDialogOpen(true)}
+                                    >
+                                        <Clock className="h-4 w-4" />
+                                        <span className="flex-1">Task submission hours</span>
+                                        <span className="text-xs text-muted-foreground">
+                                            {taskWindow?.enabled ? `${taskWindow.startTime}–${taskWindow.endTime}` : "Anytime"}
+                                        </span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={() => setIsWorkspaceDialogOpen(true)}>
+                                        <Layers className="h-4 w-4" />
+                                        New workspace
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsOrgDialogOpen(true)}>
+                                        <Building2 className="h-4 w-4" />
+                                        New organization
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                            <Button onClick={() => setIsAddOpen(true)} disabled={!activeWorkspace}>
+                                <UserPlus className="h-4 w-4" />
+                                Add member
+                            </Button>
+                        </>
+                    )
+                }
+            />
+
+            {isAdmin && isOrgLoading && organizations.length === 0 ? (
+                <div className="flex justify-center py-24">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+            ) : needsOrg ? (
+                <EmptyState
+                    icon={Building2}
+                    title="Create your organization"
+                    body="Your organization holds your workspaces, for example one per office or department. Start by naming it."
+                    action={
+                        <Button onClick={() => setIsOrgDialogOpen(true)}>
+                            <Plus className="h-4 w-4" />
+                            Create organization
                         </Button>
+                    }
+                />
+            ) : needsWorkspace ? (
+                <EmptyState
+                    icon={Layers}
+                    title={`Add a workspace to ${activeOrg?.name ?? "your organization"}`}
+                    body="People, projects and teams live inside a workspace. Most small teams need just one."
+                    action={
+                        <Button onClick={() => setIsWorkspaceDialogOpen(true)}>
+                            <Plus className="h-4 w-4" />
+                            Create workspace
+                        </Button>
+                    }
+                />
+            ) : userMembers.length === 0 ? (
+                <EmptyState
+                    icon={Users}
+                    title="No members yet"
+                    body={
+                        isAdmin
+                            ? "Add your first teammate. They'll get an email with a temporary password, or can sign in with Google."
+                            : "There's no one to show here yet."
+                    }
+                    action={
+                        isAdmin && (
+                            <Button onClick={() => setIsAddOpen(true)} disabled={!activeWorkspace}>
+                                <UserPlus className="h-4 w-4" />
+                                Add member
+                            </Button>
+                        )
+                    }
+                />
+            ) : (
+                <>
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                        <div className="relative w-full sm:w-72">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder="Search by name, email or role"
+                                className="bg-card pl-9"
+                            />
+                        </div>
+                        <span className="hidden text-sm text-muted-foreground sm:block">
+                            {userMembers.length} {userMembers.length === 1 ? "member" : "members"}
+                        </span>
                     </div>
-                </div>
-            </header>
 
-            {/* Org / workspace toolbar (admin only, once at least one org exists) */}
-            {isAdmin && organizations.length > 0 && (
-                <div className="bg-background/60 border-b border-border">
-                    <div className="container mx-auto px-4 py-3 flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <Select
-                                value={activeOrg?.id ?? ""}
-                                onValueChange={setActiveOrgId}
-                            >
-                                <SelectTrigger className="w-[160px] sm:w-[200px]">
-                                    <SelectValue placeholder="Organization" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {organizations.map((org) => (
-                                        <SelectItem key={org.id} value={org.id}>
-                                            {org.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <Select
-                                value={activeWorkspace?.id ?? ""}
-                                onValueChange={setActiveWorkspaceId}
-                                disabled={workspaces.length === 0}
-                            >
-                                <SelectTrigger className="w-[160px] sm:w-[200px]">
-                                    <SelectValue placeholder="Workspace" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {workspaces.map((ws) => (
-                                        <SelectItem key={ws.id} value={ws.id}>
-                                            {ws.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex items-center gap-2 sm:ml-auto">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-2"
-                                onClick={openTaskWindowDialog}
-                                disabled={!activeWorkspace}
-                                title="Restrict when members can submit tasks"
-                            >
-                                <Clock className="h-4 w-4" />
-                                <span className="hidden sm:inline">
-                                    {activeWorkspace?.taskWindow.enabled
-                                        ? `Tasks ${activeWorkspace.taskWindow.startTime}–${activeWorkspace.taskWindow.endTime}`
-                                        : "Tasks anytime"}
-                                </span>
-                                <span className="sm:hidden">Task Window</span>
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-2"
-                                onClick={() => setIsWorkspaceDialogOpen(true)}
-                            >
-                                <Plus className="h-4 w-4" />
-                                New Workspace
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-2"
-                                onClick={() => setIsOrgDialogOpen(true)}
-                            >
-                                <Building2 className="h-4 w-4" />
-                                New Org
-                            </Button>
-                        </div>
-                    </div>
-                </div>
+                    {visible.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-border bg-card/60 px-4 py-10 text-center text-sm text-muted-foreground">
+                            No one matches “{query}”.
+                        </p>
+                    ) : (
+                        <motion.ul
+                            className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card"
+                            initial="hidden"
+                            animate="show"
+                            variants={{ show: { transition: { staggerChildren: 0.03 } } }}
+                        >
+                            {visible.map((member) => (
+                                <motion.li
+                                    key={member.id}
+                                    variants={{
+                                        hidden: { opacity: 0 },
+                                        show: { opacity: 1, transition: { duration: 0.2 } },
+                                    }}
+                                    className="group relative flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-accent/50 sm:px-5"
+                                >
+                                    <PersonAvatar person={{ name: member.user?.name ?? member.email }} className="h-9 w-9 text-xs" />
+                                    <button
+                                        onClick={() => navigate(`/member/${member.userId}`)}
+                                        className="min-w-0 flex-1 text-left after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:rounded-xl focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                                    >
+                                        <span className="block truncate text-[15px] font-medium">{member.user?.name ?? member.email}</span>
+                                        <span className="block truncate text-sm text-muted-foreground">{member.role}</span>
+                                    </button>
+                                    <span className="hidden min-w-0 flex-1 truncate text-sm text-muted-foreground md:block">{member.email}</span>
+                                    <span className="hidden w-32 shrink-0 text-right text-sm text-muted-foreground lg:block">
+                                        Joined {member.createdAt.toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+                                    </span>
+                                    {isAdmin && (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="relative z-10 shrink-0"
+                                                    aria-label={`Actions for ${member.user?.name ?? member.email}`}
+                                                >
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => navigate(`/member/${member.userId}`)}>
+                                                    Open tasks
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => navigate(`/dashboard/member/${member.userId}/attendance`)}>
+                                                    Attendance
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem className="text-destructive" onClick={() => setMemberToDelete(member)}>
+                                                    <Trash2 className="h-4 w-4" />
+                                                    Remove member
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )}
+                                </motion.li>
+                            ))}
+                        </motion.ul>
+                    )}
+                </>
             )}
 
-            <main className="container mx-auto px-4 py-8">
-                {needsOrg ? (
-                    <motion.div
-                        variants={fadeUp}
-                        initial="hidden"
-                        animate="show"
-                        className="text-center py-16"
-                    >
-                        <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                        <h3 className="text-xl font-medium mb-2">
-                            Create your first organization
-                        </h3>
-                        <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-                            Organizations hold your workspaces. Create one to start adding
-                            workspaces and team members.
-                        </p>
-                        <Button className="gap-2" onClick={() => setIsOrgDialogOpen(true)}>
-                            <Building2 className="h-4 w-4" />
-                            New Organization
-                        </Button>
-                    </motion.div>
-                ) : needsWorkspace ? (
-                    <motion.div
-                        variants={fadeUp}
-                        initial="hidden"
-                        animate="show"
-                        className="text-center py-16"
-                    >
-                        <Layers className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                        <h3 className="text-xl font-medium mb-2">
-                            Create your first workspace
-                        </h3>
-                        <p className="text-muted-foreground mb-4 max-w-md mx-auto">
-                            Workspaces in{" "}
-                            <span className="font-medium text-foreground">
-                                {activeOrg?.name}
-                            </span>{" "}
-                            group team members and their tasks. Create one to add members.
-                        </p>
-                        <Button
-                            className="gap-2"
-                            onClick={() => setIsWorkspaceDialogOpen(true)}
-                        >
-                            <Plus className="h-4 w-4" />
-                            New Workspace
-                        </Button>
-                    </motion.div>
-                ) : (
-                    <>
-                        <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
-                            <div>
-                                <h2 className="text-2xl sm:text-3xl font-bold mb-1">
-                                    Team Members
-                                </h2>
-                                <p className="text-muted-foreground">
-                                    {isAdmin
-                                        ? activeWorkspace
-                                            ? `Members in ${activeWorkspace.name}`
-                                            : "Manage team members and assign tasks"
-                                        : "View your profile and manage your tasks"}
-                                </p>
-                            </div>
+            <AddMemberDialog
+                open={isAddOpen}
+                onOpenChange={setIsAddOpen}
+                defaultWorkspaceId={activeWorkspace?.id ?? ""}
+                workspaces={workspaces}
+                onSubmit={async (values) => !!(await addMember({ ...values, createdById: user.id }))}
+            />
 
-                            {isAdmin && (
-                                <Dialog
-                                    open={isDialogOpen}
-                                    onOpenChange={(open) => {
-                                        setIsDialogOpen(open);
-                                        if (open)
-                                            setMemberWorkspaceId(activeWorkspace?.id ?? "");
-                                    }}
-                                >
-                                    <DialogTrigger asChild>
-                                        <Button className="gap-2" disabled={!activeWorkspace}>
-                                            <PlusCircle className="h-4 w-4" />
-                                            Add Member
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle>Add a new team member</DialogTitle>
-                                            <DialogDescription>
-                                                Add the details of your new team member. They will
-                                                receive login credentials via email with default
-                                                password: 123456
-                                            </DialogDescription>
-                                        </DialogHeader>
-                                        <div className="space-y-4 py-4">
-                                            <div className="space-y-2">
-                                                <Label htmlFor="name">Full Name</Label>
-                                                <Input
-                                                    id="name"
-                                                    placeholder="Enter member name"
-                                                    value={memberName}
-                                                    onChange={(e) => setMemberName(e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="email">Email</Label>
-                                                <Input
-                                                    id="email"
-                                                    type="email"
-                                                    placeholder="Enter email address"
-                                                    value={memberEmail}
-                                                    onChange={(e) => setMemberEmail(e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="role">Role</Label>
-                                                <Input
-                                                    id="role"
-                                                    placeholder="e.g., Frontend Developer"
-                                                    value={memberRole}
-                                                    onChange={(e) => setMemberRole(e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label htmlFor="workspace">Workspace</Label>
-                                                <Select
-                                                    value={memberWorkspaceId}
-                                                    onValueChange={setMemberWorkspaceId}
-                                                >
-                                                    <SelectTrigger id="workspace">
-                                                        <SelectValue placeholder="Select a workspace" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {workspaces.map((ws) => (
-                                                            <SelectItem key={ws.id} value={ws.id}>
-                                                                {ws.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                        </div>
-                                        <DialogFooter>
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => setIsDialogOpen(false)}
-                                            >
-                                                Cancel
-                                            </Button>
-                                            <Button
-                                                onClick={handleAddMember}
-                                                disabled={
-                                                    !memberName ||
-                                                    !memberEmail ||
-                                                    !memberRole ||
-                                                    !(memberWorkspaceId || activeWorkspace?.id) ||
-                                                    isAddingMember
-                                                }
-                                            >
-                                                {isAddingMember && (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                )}
-                                                {isAddingMember ? "Adding..." : "Add Member"}
-                                            </Button>
-                                        </DialogFooter>
-                                    </DialogContent>
-                                </Dialog>
-                            )}
-                        </div>
-
-                        {userMembers.length === 0 ? (
-                            <div className="text-center py-12">
-                                <Users className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                                <h3 className="text-xl font-medium mb-2">
-                                    No team members yet
-                                </h3>
-                                <p className="text-muted-foreground mb-4">
-                                    {isAdmin
-                                        ? "Add your first team member to get started"
-                                        : "You have no members in this view"}
-                                </p>
-                                {isAdmin && (
-                                    <Button
-                                        disabled={!activeWorkspace}
-                                        onClick={() => {
-                                            setMemberWorkspaceId(activeWorkspace?.id ?? "");
-                                            setIsDialogOpen(true);
-                                        }}
-                                    >
-                                        Add Member
-                                    </Button>
-                                )}
-                            </div>
-                        ) : (
-                            <motion.div
-                                variants={stagger}
-                                initial="hidden"
-                                animate="show"
-                                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                            >
-                                {userMembers.map((member) => (
-                                    <motion.div key={member.id} variants={fadeUp}>
-                                        <Card
-                                            className="cursor-pointer hover:shadow-md transition-shadow h-full"
-                                            onClick={() => navigate(`/member/${member.userId}`)}
-                                        >
-                                            <CardHeader>
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <CardTitle>{member.user?.name}</CardTitle>
-                                                        <CardDescription>{member.role}</CardDescription>
-                                                    </div>
-                                                    {isAdmin && (
-                                                        <div className="flex justify-end mb-2">
-                                                            <Button
-                                                                variant="destructive"
-                                                                size="sm"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setMemberToDeleteId(member.id);
-                                                                    setMemberToDeleteName(
-                                                                        member.user?.name || member.email
-                                                                    );
-                                                                    setIsDeleteDialogOpen(true);
-                                                                }}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </CardHeader>
-                                            <CardContent>
-                                                <p className="text-sm text-muted-foreground mb-2">
-                                                    {member.email}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Added on {member.createdAt.toLocaleDateString()}
-                                                </p>
-                                            </CardContent>
-                                        </Card>
-                                    </motion.div>
-                                ))}
-                            </motion.div>
-                        )}
-                    </>
-                )}
-            </main>
-
-            {/* Task submission window dialog (per workspace) */}
-            <Dialog
+            <TaskWindowDialog
+                key={`${activeWorkspace?.id}-${isTaskWindowDialogOpen}`}
                 open={isTaskWindowDialogOpen}
                 onOpenChange={setIsTaskWindowDialogOpen}
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Task submission window</DialogTitle>
-                        <DialogDescription>
-                            Members of{" "}
-                            <span className="font-medium text-foreground">
-                                {activeWorkspace?.name}
-                            </span>{" "}
-                            can add their own tasks at any time. Turn this on to only
-                            accept submissions during set hours (IST).
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="flex items-center justify-between border border-border p-3">
-                            <div className="space-y-0.5 pr-4">
-                                <Label htmlFor="taskWindowEnabled">
-                                    Restrict submission hours
-                                </Label>
-                                <p className="text-xs text-muted-foreground">
-                                    {windowEnabled
-                                        ? "Members can only add tasks inside the window below."
-                                        : "Members can add tasks anytime."}
-                                </p>
-                            </div>
-                            <Switch
-                                id="taskWindowEnabled"
-                                checked={windowEnabled}
-                                onCheckedChange={setWindowEnabled}
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="windowStart">Opens at (IST)</Label>
-                                <Input
-                                    id="windowStart"
-                                    type="time"
-                                    value={windowStart}
-                                    disabled={!windowEnabled}
-                                    onChange={(e) => setWindowStart(e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="windowEnd">Closes at (IST)</Label>
-                                <Input
-                                    id="windowEnd"
-                                    type="time"
-                                    value={windowEnd}
-                                    disabled={!windowEnabled}
-                                    onChange={(e) => setWindowEnd(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                        {windowEnabled && windowEnd <= windowStart && (
-                            <p className="text-xs text-muted-foreground">
-                                This window wraps past midnight — it stays open from{" "}
-                                {windowStart} until {windowEnd} the next day.
-                            </p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                            Tasks you assign as an admin are never blocked by this window.
-                        </p>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsTaskWindowDialogOpen(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleSaveTaskWindow}
-                            disabled={isSavingTaskWindow}
-                        >
-                            {isSavingTaskWindow && (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            )}
-                            {isSavingTaskWindow ? "Saving..." : "Save"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                workspaceName={activeWorkspace?.name ?? ""}
+                initial={activeWorkspace?.taskWindow ?? { enabled: false, startTime: "09:00", endTime: "11:00" }}
+                onSave={async (w) => (activeWorkspace ? !!(await updateTaskWindow(activeWorkspace.id, w)) : false)}
+            />
 
-            {/* Create organization dialog */}
-            <Dialog open={isOrgDialogOpen} onOpenChange={setIsOrgDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Create organization</DialogTitle>
-                        <DialogDescription>
-                            An organization is the top-level container for your workspaces and
-                            members.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="orgName">Organization name</Label>
-                            <Input
-                                id="orgName"
-                                placeholder="e.g., Acme Inc."
-                                value={orgName}
-                                onChange={(e) => setOrgName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleCreateOrg();
-                                }}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsOrgDialogOpen(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleCreateOrg}
-                            disabled={orgName.trim().length < 2 || isCreatingOrg}
-                        >
-                            {isCreatingOrg && (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            )}
-                            {isCreatingOrg ? "Creating..." : "Create"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <NameDialog
+                open={isOrgDialogOpen}
+                onOpenChange={setIsOrgDialogOpen}
+                title="Create organization"
+                description="The top level of your account. It holds your workspaces."
+                label="Organization name"
+                placeholder="Acme Studio"
+                submitLabel="Create organization"
+                onSubmit={async (name) => !!(await createOrganization(name))}
+            />
 
-            {/* Create workspace dialog */}
-            <Dialog
+            <NameDialog
                 open={isWorkspaceDialogOpen}
                 onOpenChange={setIsWorkspaceDialogOpen}
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Create workspace</DialogTitle>
-                        <DialogDescription>
-                            Add a workspace to{" "}
-                            <span className="font-medium text-foreground">
-                                {activeOrg?.name ?? "your organization"}
-                            </span>
-                            . Members and their tasks live inside a workspace.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="workspaceName">Workspace name</Label>
-                            <Input
-                                id="workspaceName"
-                                placeholder="e.g., Engineering"
-                                value={workspaceName}
-                                onChange={(e) => setWorkspaceName(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleCreateWorkspace();
-                                }}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsWorkspaceDialogOpen(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            onClick={handleCreateWorkspace}
-                            disabled={workspaceName.trim().length < 2 || isCreatingWorkspace}
-                        >
-                            {isCreatingWorkspace && (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            )}
-                            {isCreatingWorkspace ? "Creating..." : "Create"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                title="Create workspace"
+                description={`A new workspace in ${activeOrg?.name ?? "your organization"}. People, projects and teams live inside it.`}
+                label="Workspace name"
+                placeholder="Design team"
+                submitLabel="Create workspace"
+                onSubmit={async (name) => !!(await createWorkspace(name))}
+            />
 
-            {/* Delete member confirmation dialog */}
-            <AlertDialog
-                open={isDeleteDialogOpen}
-                onOpenChange={setIsDeleteDialogOpen}
-            >
+            <AlertDialog open={!!memberToDelete} onOpenChange={(o) => !o && setMemberToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogTitle>Remove {memberToDelete?.user?.name ?? "this member"}?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            This will permanently delete the member {memberToDeleteName ?? ""}
-                            . This action cannot be undone.
+                            Their tasks and attendance history in this workspace are deleted too. This can't be undone.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeletingMember}>
-                            Cancel
-                        </AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeletingMember}>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                             disabled={isDeletingMember}
+                            className="bg-destructive text-white hover:bg-destructive/90"
                             onClick={async (e) => {
-                                // Prevent Radix from auto-closing so we can show the
-                                // spinner until the request actually resolves.
+                                // Keep the dialog open until the request resolves.
                                 e.preventDefault();
-                                if (!memberToDeleteId) return;
+                                if (!memberToDelete) return;
                                 setIsDeletingMember(true);
                                 try {
-                                    // deleteMember removes the row from local state on
-                                    // success, so no refetch is needed.
-                                    const ok = await deleteMember(memberToDeleteId);
-                                    if (ok) {
-                                        setIsDeleteDialogOpen(false);
-                                        setMemberToDeleteId(null);
-                                        setMemberToDeleteName(null);
-                                    }
+                                    if (await deleteMember(memberToDelete.id)) setMemberToDelete(null);
                                 } finally {
                                     setIsDeletingMember(false);
                                 }
                             }}
-                            className="bg-destructive"
                         >
-                            {isDeletingMember && (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            )}
-                            {isDeletingMember ? "Deleting..." : "Delete"}
+                            {isDeletingMember && <Loader2 className="h-4 w-4 animate-spin" />}
+                            Remove member
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-        </div>
+        </>
+    );
+};
+
+// ─── dialogs ────────────────────────────────────────────────────────────────
+
+const AddMemberDialog = ({
+    open,
+    onOpenChange,
+    defaultWorkspaceId,
+    workspaces,
+    onSubmit,
+}: {
+    open: boolean;
+    onOpenChange: (o: boolean) => void;
+    defaultWorkspaceId: string;
+    workspaces: { id: string; name: string }[];
+    onSubmit: (v: { name: string; email: string; role: string; workspaceId: string }) => Promise<boolean>;
+}) => {
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [role, setRole] = useState("");
+    const [workspaceId, setWorkspaceId] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+
+    const reset = (o: boolean) => {
+        if (o) {
+            setName("");
+            setEmail("");
+            setRole("");
+            setWorkspaceId(defaultWorkspaceId);
+        }
+        onOpenChange(o);
+    };
+
+    const target = workspaceId || defaultWorkspaceId;
+
+    const submit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!target) return void toast.error("Create or choose a workspace first");
+        setIsSaving(true);
+        try {
+            if (await onSubmit({ name, email, role, workspaceId: target })) onOpenChange(false);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={reset}>
+            <DialogContent className="sm:max-w-md">
+                <form onSubmit={submit} className="space-y-5">
+                    <DialogHeader>
+                        <DialogTitle>Add a member</DialogTitle>
+                        <DialogDescription>
+                            We'll email them a temporary password (123456) to change on first sign-in. They can also sign in with
+                            Google using this email.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="member-name">Full name</Label>
+                            <Input id="member-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Priya Shah" required />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="member-email">Work email</Label>
+                            <Input id="member-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="priya@company.com" required />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="member-role">Job title</Label>
+                            <Input id="member-role" value={role} onChange={(e) => setRole(e.target.value)} placeholder="Designer" required />
+                        </div>
+                        {workspaces.length > 1 && (
+                            <div className="space-y-2">
+                                <Label htmlFor="member-workspace">Workspace</Label>
+                                <Select value={target} onValueChange={setWorkspaceId}>
+                                    <SelectTrigger id="member-workspace" className="w-full">
+                                        <SelectValue placeholder="Choose a workspace" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {workspaces.map((ws) => (
+                                            <SelectItem key={ws.id} value={ws.id}>
+                                                {ws.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={!name || !email || role.trim().length < 2 || isSaving}>
+                            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                            Add member
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+const TaskWindowDialog = ({
+    open,
+    onOpenChange,
+    workspaceName,
+    initial,
+    onSave,
+}: {
+    open: boolean;
+    onOpenChange: (o: boolean) => void;
+    workspaceName: string;
+    initial: { enabled: boolean; startTime: string; endTime: string };
+    onSave: (w: { enabled: boolean; startTime: string; endTime: string }) => Promise<boolean>;
+}) => {
+    // Remounted (via key) each time it opens, so this seeds from what's saved.
+    const [enabled, setEnabled] = useState(initial.enabled);
+    const [start, setStart] = useState(initial.startTime);
+    const [end, setEnd] = useState(initial.endTime);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const save = async () => {
+        if (enabled && start === end) return void toast.error("Opening and closing times must differ");
+        setIsSaving(true);
+        try {
+            if (await onSave({ enabled, startTime: start, endTime: end })) onOpenChange(false);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Task submission hours</DialogTitle>
+                    <DialogDescription>
+                        By default, people in {workspaceName} can add their own tasks at any time. You can limit that to set hours
+                        (IST).
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <label className="flex items-center justify-between gap-4 rounded-lg bg-surface p-4 ring-1 ring-border/70">
+                        <span className="space-y-0.5">
+                            <span className="block text-sm font-medium">Only during set hours</span>
+                            <span className="block text-xs text-muted-foreground">
+                                {enabled ? "Members can add tasks only inside the hours below." : "Members can add tasks anytime."}
+                            </span>
+                        </span>
+                        <Switch checked={enabled} onCheckedChange={setEnabled} />
+                    </label>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="window-start">Opens</Label>
+                            <Input id="window-start" type="time" value={start} disabled={!enabled} onChange={(e) => setStart(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="window-end">Closes</Label>
+                            <Input id="window-end" type="time" value={end} disabled={!enabled} onChange={(e) => setEnd(e.target.value)} />
+                        </div>
+                    </div>
+                    {enabled && end <= start && (
+                        <p className="text-xs text-muted-foreground">
+                            This runs past midnight: open from {start} until {end} the next day.
+                        </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">Tasks assigned by admins and leads are never blocked.</p>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                        Cancel
+                    </Button>
+                    <Button onClick={save} disabled={isSaving}>
+                        {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Save hours
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
+
+const NameDialog = ({
+    open,
+    onOpenChange,
+    title,
+    description,
+    label,
+    placeholder,
+    submitLabel,
+    onSubmit,
+}: {
+    open: boolean;
+    onOpenChange: (o: boolean) => void;
+    title: string;
+    description: string;
+    label: string;
+    placeholder: string;
+    submitLabel: string;
+    onSubmit: (name: string) => Promise<boolean>;
+}) => {
+    const [name, setName] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+
+    const submit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (name.trim().length < 2) return;
+        setIsSaving(true);
+        try {
+            if (await onSubmit(name.trim())) {
+                setName("");
+                onOpenChange(false);
+            }
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-md">
+                <form onSubmit={submit} className="space-y-5">
+                    <DialogHeader>
+                        <DialogTitle>{title}</DialogTitle>
+                        <DialogDescription>{description}</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2">
+                        <Label htmlFor={`${title}-name`}>{label}</Label>
+                        <Input id={`${title}-name`} value={name} onChange={(e) => setName(e.target.value)} placeholder={placeholder} autoFocus />
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={name.trim().length < 2 || isSaving}>
+                            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                            {submitLabel}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
     );
 };
 

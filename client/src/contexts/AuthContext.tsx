@@ -116,7 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem("user", JSON.stringify(data.user));
       setUser(data.user);
 
-      toast.success("Login successful!");
+      toast.success("Signed in");
       return true;
     } catch (error) {
       console.error("Login error:", error);
@@ -133,7 +133,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     //   const { password, ...userWithoutPassword } = foundUser;
     //   localStorage.setItem("user", JSON.stringify(userWithoutPassword));
     //   setUser(userWithoutPassword);
-    //   toast.success("Login successful!");
+    //   toast.success("Signed in");
     //   return true;
     // }
 
@@ -168,7 +168,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem("user", JSON.stringify(data.user));
       setUser(data.user);
 
-      toast.success("Account created successfully!");
+      toast.success("Account created");
       return true;
     } catch (error) {
       console.error("Signup error:", error);
@@ -197,7 +197,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // localStorage.setItem("user", JSON.stringify(userWithoutPassword));
     // setUser(userWithoutPassword);
 
-    // toast.success("Account created successfully!");
+    // toast.success("Account created");
     // return true;
   };
 
@@ -227,7 +227,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return false;
       }
 
-      toast.success("Password changed successfully!");
+      toast.success("Password changed");
       return true;
     } catch (error) {
       console.error("Change password error:", error);
@@ -240,7 +240,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // const mockUser = mockUsers.find(u => u.email === user.email);
     // if (mockUser && mockUser.password === oldPassword) {
     //   mockUser.password = newPassword;
-    //   toast.success("Password changed successfully!");
+    //   toast.success("Password changed");
     //   return true;
     // }
 
@@ -285,7 +285,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("user");
     setUser(null);
-    toast.success("Logged out successfully!");
+    toast.success("Signed out");
   };
 
   return (

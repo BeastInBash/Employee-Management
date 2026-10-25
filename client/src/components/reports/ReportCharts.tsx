@@ -30,10 +30,10 @@ export const StatTile = ({
   hint?: string;
   tone?: "warn";
 }) => (
-  <div className="bg-background border border-border px-4 py-3 min-w-0">
+  <div className="min-w-0 rounded-xl border border-border/80 bg-card px-4 py-3.5">
     <div className="text-xs text-muted-foreground truncate">{label}</div>
-    <div className={cn("font-display text-2xl sm:text-3xl mt-1", tone === "warn" && "text-destructive")}>{value}</div>
-    {hint && <div className="text-[11px] text-muted-foreground mt-1 truncate">{hint}</div>}
+    <div className={cn("mt-1 text-2xl font-semibold tracking-tight sm:text-[28px]", tone === "warn" && "text-destructive")}>{value}</div>
+    {hint && <div className="mt-0.5 truncate text-xs text-muted-foreground">{hint}</div>}
   </div>
 );
 
@@ -47,9 +47,9 @@ const Legend = ({ series }: { series: Series[] }) => (
     {series.map((s) => (
       <span key={s.key} className="flex items-center gap-1.5">
         {s.mark === "line" ? (
-          <span className="inline-block h-0.5 w-3" style={{ backgroundColor: s.color }} />
+          <span className="inline-block h-0.5 w-3 rounded-full" style={{ backgroundColor: s.color }} />
         ) : (
-          <span className="inline-block h-2.5 w-2.5" style={{ backgroundColor: s.color }} />
+          <span className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: s.color }} />
         )}
         {s.label}
       </span>
@@ -72,10 +72,10 @@ const ChartFrame = ({
 }) => {
   const [asTable, setAsTable] = useState(false);
   return (
-    <section className="bg-background border border-border p-4 space-y-3 min-w-0">
+    <section className="min-w-0 space-y-3 rounded-xl border border-border/80 bg-card p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-sm">{title}</h3>
+          <h3 className="text-[15px]">{title}</h3>
           <p className="text-xs text-muted-foreground">{subtitle}</p>
         </div>
         <Button
@@ -91,9 +91,9 @@ const ChartFrame = ({
       </div>
       <Legend series={series} />
       {asTable ? (
-        <div className="h-64 overflow-auto border border-border">
+        <div className="h-64 overflow-auto rounded-lg border border-border/70">
           <table className="w-full text-xs tabular-nums">
-            <thead className="sticky top-0 bg-background text-muted-foreground">
+            <thead className="sticky top-0 bg-surface text-muted-foreground">
               <tr className="border-b border-border">
                 <th className="text-left font-normal px-3 py-2">Day</th>
                 {series.map((s) => (
@@ -143,7 +143,7 @@ const DayTooltip = ({
   if (!active || !payload?.length || !label) return null;
   const values = new Map(payload.map((p) => [p.dataKey, p.value]));
   return (
-    <div className="bg-popover text-popover-foreground border border-border px-3 py-2 text-xs shadow-sm space-y-1 min-w-36">
+    <div className="min-w-36 space-y-1 rounded-lg border border-border/80 bg-popover px-3 py-2 text-xs text-popover-foreground shadow-[0_12px_32px_-12px_rgb(20_40_28/0.25)]">
       <div className="text-muted-foreground">{formatDay(label, true)}</div>
       {series.map((s) => (
         <div key={s.key} className="flex items-center gap-2">
@@ -244,6 +244,7 @@ export const AttendanceChart = ({ days, excludeWeekends }: { days: ReportDay[]; 
               stackId="attendance"
               fill={s.color}
               maxBarSize={24}
+              radius={[4, 4, 0, 0]}
               // 2px surface gap between stacked segments.
               stroke="var(--background)"
               strokeWidth={2}

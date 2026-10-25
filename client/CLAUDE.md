@@ -44,16 +44,16 @@ src/
   App.tsx                   # providers + all routes
   index.css                 # Tailwind v4 import + theme tokens (light + .dark)
   pages/
-    Landing.tsx             # public marketing landing page  ->  route "/"
-    Login.tsx               # login + signup tabs            ->  "/login"
-    ForgotPassword.tsx / ResetPassword.tsx
-    Dashboard.tsx           # admin: org/workspace switcher + create dialogs, workspace-
-                            #   scoped team member grid, add/delete member
-                            #   (members are added into the active workspace)
-    MemberDetail.tsx        # a single member's detail
-    TaskDetails.tsx         # tasks for a member ("/todos/:memberId")
-    MembersDashboard.tsx    # attendance dashboard ("/attendance")
-    AdminPanel.tsx          # admin attendance panel ("/admin/attendance")
+    Landing.tsx             # public page with the interactive "finish the day" demo -> "/"
+    Login.tsx               # sign in / sign up tabs (`?tab=signup`) + Google  ->  "/login"
+    ForgotPassword.tsx / ResetPassword.tsx / AuthCallback.tsx
+    Dashboard.tsx           # "Members": searchable member list for the active workspace,
+                            #   add/remove member, Workspace menu (submission hours,
+                            #   new workspace / organization), onboarding empty states
+    MemberDetail.tsx        # admin view of one member: TaskBoard + assign/edit/delete
+    TaskDetails.tsx         # a member's own board ("/todos/:userId") + submission-hours pill
+    MembersDashboard.tsx    # monthly attendance calendar ("/attendance", or admin per-member)
+    AdminPanel.tsx          # team attendance: Today + By month ("/admin/attendance")
     Projects.tsx            # project grid + filters + "New project"   ("/projects")
     ProjectDetail.tsx       # board by status, People + Teams tabs    ("/projects/:projectId")
     Teams.tsx / TeamDetail.tsx  # team cards; roster w/ today's attendance ("/teams[/:teamId]")
@@ -75,7 +75,10 @@ src/
     ProjectContext.tsx      # project + team lists (admins: active workspace; members: theirs)
                             #   and their create/update/delete; all project/team wire types
   components/
-    AppHeader.tsx           # shared top nav used by the projects/teams pages
+    layout/                 # AppShell (sidebar + page transitions), Page (PageHeader,
+                            #   Section, Panel), AuthLayout, ChangePasswordDialog, Leaf (logo)
+    tasks/                  # TaskBoard (4 columns, inline status, gliding cards),
+                            #   TaskFormDialog (add/edit, mirrors API validation)
     projects/               # shared.tsx (badges, avatars, PeoplePicker, EmptyState),
                             #   ProjectFormDialog, TeamFormDialog, AddPeopleDialog
     reports/ReportCharts.tsx  # StatTile, ThroughputChart, AttendanceChart (recharts)
@@ -90,7 +93,9 @@ src/
 ## Routing (`src/App.tsx`)
 
 Public: `/` (Landing), `/login`, `/forgot-password`, `/reset-password`, `/auth/callback`.
-Protected (wrapped by `ProtectedRoute`): `/dashboard`, `/attendance`,
+Protected routes sit under `ProtectedRoute` → **`AppShell`** (a layout route that renders the
+sidebar and the page via `<Outlet>`), so pages render **content only** — no headers, no
+`min-h-screen` wrappers; start with `<PageHeader>`. Protected: `/dashboard`, `/attendance`,
 `/dashboard/member/:memberId/attendance`, `/admin/attendance`,
 `/member/:memberId`, `/todos/:memberId`, `/projects`, `/projects/:projectId`, `/teams`,
 `/teams/:teamId`, `/reports`. Everything else → `NotFound`.
@@ -165,8 +170,8 @@ you back in the app instead of on the marketing/login page.
   `--viz-present/partial/absent`), validated with the dataviz palette script against
   `#fff` / `#0a0a0a`. Charts follow the dataviz rules: 2px lines, ≤24px bars with a 2px
   surface gap, legend on every multi-series chart, tooltip with every series, and a
-  chart/table toggle (the table view is the accessible fallback). Bars keep **square ends**
-  to match the sharp-corner design language.
+  chart/table toggle (the table view is the accessible fallback). Bars have 4px rounded
+  data ends. Re-run the validator if you change these tokens.
 - CSV export (`exportMembersCsv` / `exportDailyCsv`) neutralises cells starting with
   `= + - @` so names can't run as spreadsheet formulas.
 
@@ -174,7 +179,7 @@ you back in the app instead of on the marketing/login page.
 
 - Members can add their own tasks **at any time** by default. Each `Workspace` carries a
   `taskWindow` (`{ enabled, startTime, endTime }`, "HH:mm" IST) that an admin can switch on
-  from the Dashboard toolbar's **task-window dialog** (`Switch` + two `<input type="time">`),
+  from the Members page's **Workspace → Task submission hours** dialog,
   which calls `OrgContext.updateTaskWindow(workspaceId, window)` →
   `PATCH /workspace/:id/task-window`. Omitting the times keeps the stored hours; a window
   whose end is ≤ its start wraps past midnight.
@@ -200,28 +205,33 @@ you back in the app instead of on the marketing/login page.
 
 - Use the `@/` import alias (maps to `src/`).
 - Reuse `src/components/ui/*` shadcn primitives; don't hand-roll buttons/inputs/dialogs.
-- Style with theme tokens (`bg-background`, `text-foreground`, `text-primary`,
-  `text-muted-foreground`, `border-border`, etc.) so light/dark both work. Default
-  theme is **dark** (`ThemeProvider defaultTheme="dark"`, key `vite-ui-theme`).
-- **Dark-mode accent is orange + amber.** In `index.css` the `.dark` tokens set
-  `--primary`/`--chart-1`/`--sidebar-primary` to orange and `--ring`/`--chart-2` to
-  amber (light mode `:root` stays neutral). Prefer the `primary`/`ring` tokens for
-  accents so they pick this up automatically. Any hardcoded `bg-blue-*`/`text-blue-*`
-  must carry a `dark:` orange/amber override (e.g. status `review` →
-  `dark:bg-orange-500`, priority `medium` → `dark:bg-amber-500`, links →
-  `dark:text-amber-400`) — no literal blue should appear in dark mode.
-- **Typography:** body & UI use **JetBrains Mono** (`--font-sans`/`--font-mono`,
-  applied to `body`); headings (`h1`–`h6`) use **Special Gothic Expanded One**
-  (`--font-display`). For non-heading elements that should use the display face
-  (wordmarks, big numbers, shadcn `CardTitle` which renders as a `div`), add the
-  `font-display` utility. Fonts load from Google Fonts in `index.html`.
-- **Sharp corners everywhere.** The radius tokens are `0` and a base rule in
-  `index.css` forces `border-radius: 0 !important` on all elements, so don't add
-  `rounded-*` utilities expecting them to show — they're intentionally overridden.
-- **Animation:** use `framer-motion` for *subtle* motion only (short distances,
-  gentle easing, scroll reveals with `viewport={{ once: true }}`). See
-  `pages/Landing.tsx` for the `fadeUp` / `stagger` variant pattern. Don't animate
-  the data-heavy dashboards.
+- **Design language: minimalist and calm.** Light is the default (`ThemeProvider
+  defaultTheme="light"`, key `crewly-theme`); dark is a "forest night" theme from the
+  same palette. Style only with tokens so both work: canvas `bg-background` (sage
+  off-white), panels `bg-card` (white), insets `bg-surface`, `text-muted-foreground`,
+  `border-border`, `primary` (forest green), `olive` / `olive-soft` (progress, partial,
+  highlights), `secondary` (sage fill), `destructive` (soft brick). The forest-green
+  **sidebar** is the one bold colour block — don't add more.
+- **Status/priority pills are soft tints** (pale fill + deeper ink of the same hue), from
+  `lib/projectMeta.ts` (`taskStatusColors`, `taskStatusDots`, `priorityColors`) and
+  `ProjectStatusBadge` / `AttendanceDot` in `components/projects/shared.tsx`. Don't use
+  saturated Tailwind palette colours (`bg-blue-500`, `bg-emerald-500`…).
+- **Typography:** one family, **Onest** (`--font-sans`, loaded in `index.html`). Headings
+  get weight 600 and tight tracking from the base layer; no second display face, no
+  monospace, **no all-caps tracked labels**. Use `tabular-nums` for numbers in columns.
+- **Rounded, with a hierarchy** (`--radius: 0.875rem`): controls `rounded-sm` (10px),
+  inputs/menus `rounded-md`/`rounded-lg`, cards and panels `rounded-xl`, dialogs
+  `rounded-2xl`, badges/avatars/switches `rounded-full`. Hairline borders
+  (`border-border/80`) instead of drop shadows; soft layered shadows only on overlays.
+- **Motion (framer-motion, wrapped in `MotionConfig reducedMotion="user"`):** keep it
+  purposeful. The signature moment is the sidebar's sliding active pill (`layoutId=
+  "nav-active"`). Pages fade-and-lift 6px on route change (AppShell). Task cards glide
+  between board columns when their status changes (`layoutId={task.id}`). Expand/collapse
+  uses height+opacity. Grids may stagger in once (≤40ms). Buttons press to `scale(0.97)`
+  via `index.css`. Use the `--ease-out` curve (`[0.23, 1, 0.32, 1]`), keep UI motion
+  ≤300ms, animate `opacity`/`transform` only, and never animate keyboard-driven actions.
+- **Copy:** sentence case, plain verbs, a toast names the action that happened ("Task
+  added", "Member removed"); errors say what went wrong and what to do.
 - Icons from `lucide-react`.
 - Use `toast` from `@/components/ui/sonner` for user feedback.
 - **Data mutations are optimistic, not refetch-based.** The context CRUD functions
@@ -231,13 +241,11 @@ you back in the app instead of on the marketing/login page.
   blocking refetch is slow). Always show a per-action loading spinner (`Loader2`) and
   disable the button while a request is in flight; for `AlertDialog` actions, call
   `e.preventDefault()` so the dialog stays open until the request resolves.
-- **Task status is editable inline.** On the task board the status `Badge` is a
+- **Task status is editable inline.** On `components/tasks/TaskBoard` the status pill is a
   `DropdownMenu` (when `canManage`) — picking a status calls `updateTask({ status })`.
-  No need to open the edit dialog just to change status. See `TaskCard` in
-  `MemberDetail.tsx` (admin) and `TaskDetails.tsx` (member).
-- **`MemberDetail` header** consolidates admin actions into a single "Actions"
-  `DropdownMenu` (this member's attendance, all-members attendance, theme toggle via
-  `useTheme`, logout) instead of scattered header buttons.
+  `MemberDetail` (admin) and `TaskDetails` (member) both use it.
+- Theme toggle, change password and sign-out live in the sidebar's **account menu**
+  (`AppShell`); admins switch org/workspace from the sidebar's workspace switcher.
 - API base URL must come from `import.meta.env.VITE_API_URL` (set `VITE_API_URL` in
   the environment / Vercel). Don't hardcode backend URLs.
 

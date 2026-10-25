@@ -48,7 +48,7 @@ const AuthCallback = () => {
   }, [loginWithToken, navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-muted/40">
+    <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background">
       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       <p className="text-sm text-muted-foreground">Signing you in…</p>
     </div>

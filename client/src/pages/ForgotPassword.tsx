@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Loader2, MailCheck } from "lucide-react";
+import { AuthLayout } from "@/components/layout/AuthLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
@@ -30,63 +31,56 @@ const ForgotPassword = () => {
         // we always show the confirmation rather than revealing membership.
         setSubmitted(true);
       } else {
-        setError(data.message || "Failed to send reset link");
+        setError(data.message || "The reset link couldn't be sent. Try again.");
       }
-    } catch (error) {
-      setError("An error occurred. Please try again.");
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Forgot Password</CardTitle>
-          <CardDescription>
-            Enter your email and we'll send you a link to reset your password.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {submitted ? (
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                If an account exists for <strong>{email}</strong>, a password reset
-                link has been sent. Please check your inbox.
-              </p>
-              <div className="text-center text-sm">
-                <Link to="/login" className="text-blue-600 dark:text-amber-400 hover:underline">
-                  Back to Login
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Sending..." : "Send Reset Link"}
-              </Button>
-              <div className="text-center text-sm">
-                <Link to="/login" className="text-blue-600 dark:text-amber-400 hover:underline">
-                  Back to Login
-                </Link>
-              </div>
-            </form>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    <AuthLayout
+      title={submitted ? "Check your inbox" : "Reset your password"}
+      description={
+        submitted
+          ? `If ${email} has a Crewly account, a reset link is on its way. It works for one hour.`
+          : "Enter the email you sign in with and we'll send you a link to set a new password."
+      }
+      footer={
+        <Link to="/login" className="text-primary hover:underline">
+          Back to sign in
+        </Link>
+      }
+    >
+      {submitted ? (
+        <div className="flex items-center gap-3 rounded-xl bg-secondary p-4 text-sm text-secondary-foreground">
+          <MailCheck className="h-5 w-5 shrink-0 text-primary" />
+          Didn't get it? Check spam, or try again in a minute.
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Send reset link
+          </Button>
+        </form>
+      )}
+    </AuthLayout>
   );
 };
 
