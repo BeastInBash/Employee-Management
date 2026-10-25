@@ -36,8 +36,7 @@ end of day; the system marks them present / partial / absent automatically (see
 ## Commands
 
 > **Tooling note:** the backend now uses **Bun** for installs/scripts (`bun.lock`;
-> `package-lock.json` removed) and **tsx** instead of nodemon+ts-node for dev. The root
-> `CLAUDE.md` still says "backend uses npm" — that's stale; prefer `bun`.
+> `package-lock.json` removed) and **tsx** instead of nodemon+ts-node for dev.
 
 ```bash
 bun install          # install deps (postinstall runs `prisma generate`)
@@ -69,13 +68,18 @@ src/
     attendance.router.ts   # /api/attendance(router-level authenticate)
     organization.router.ts # /api/org       (authenticate; also POST /:orgId/workspaces)
     workspace.router.ts    # /api/workspace (authenticate; POST /create-workspace/:orgId)
+    projects.router.ts     # /api/projects  (authenticate + handleError)
+    teams.router.ts        # /api/teams     (authenticate + handleError)
   controllers/
     auth.controller.ts        # login, signup, changePassword, forgot/resetPassword
     members.controller.ts     # createMember, getMembers, getMember, deleteMember
     tasks.controller.ts       # createTask, getMemberTasks, updateTask, deleteTask
     attendance.controller.ts  # getMyAttendance + 3 admin report endpoints
     organization.controller.ts# createOrganization, getMyOrganization, getOrgById
-    workspace.controller.ts   # createWorkspace (+ owner WorkspaceMembership, in a txn)
+    workspace.controller.ts   # createWorkspace (+ owner WorkspaceMembership, in a txn),
+                              #   task window, listWorkspaceMembers
+    projects.controller.ts    # projects CRUD, seats, team assignment, project tasks
+    teams.controller.ts       # teams CRUD + seats
     admin.controller.ts       # setUserRole  (NOT mounted on any route)
   middleware/
     auth.middleware.ts     # authenticate(): verifies JWT (cookie, falls back to Bearer) -> req.user
@@ -90,11 +94,13 @@ src/
     hash.ts                # bcryptjs hash/compare (duplicate of password.ts, unused-ish)
     email.ts               # nodemailer transporter + 2 HTML emails
     attendance.ts          # IST time helpers + the daily-window logic
+    access.ts              # who is admin/lead/member of a workspace, project or team
     errors/ApiError.ts     # Error subclass w/ statusCode + static badRequest/notFound/etc.
   validation/
     authValidation.ts, memberValidation.ts, taskValidation.ts   # zod schemas
     orgValidation.ts       # zod schemas for org query params (membership/workspace flags)
     workspaceValidation.ts # zod schema for the task-submission-window PATCH
+    projectValidation.ts   # zod schemas for projects, teams, seats, project tasks
 prisma/
   schema.prisma            # User, Member, Task, DailyAttendance, Organization,
                            #   OrgMembership, Workspace, WorkspaceMembership + enums
@@ -118,8 +124,15 @@ ReBAC.md                   # design guide for the Organizations→Workspaces ReB
   with `findFirst({ where: { userId } })`, never `findUnique`.
 - **Task** — belongs to a Member (so it's transitively scoped to that Member's workspace).
   `title`, `description`, `status` (`todo` | `in_progress` | `review` | `completed`),
-  `priority` (`low|medium|high|urgent`), `dueDate`, `completedAt`. Cascade-deletes with
-  its Member.
+  `priority` (`low|medium|high|urgent`), `dueDate`, `completedAt`, optional `projectId`
+  (`onDelete: SetNull`, so deleting a project keeps its tasks). Cascade-deletes with its
+  Member. Reopening a completed task clears `completedAt`.
+- **Project** — in a workspace: `name`, `description?`, `status` (`ProjectStatus`),
+  `color?` (hex), `startDate?`, `dueDate?`, `createdById`. Seats are **`ProjectMember`**
+  (`projectId`+`memberId` unique, `role: ScopeRole` = `lead|member`); whole teams attach via
+  **`ProjectTeam`** (composite PK). Everyone on an assigned team counts as a participant.
+- **Team** — in a workspace (`@@unique([workspaceId, name])`), `description?`, `color?`;
+  seats are **`TeamMember`** (`role: ScopeRole`).
 - **DailyAttendance** — one row per `(memberId, date)` (unique). `status`
   (`present` | `absent` | `partial`, default `absent`), `taskSubmittedAt`,
   `allTasksCompletedAt`. `date` is `@db.Date`.
@@ -216,7 +229,40 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
   `enabled`, and they must differ). Omitting the times keeps the stored hours, so the
   toggle alone can turn the restriction off.
 
-Still no permission gating (`can()` / `authorize()`) on these yet.
+- `GET /:workspaceId/members` — Member seats in the workspace (`{ id (Member id), userId,
+  name, email, jobTitle, teams[] }`); any participant may read (used by the pickers).
+
+**`/api/projects`** (all `authenticate`; throws → `handleError`)
+- `GET /?workspaceId=` — with a workspace: admins see all, members only the ones they're on;
+  without: every project the caller is on. Each has `leads`, `memberCount`, `teams`,
+  `stats` (`total/completed/inProgress/overdue/progress`), `myRole`.
+- `POST /` *(admin)* — `{ workspaceId, name, description?, status?, color?, startDate?,
+  dueDate?, leadIds?, memberIds?, teamIds? }` (Member/Team ids must be in the workspace).
+- `GET /:projectId` — `{ project: { …, teams, people[] (each with projectRole, viaTeams,
+  stats, todayAttendance) }, myRole, permissions: { canManage, canAssignLeads, canDelete } }`.
+- `PATCH /:projectId` *(admin/lead)*; `DELETE /:projectId` *(admin)*.
+- `POST /:projectId/members` `{ memberId, role? }` *(admin/lead; only admins may add a
+  lead)*; `PATCH /:projectId/members/:memberId` `{ role }` *(admin)*;
+  `DELETE /:projectId/members/:memberId` *(admin/lead; leads can't remove a lead)*.
+- `POST /:projectId/teams` `{ teamId }` / `DELETE /:projectId/teams/:teamId` *(admin/lead)*.
+- `GET /:projectId/tasks?status&memberId` — any participant; tasks include `assignee` + `project`.
+- `POST /:projectId/tasks` — admins/leads assign to any participant (`memberId` = Member id);
+  a regular member may only create for themselves, and that self-submission obeys the
+  workspace task window and upserts today's attendance like `POST /api/tasks`.
+
+**`/api/teams`** (all `authenticate`; throws → `handleError`)
+- `GET /?workspaceId=` (all teams in the workspace, `myRole` null if not on it) or without
+  (teams the caller is on). `POST /` *(admin)* `{ workspaceId, name, description?, color?,
+  leadIds?, memberIds? }`.
+- `GET /:teamId` — roster with per-member task counts + `todayAttendance`, assigned
+  projects, `permissions`. `PATCH` *(admin/lead)*, `DELETE` *(admin)*.
+- Seats: same `POST/PATCH/DELETE /:teamId/members[/:memberId]` rules as projects.
+
+**Existing task routes and projects:** `POST /api/tasks` accepts an optional `projectId`
+(the assignee must be a participant; the member seat is resolved in the project's
+workspace). `PATCH /api/tasks/:taskId` and `DELETE` also allow the **lead of the task's
+project** (`canLeadTaskProject` in `canManageTask` + the controllers). Task list/create/update
+responses include `project: { id, name, color } | null`.
 
 See `api-docs.md` for fuller request/response examples.
 
@@ -256,6 +302,9 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
   authenticates via the localStorage Bearer token anyway, but keep the two in sync.
 - Passwords hashed with bcrypt, **cost 10**. New members get `DEFAULT_PASSWORD`
   (`"123456"`) and `isPasswordReset: true`; the client should force a change.
+- Project/team access lives in `utils/access.ts` (`getProjectAccess` / `getTeamAccess` →
+  `admin | lead | member | null`, `canManage()`), keyed off Member seats in the resource's
+  workspace — not off `User.role`. Use it for new scoped routes instead of ad-hoc checks.
 - Role gating: `requireAdmin` for admin-only; `canManageTask` / `canViewMemberTasks`
   let members act only on their own resources, **matched by `userId`** (`task.member.userId`
   / `member.userId` vs `req.user.userId`). This was previously matched by **email**, which
@@ -286,8 +335,10 @@ anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`)
   `jest-mock-extended` mock and `tests/env.ts` loads it (plus test env) before any module
   imports — so each controller's `new PrismaClient()` resolves to the shared mock.
 - `tests/testApp.ts` builds an Express app for supertest; `tests/helpers.ts` has shared
-  fixtures/utilities. Suites cover auth, members, tasks, attendance, middleware, and the
-  workspace task-submission window (`workspace.test.ts`, incl. the IST window helpers).
+  fixtures/utilities. Suites cover auth, members, tasks, attendance, middleware, the
+  workspace task-submission window (`workspace.test.ts`, incl. the IST window helpers), and
+  projects/teams permissions (`projects.test.ts` — its `standAs()` helper programs the
+  lookups `utils/access.ts` makes, so a test can act as admin / lead / member / outsider).
   **~19 pre-existing failures** (auth-middleware 401s surfacing as 500, plus members/
   attendance mocks that drifted from the controllers) are unrelated to that suite.
 - ts-jest relaxes a few strict-mode diagnostics (`2345/2322/2769`) so test doubles compile;
@@ -302,9 +353,10 @@ anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`)
   `ZodError` → `400 { message, errors }`, everything else → `500`, inside the controller.
   Newer code (the org controller) **throws** instead — `ApiError.badRequest/notFound/...`
   or a raw `ZodError` — and lets `error.middleware.ts` (`handleError`) translate it to a
-  status code. `handleError` honours `ApiError.statusCode` but does **not** yet special-case
-  `ZodError` (so a thrown `ZodError` becomes a 500). The org router mounts `handleError`
-  itself; the global handler in `index.ts` is still the hardcoded-500 one. Match the style
+  status code. `handleError` maps `ZodError` → 400, Prisma `P2002` → 409 and `P2025` → 404,
+  and honours `ApiError.statusCode` (incl. `ApiError.conflict`). The org, workspace,
+  projects and teams routers mount `handleError` themselves; the global handler in
+  `index.ts` is still the hardcoded-500 one. Match the style
   of the file you're editing.
 - `userId` in task routes means the member's **User** id, not the Member id — the code
   resolves Member via `findFirst({ where: { userId } })`. **Use `findFirst`, not

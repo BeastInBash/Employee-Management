@@ -502,7 +502,7 @@ describe("DELETE /api/tasks/:taskId", () => {
   });
 
   it("blocks a member from deleting even their own task", async () => {
-    // canManageTask passes (owner), but the controller hard-requires admin.
+    // canManageTask passes (owner), but deleting needs admin or project lead.
     prismaMock.task.findUnique.mockResolvedValue({
       ...makeTask(),
       member: makeMember({ email: MEMBER.email }),
@@ -513,7 +513,7 @@ describe("DELETE /api/tasks/:taskId", () => {
       .set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(403);
-    expect(res.body.message).toBe("Only admins can delete tasks");
+    expect(res.body.message).toBe("Only admins and project leads can delete tasks");
     expect(prismaMock.task.delete).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 Repository-level guidance for the **Crewly** monorepo (the client UI was rebranded from
 "Task Tracker"; repo/dirs are still `todo-app` and the backend still calls itself Task
 Tracker internally). This is the umbrella context; each package has its own detailed
@@ -32,17 +34,18 @@ todo-app/
   client/     # React 19 + Vite 7 + TS, Tailwind v4 + shadcn/ui, React Context state. (CLAUDE.md)
 ```
 
-It is **not** a workspace-managed monorepo — the two packages are independent npm/bun
+It is **not** a workspace-managed monorepo — the two packages are independent Bun
 projects with their own dependencies, build, and deploy. Install and run each separately.
 
-> **Package managers differ:** the **backend uses npm** (`package-lock.json`), the
-> **client uses Bun** (`bun.lock`). Don't cross-contaminate lockfiles.
+> **Both packages use Bun** (`bun.lock` in each; there is no `package-lock.json`). Don't
+> introduce npm/yarn lockfiles. CI (`.github/workflows/lint.yml`) runs `bun install` +
+> `bun run build` in `backend/` on every PR.
 
 ## Running locally
 
 ```bash
 # Terminal 1 — API on :3000
-cd backend && npm install && npm run dev
+cd backend && bun install && bun run dev
 
 # Terminal 2 — client on :5173
 cd client && bun install && bun run dev
@@ -50,13 +53,25 @@ cd client && bun install && bun run dev
 
 The client reads the API base URL from `VITE_API_URL`; point it at the local backend
 (`http://localhost:3000`). The backend's CORS allow-list (`backend/src/index.ts`) already
-includes `http://localhost:5173`. There is **no test suite** in either package.
+includes `http://localhost:5173`.
+
+## Tests & checks
+
+```bash
+# Backend tests (Jest + ts-jest + supertest, Prisma deep-mocked — no DB needed)
+cd backend && bun run test                       # all
+cd backend && bunx jest tests/tasks.test.ts      # one file
+cd backend && bunx jest -t "task window"         # by test name
+
+# Client checks (no client test suite)
+cd client && bun run lint && bun run build
+```
 
 ## The frontend ↔ backend contract
 
 - **Transport:** REST over HTTP. The client calls `${VITE_API_URL}/api/...`; the API
   mounts `/api/auth`, `/api/members`, `/api/tasks`, `/api/attendance`, `/api/org`,
-  `/api/workspace` (plus public `/health`). Full surface is in `backend/CLAUDE.md` /
+  `/api/workspace`, `/api/projects`, `/api/teams` (plus public `/health`). Full surface is in `backend/CLAUDE.md` /
   `backend/api-docs.md`.
 - **Auth:** JWT bearer tokens. Login/signup return `{ token, user }`; the client stores
   the token in `localStorage.authToken` and sends `Authorization: Bearer <token>` on
@@ -70,6 +85,8 @@ includes `http://localhost:5173`. There is **no test suite** in either package.
   - `TaskStatus = todo | in_progress | review | completed`
   - `TaskPriority = low | medium | high | urgent`
   - `UserRole = admin | member`
+  - `ProjectStatus = planning | active | on_hold | completed | archived`
+  - `ScopeRole = lead | member` (a seat on a project or team)
 - **`userId` vs Member id gotcha:** task/attendance endpoints key off the member's
   **User** id, not the Member row id. Be deliberate about which id the client sends.
 - **Workspace scoping:** a `Member` is a user's seat in a workspace (`Member.workspaceId`,
@@ -83,6 +100,17 @@ includes `http://localhost:5173`. There is **no test suite** in either package.
   (`TaskContext.taskWindow`) to gate its "Add task" affordance. Admin-assigned tasks are
   never blocked. Wire shape: `{ enabled, startMinute, endMinute, startTime, endTime, label,
   open, currentTimeIST }`.
+
+## Projects, teams & leads
+
+Inside a workspace, admins create **Teams** (groups of members) and **Projects**. People
+join a project directly (`ProjectMember`) or through an assigned team (`ProjectTeam`).
+Each seat is `lead` or `member`. Access is resolved in `backend/src/utils/access.ts`:
+**admin** = owns the org or is an owner/admin `OrgMembership`; **leads** manage their own
+project/team (edit details, add/remove regular members, assign tasks, and on projects also
+edit/delete project tasks and assign teams); only admins appoint/remove leads or delete.
+Tasks can carry an optional `projectId`. Project/team payloads use **Member** ids
+(`/api/workspace/:id/members` lists them), unlike the task routes, which take **User** ids.
 
 ## CORS / origins
 

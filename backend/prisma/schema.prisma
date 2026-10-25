@@ -32,6 +32,21 @@ enum AttendanceStatus {
   partial
 }
 
+enum ProjectStatus {
+  planning
+  active
+  on_hold
+  completed
+  archived
+}
+
+// A seat on a project or team is either its lead or a regular member. Leads can
+// manage their own project/team (membership, tasks) without being org admins.
+enum ScopeRole {
+  lead
+  member
+}
+
 enum OrgRole {
   owner
   admin
@@ -69,6 +84,8 @@ model Workspace {
   org         Organization          @relation(fields: [orgId], references: [id], onDelete: Cascade)
   memberships WorkspaceMembership[]
   members     Member[]
+  projects    Project[]
+  teams       Team[]
 
   // Task submission window, as minutes from IST midnight (540 = 9:00 AM).
   // Disabled by default: members may submit tasks at any time until an admin
@@ -127,6 +144,8 @@ model Member {
   workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   tasks       Task[]
   attendance  DailyAttendance[]
+  projects    ProjectMember[]
+  teams       TeamMember[]
 
   @@unique([userId, workspaceId])
   @@map("members")
@@ -141,10 +160,96 @@ model Task {
   dueDate     DateTime
   memberId    String
   member      Member       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  // Optional: a task can be a standalone daily task or belong to a project.
+  projectId   String?
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdAt   DateTime     @default(now())
   completedAt DateTime?
 
+  @@index([projectId])
+  @@index([memberId, createdAt])
   @@map("tasks")
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(active)
+  color       String?
+  startDate   DateTime?
+  dueDate     DateTime?
+  workspaceId String
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  members ProjectMember[]
+  teams   ProjectTeam[]
+  tasks   Task[]
+
+  @@index([workspaceId])
+  @@map("projects")
+}
+
+// Seats on a project are Member rows (a user's seat in the project's workspace).
+model ProjectMember {
+  id        String    @id @default(uuid())
+  projectId String
+  memberId  String
+  role      ScopeRole @default(member)
+  addedAt   DateTime  @default(now())
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, memberId])
+  @@index([memberId])
+  @@map("project_members")
+}
+
+// Assigning a team to a project gives every team member access to it.
+model ProjectTeam {
+  projectId  String
+  teamId     String
+  assignedAt DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, teamId])
+  @@index([teamId])
+  @@map("project_teams")
+}
+
+model Team {
+  id          String    @id @default(uuid())
+  name        String
+  description String?
+  color       String?
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  members  TeamMember[]
+  projects ProjectTeam[]
+
+  @@unique([workspaceId, name])
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String    @id @default(uuid())
+  teamId   String
+  memberId String
+  role     ScopeRole @default(member)
+  joinedAt DateTime  @default(now())
+  team     Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  member   Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, memberId])
+  @@index([memberId])
+  @@map("team_members")
 }
 
 model DailyAttendance {

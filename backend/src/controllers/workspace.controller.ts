@@ -9,6 +9,7 @@ import {
     DEFAULT_TASK_WINDOW_START,
     DEFAULT_TASK_WINDOW_END,
 } from '../utils/attendance'
+import { assertWorkspaceParticipant } from '../utils/access'
 
 const prisma = new PrismaClient()
 
@@ -142,6 +143,40 @@ export const updateTaskWindow = async (req: Request, res: Response) => {
         workspaceId: updated.id,
         workspaceName: updated.name,
         taskWindow: serializeTaskWindow(toTaskWindow(updated)),
+    })
+}
+
+/**
+ * Everyone with a Member seat in the workspace, with the teams they're on.
+ * Any participant may read it — leads need it to pick people for their
+ * project/team; the ids returned are **Member** ids.
+ */
+export const listWorkspaceMembers = async (req: Request, res: Response) => {
+    const workspaceId = req.params.workspaceId as string
+    await assertWorkspaceParticipant(req.user!.userId, workspaceId)
+
+    const members = await prisma.member.findMany({
+        where: { workspaceId },
+        select: {
+            id: true,
+            userId: true,
+            email: true,
+            role: true,
+            user: { select: { name: true } },
+            teams: { select: { role: true, team: { select: { id: true, name: true, color: true } } } },
+        },
+        orderBy: { createdAt: 'asc' },
+    })
+
+    res.json({
+        members: members.map((m) => ({
+            id: m.id,
+            userId: m.userId,
+            name: m.user.name,
+            email: m.email,
+            jobTitle: m.role,
+            teams: m.teams.map((t) => ({ ...t.team, role: t.role })),
+        })),
     })
 }
 

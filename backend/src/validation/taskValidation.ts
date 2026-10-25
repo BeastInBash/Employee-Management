@@ -7,7 +7,9 @@ export const createTaskSchema = z.object({
   status: z.nativeEnum(TaskStatus).default(TaskStatus.todo),
   priority: z.nativeEnum(TaskPriority).default(TaskPriority.medium),
   dueDate: z.string().datetime("Invalid date format"),
-  userId: z.string().optional()
+  userId: z.string().optional(),
+  // Optional project the task belongs to; the assignee must be on that project.
+  projectId: z.string().uuid().optional()
 });
 
 export const updateTaskSchema = z.object({

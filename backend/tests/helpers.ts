@@ -73,6 +73,7 @@ export function makeTask(overrides: Partial<any> = {}) {
     priority: TaskPriority.medium,
     dueDate: new Date("2026-12-31T00:00:00.000Z"),
     memberId: "member-1",
+    projectId: null,
     createdAt: new Date("2026-06-21T00:00:00.000Z"),
     completedAt: null,
     ...overrides,

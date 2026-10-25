@@ -22,6 +22,8 @@ export type Task = {
   memberId: string;
   createdAt: Date;
   completedAt: Date | null;
+  /** Set when the task belongs to a project. */
+  project?: { id: string; name: string; color: string | null } | null;
 };
 
 // The submission window that applies to the signed-in member, as reported by
@@ -276,6 +278,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
         memberId: d.memberId || d.member_id || "",
         createdAt: d.createdAt ? new Date(d.createdAt) : new Date(),
         completedAt: d.completedAt ? new Date(d.completedAt) : null,
+        project: d.project ?? null,
       }));
 
       setTasks(parsed);
