@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
@@ -40,6 +40,8 @@ import {
     ChevronDown,
     Clock,
     Lock,
+    FolderKanban,
+    UsersRound,
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -324,6 +326,14 @@ const MemberDetail = () => {
                         <h1 className="text-2xl font-bold text-primary">Crewly</h1>
                     </div>
                     <div className="flex items-center gap-4">
+                        <Button variant="outline" size="sm" onClick={() => navigate("/projects")}>
+                            <FolderKanban className="h-4 w-4" />
+                            <span className="hidden sm:inline">Projects</span>
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => navigate("/teams")}>
+                            <UsersRound className="h-4 w-4" />
+                            <span className="hidden sm:inline">Teams</span>
+                        </Button>
                         <ThemeToggle />
                         <span className="text-sm text-muted-foreground">
                             Hello, {user.name} ({user.role === "admin" ? "Admin" : "Member"})
@@ -913,6 +923,18 @@ const TaskCard = ({
                         <Badge className={priorityColors[task.priority]}>
                             {priorityLabels[task.priority]}
                         </Badge>
+                        {task.project && (
+                            <Link
+                                to={`/projects/${task.project.id}`}
+                                className="inline-flex items-center gap-1.5 border border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                                <span
+                                    className="h-2 w-2 inline-block"
+                                    style={{ backgroundColor: task.project.color ?? "var(--muted-foreground)" }}
+                                />
+                                {task.project.name}
+                            </Link>
+                        )}
                     </div>
                     <div
                         className={`flex items-center gap-1 text-xs ${isOverdue

@@ -54,6 +54,9 @@ src/
     TaskDetails.tsx         # tasks for a member ("/todos/:memberId")
     MembersDashboard.tsx    # attendance dashboard ("/attendance")
     AdminPanel.tsx          # admin attendance panel ("/admin/attendance")
+    Projects.tsx            # project grid + filters + "New project"   ("/projects")
+    ProjectDetail.tsx       # board by status, People + Teams tabs    ("/projects/:projectId")
+    Teams.tsx / TeamDetail.tsx  # team cards; roster w/ today's attendance ("/teams[/:teamId]")
     NotFound.tsx
     Index.tsx               # legacy redirect-to-"/" helper (not routed)
   contexts/
@@ -68,11 +71,17 @@ src/
                             #   addMember sends `workspaceId`; Member type carries it
     TaskContext.tsx         # member-facing tasks CRUD; updateTask returns the updated Task;
                             #   taskWindow + refreshTaskWindow gate "Add task"
+    ProjectContext.tsx      # project + team lists (admins: active workspace; members: theirs)
+                            #   and their create/update/delete; all project/team wire types
   components/
+    AppHeader.tsx           # shared top nav used by the projects/teams pages
+    projects/               # shared.tsx (badges, avatars, PeoplePicker, EmptyState),
+                            #   ProjectFormDialog, TeamFormDialog, AddPeopleDialog
     ProtectedRoute.tsx      # gates routes; redirects to "/login" when unauthenticated
     theme-provider.tsx      # ThemeProvider, useTheme, ThemeToggle
     ui/                     # shadcn components
-  hooks/  lib/utils.ts (cn)
+  hooks/                    # use-workspace-people.ts loads Member seats for pickers
+  lib/                      # utils.ts (cn), api.ts (fetch helper), projectMeta.ts (labels/colours/dates)
 ```
 
 ## Routing (`src/App.tsx`)
@@ -80,7 +89,8 @@ src/
 Public: `/` (Landing), `/login`, `/forgot-password`, `/reset-password`.
 Protected (wrapped by `ProtectedRoute`): `/dashboard`, `/attendance`,
 `/dashboard/member/:memberId/attendance`, `/admin/attendance`,
-`/member/:memberId`, `/todos/:memberId`. Everything else → `NotFound`.
+`/member/:memberId`, `/todos/:memberId`, `/projects`, `/projects/:projectId`, `/teams`,
+`/teams/:teamId`. Everything else → `NotFound`.
 
 After login, admins go to `/dashboard`; members go to `/todos/:id` (their tasks). The
 public `/` (Landing) and `/login` pages **redirect an already-authenticated user** to that
@@ -116,6 +126,23 @@ you back in the app instead of on the marketing/login page.
 - Create endpoints: `POST /org/createOrganization` `{ name }`, `POST /org/:orgId/workspaces`
   `{ workspaceName }`.
 
+## Projects & teams
+
+- `ProjectContext` lists projects/teams for the **active workspace** (admins) or everything
+  the caller is on (members, no `workspaceId`). Detail pages fetch their own data via
+  `api()` and keep it in local state; header stats on `ProjectDetail` are recomputed from
+  the local task list so status changes reflect instantly.
+- Pages render controls from the API's `permissions` (`canManage`, `canAssignLeads`,
+  `canDelete`) and `myRole` — don't re-derive permissions client-side. Seat and assignee
+  ids are **Member** ids (from `GET /workspace/:id/members`), not User ids.
+- New code calls the API through `lib/api.ts` (`api<T>(path, { method, body, query })`,
+  throws `ApiRequestError` with the server message) and keeps non-component exports in
+  `lib/` or `hooks/` so `react-refresh/only-export-components` stays clean.
+- Task due dates from the project board are saved as **end of day** (`fromDueDateInput`),
+  so a task due today isn't overdue until the day is over.
+- Tasks carry `project?: { id, name, color }`; `TaskDetails` / `MemberDetail` cards show it
+  as a link chip.
+
 ## Task submission window
 
 - Members can add their own tasks **at any time** by default. Each `Workspace` carries a
@@ -136,6 +163,8 @@ you back in the app instead of on the marketing/login page.
 - `TaskStatus = "todo" | "in_progress" | "review" | "completed"` (from `TaskContext`)
 - `TaskPriority = "low" | "medium" | "high" | "urgent"` (from `TaskContext`)
 - `UserRole = "admin" | "member"` (from `AuthContext`)
+- `ProjectStatus`, `ScopeRole` (`lead | member`), `ScopeAccess`, `ProjectSummary`,
+  `ProjectDetail`, `TeamSummary`, `TeamDetail`, `Person` (from `ProjectContext`)
 - `Organization` / `Workspace` / `TaskWindow` (from `OrgContext`); `TaskWindowInfo` — the
   member-facing window incl. `label` / `open` (from `TaskContext`); `Member` carries
   `workspaceId` (from `MemberContext`)

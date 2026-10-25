@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { PrismaClient, UserRole } from "@prisma/client";
+import { canLeadTaskProject } from "../utils/access";
 
 const prisma = new PrismaClient();
 
@@ -56,7 +57,11 @@ export async function canManageTask(
 
     // Match on the stable userId rather than email: Member.email can drift from
     // User.email, which would wrongly 403 a member from managing their own task.
-    if (task.member.userId !== req.user.userId) {
+    // Project leads may manage any task on a project they lead.
+    if (
+      task.member.userId !== req.user.userId &&
+      !(await canLeadTaskProject(req.user.userId, task.projectId))
+    ) {
       res.status(403).json({ message: "You can only manage your own tasks" });
       return;
     }

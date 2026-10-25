@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMembers } from "@/contexts/MemberContext";
@@ -874,6 +874,18 @@ const TaskCard = ({
                         <Badge className={priorityColors[task.priority]}>
                             {priorityLabels[task.priority]}
                         </Badge>
+                        {task.project && (
+                            <Link
+                                to={`/projects/${task.project.id}`}
+                                className="inline-flex items-center gap-1.5 border border-border px-2 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                                <span
+                                    className="h-2 w-2 inline-block"
+                                    style={{ backgroundColor: task.project.color ?? "var(--muted-foreground)" }}
+                                />
+                                {task.project.name}
+                            </Link>
+                        )}
                     </div>
                     <div
                         className={`flex items-center gap-1 text-xs ${isOverdue

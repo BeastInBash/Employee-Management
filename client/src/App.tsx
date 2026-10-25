@@ -19,6 +19,11 @@ import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 import TaskDetails from "./pages/TaskDetails";
 import { TaskProvider } from "./contexts/TaskContext";
+import { ProjectProvider } from "./contexts/ProjectContext";
+import Projects from "./pages/Projects";
+import ProjectDetail from "./pages/ProjectDetail";
+import Teams from "./pages/Teams";
+import TeamDetail from "./pages/TeamDetail";
 import MemberDashboard from "./pages/MembersDashboard";
 import AdminAttendancePanel from "./pages/AdminPanel";
 
@@ -32,6 +37,7 @@ const App = () => (
                 <OrgProvider>
                     <MemberProvider>
                         <TaskProvider>
+                          <ProjectProvider>
                             <Toaster />
                             <Sonner />
                             <BrowserRouter>
@@ -51,11 +57,16 @@ const App = () => (
                                         <Route path="/admin/attendance" element={<AdminAttendancePanel />} />
                                         <Route path="/member/:memberId" element={<MemberDetail />} />
                                         <Route path="/todos/:memberId" element={<TaskDetails />} />
+                                        <Route path="/projects" element={<Projects />} />
+                                        <Route path="/projects/:projectId" element={<ProjectDetail />} />
+                                        <Route path="/teams" element={<Teams />} />
+                                        <Route path="/teams/:teamId" element={<TeamDetail />} />
                                     </Route>
 
                                     <Route path="*" element={<NotFound />} />
                                 </Routes>
                             </BrowserRouter>
+                          </ProjectProvider>
                         </TaskProvider>
                     </MemberProvider>
                 </OrgProvider>

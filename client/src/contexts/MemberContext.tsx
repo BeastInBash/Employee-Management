@@ -22,6 +22,8 @@ export type Task = {
   memberId: string;
   createdAt: Date;
   completedAt: Date | null;
+  /** Set when the task belongs to a project. */
+  project?: { id: string; name: string; color: string | null } | null;
 };
 
 export type Member = {

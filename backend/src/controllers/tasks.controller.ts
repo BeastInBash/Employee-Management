@@ -8,6 +8,7 @@ import {
     taskWindowClosedMessage,
     toTaskWindow,
 } from "../utils/attendance";
+import { canLeadTaskProject, getProjectParticipantIds } from "../utils/access";
 
 const prisma = new PrismaClient();
 
@@ -30,9 +31,27 @@ export async function createTask(req: Request, res: Response): Promise<void> {
 
         let memberId: string;
 
+        // When the task belongs to a project, resolve the assignee's seat in
+        // *that* project's workspace (a user may have seats in several).
+        let projectWorkspaceId: string | undefined;
+        if (validatedData.projectId) {
+            const project = await prisma.project.findUnique({
+                where: { id: validatedData.projectId },
+                select: { workspaceId: true },
+            });
+            if (!project) {
+                res.status(404).json({ message: "Project not found" });
+                return;
+            }
+            projectWorkspaceId = project.workspaceId;
+        }
+
         if (req.user.role === UserRole.member) {
             const member = await prisma.member.findFirst({
-                where: { userId: req.user.userId },
+                where: {
+                    userId: req.user.userId,
+                    ...(projectWorkspaceId && { workspaceId: projectWorkspaceId }),
+                },
                 select: { id: true, workspace: { select: taskWindowSelect } },
             });
 
@@ -60,7 +79,10 @@ export async function createTask(req: Request, res: Response): Promise<void> {
             }
 
             const member = await prisma.member.findFirst({
-                where: { userId: validatedData.userId },
+                where: {
+                    userId: validatedData.userId,
+                    ...(projectWorkspaceId && { workspaceId: projectWorkspaceId }),
+                },
                 select: { id: true },
             });
 
@@ -72,6 +94,14 @@ export async function createTask(req: Request, res: Response): Promise<void> {
             memberId = member.id;
         }
 
+        if (validatedData.projectId) {
+            const participants = await getProjectParticipantIds(validatedData.projectId);
+            if (!participants.has(memberId)) {
+                res.status(400).json({ message: "The assignee must be on this project" });
+                return;
+            }
+        }
+
         const task = await prisma.task.create({
             data: {
                 title: validatedData.title,
@@ -80,7 +110,9 @@ export async function createTask(req: Request, res: Response): Promise<void> {
                 priority: validatedData.priority,
                 dueDate: new Date(validatedData.dueDate),
                 memberId,
+                ...(validatedData.projectId && { projectId: validatedData.projectId }),
             },
+            include: { project: { select: { id: true, name: true, color: true } } },
         });
 
         if (req.user.role === UserRole.member) {
@@ -170,6 +202,7 @@ export async function getMemberTasks(req: Request, res: Response): Promise<void>
 
         const tasks = await prisma.task.findMany({
             where: { memberId: member.id },
+            include: { project: { select: { id: true, name: true, color: true } } },
             orderBy: { createdAt: "desc" },
         });
 
@@ -200,6 +233,7 @@ export async function updateTask(req: Request, res: Response): Promise<void> {
             select: {
                 status: true,
                 memberId: true,
+                projectId: true,
                 member: { select: { id: true, userId: true } },
             },
         });
@@ -213,7 +247,8 @@ export async function updateTask(req: Request, res: Response): Promise<void> {
         // User.email and would wrongly block a member from updating their task).
         if (
             req.user.role !== UserRole.admin &&
-            existingTask.member.userId !== req.user.userId
+            existingTask.member.userId !== req.user.userId &&
+            !(await canLeadTaskProject(req.user.userId, existingTask.projectId))
         ) {
             res.status(403).json({ message: "You can only update your own tasks" });
             return;
@@ -232,7 +267,11 @@ export async function updateTask(req: Request, res: Response): Promise<void> {
                 ...(validatedData.priority !== undefined && { priority: validatedData.priority }),
                 ...(validatedData.dueDate !== undefined && { dueDate: new Date(validatedData.dueDate) }),
                 ...(isBeingCompleted && { completedAt: new Date() }),
+                // Reopening a finished task clears its completion time.
+                ...(validatedData.status !== undefined &&
+                    validatedData.status !== TaskStatus.completed && { completedAt: null }),
             },
+            include: { project: { select: { id: true, name: true, color: true } } },
         });
 
         // ✅ Removed role check — always run for any completed task
@@ -259,11 +298,6 @@ export async function deleteTask(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        if (req.user.role !== UserRole.admin) {
-            res.status(403).json({ message: "Only admins can delete tasks" });
-            return;
-        }
-
         const taskId = req.params["taskId"];
         if (typeof taskId !== "string") {
             res.status(400).json({ message: "Task ID is required" });
@@ -272,11 +306,20 @@ export async function deleteTask(req: Request, res: Response): Promise<void> {
 
         const task = await prisma.task.findUnique({
             where: { id: taskId },
-            select: { id: true },
+            select: { id: true, projectId: true },
         });
 
         if (!task) {
             res.status(404).json({ message: "Task not found" });
+            return;
+        }
+
+        // Admins can delete anything; project leads can delete their project's tasks.
+        if (
+            req.user.role !== UserRole.admin &&
+            !(await canLeadTaskProject(req.user.userId, task.projectId))
+        ) {
+            res.status(403).json({ message: "Only admins and project leads can delete tasks" });
             return;
         }
 

@@ -43,6 +43,8 @@ import {
     Layers,
     Plus,
     Clock,
+    FolderKanban,
+    UsersRound,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-provider";
 import { toast } from "@/components/ui/sonner";
@@ -287,6 +289,14 @@ const Dashboard = () => {
                         </h1>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                        <Button variant="outline" size="sm" onClick={() => navigate("/projects")}>
+                            <FolderKanban className="h-4 w-4" />
+                            Projects
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => navigate("/teams")}>
+                            <UsersRound className="h-4 w-4" />
+                            Teams
+                        </Button>
                         {isAdmin && (
                             <Button
                                 size="sm"
