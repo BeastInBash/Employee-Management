@@ -59,7 +59,7 @@ interface AllMembersReportResponse {
 
 const STATUS: Record<AttendanceStatus, { label: string; pill: string; dot: string; cell: string }> = {
     present: { label: "Present", pill: "bg-secondary text-primary", dot: "bg-[var(--viz-present)]", cell: "bg-secondary text-primary" },
-    partial: { label: "Partial", pill: "bg-olive-soft text-olive", dot: "bg-[var(--viz-partial)]", cell: "bg-olive-soft text-olive" },
+    partial: { label: "Partial", pill: "bg-honey-soft text-honey", dot: "bg-[var(--viz-partial)]", cell: "bg-honey-soft text-honey" },
     absent: { label: "Absent", pill: "bg-destructive/8 text-destructive", dot: "bg-destructive/70", cell: "bg-destructive/8 text-destructive" },
 };
 
@@ -354,7 +354,7 @@ const MemberMonthRow = ({ report, month, year, onOpen }: { report: MemberReport;
                     </span>
                     <span className="hidden w-24 overflow-hidden rounded-full bg-muted sm:block">
                         <span
-                            className="block h-1.5 rounded-full bg-olive transition-[width] duration-500"
+                            className="block h-1.5 rounded-full bg-honey transition-[width] duration-500"
                             style={{ width: `${summary.attendancePercentage}%` }}
                         />
                     </span>

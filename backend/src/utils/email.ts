@@ -43,29 +43,29 @@ interface EmailContent {
 }
 
 /**
- * One calm template for every email: off-white canvas, white card, forest-green
+ * One calm template for every email: warm oat canvas, warm-white card, olive
  * button — the same palette as the app. Inline styles only (email clients).
  */
 function render({ preview, heading, paragraphs, button, details, footnote }: EmailContent): { html: string; text: string } {
-    const green = "#2e5a43";
-    const ink = "#1c2a21";
-    const muted = "#5c6a5f";
+    const green = "#4f5b2e";
+    const ink = "#2b2a22";
+    const muted = "#6b6656";
     const html = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(heading)}</title></head>
-<body style="margin:0;padding:0;background:#f3f5ee;">
+<body style="margin:0;padding:0;background:#f5f0e6;">
 <span style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(preview)}</span>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f5ee;padding:40px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f0e6;padding:40px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 <tr><td align="center">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;">
     <tr><td style="padding:0 4px 20px;font-size:17px;font-weight:600;color:${ink};letter-spacing:-0.01em;">
       <span style="color:${green};">&#9679;</span>&nbsp;${BRAND}
     </td></tr>
-    <tr><td style="background:#ffffff;border:1px solid #e1e5da;border-radius:16px;padding:32px;">
+    <tr><td style="background:#fffcf6;border:1px solid #e4dccb;border-radius:16px;padding:32px;">
       <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3;font-weight:600;color:${ink};letter-spacing:-0.02em;">${esc(heading)}</h1>
       ${paragraphs.map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:${muted};">${esc(p)}</p>`).join("\n      ")}
       ${
           details
-              ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 18px;background:#f8f9f4;border-radius:12px;">
+              ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 18px;background:#faf6ee;border-radius:12px;">
         ${details
             .map(
                 ([k, v]) =>
@@ -77,12 +77,12 @@ function render({ preview, heading, paragraphs, button, details, footnote }: Ema
       }
       ${
           button
-              ? `<a href="${esc(button.url)}" style="display:inline-block;margin-top:6px;background:${green};color:#f6f8f2;text-decoration:none;font-size:15px;font-weight:600;padding:12px 22px;border-radius:10px;">${esc(button.label)}</a>`
+              ? `<a href="${esc(button.url)}" style="display:inline-block;margin-top:6px;background:${green};color:#fbf8f0;text-decoration:none;font-size:15px;font-weight:600;padding:12px 22px;border-radius:10px;">${esc(button.label)}</a>`
               : ""
       }
-      ${footnote ? `<p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#8a948b;">${esc(footnote)}</p>` : ""}
+      ${footnote ? `<p style="margin:24px 0 0;font-size:13px;line-height:1.5;color:#8c8572;">${esc(footnote)}</p>` : ""}
     </td></tr>
-    <tr><td style="padding:20px 4px 0;font-size:12px;color:#8a948b;">You're receiving this because of your ${BRAND} account.</td></tr>
+    <tr><td style="padding:20px 4px 0;font-size:12px;color:#8c8572;">You're receiving this because of your ${BRAND} account.</td></tr>
   </table>
 </td></tr></table>
 </body></html>`;

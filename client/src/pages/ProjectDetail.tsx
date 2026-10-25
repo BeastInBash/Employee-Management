@@ -523,7 +523,7 @@ const BoardCard = ({
 }) => {
   const overdue = task.status !== "completed" && new Date(task.dueDate) < new Date();
   return (
-    <div className="space-y-2.5 rounded-lg border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgb(20_40_28/0.04)]">
+    <div className="space-y-2.5 rounded-lg border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgb(46_38_20/0.04)]">
       <div className="flex items-start justify-between gap-2">
         <p className={`text-sm leading-snug ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}>
           {task.title}

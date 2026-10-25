@@ -26,7 +26,7 @@ export const AuthLayout = ({
       transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
       className="w-full max-w-[400px]"
     >
-      <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-[0_24px_64px_-40px_rgb(20_40_28/0.45)] sm:p-8">
+      <div className="rounded-2xl border border-border/80 bg-card p-6 shadow-[0_24px_64px_-40px_rgb(46_38_20/0.45)] sm:p-8">
         <div className="mb-6 space-y-1.5">
           <h1 className="text-2xl">{title}</h1>
           {description && <p className="text-sm text-muted-foreground">{description}</p>}

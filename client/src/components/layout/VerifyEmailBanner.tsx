@@ -71,8 +71,8 @@ export const VerifyEmailBanner = () => {
           transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
           className="overflow-hidden"
         >
-          <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-olive-soft px-4 py-3 text-sm ring-1 ring-olive/15">
-            <MailCheck className="h-4 w-4 shrink-0 text-olive" />
+          <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-honey-soft px-4 py-3 text-sm ring-1 ring-honey/15">
+            <MailCheck className="h-4 w-4 shrink-0 text-honey" />
             <p className="min-w-0 flex-1 text-foreground">
               {sentTo ? (
                 <>A new link is on its way to <span className="font-medium">{sentTo}</span>. It works for 24 hours.</>
@@ -83,7 +83,7 @@ export const VerifyEmailBanner = () => {
               )}
             </p>
             <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" onClick={resend} disabled={isSending} className="text-olive hover:text-olive">
+              <Button size="sm" variant="ghost" onClick={resend} disabled={isSending} className="text-honey hover:text-honey">
                 {isSending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Resend email
               </Button>

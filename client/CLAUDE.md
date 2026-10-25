@@ -44,7 +44,9 @@ src/
   App.tsx                   # providers + all routes
   index.css                 # Tailwind v4 import + theme tokens (light + .dark)
   pages/
-    Landing.tsx             # public page with the interactive "finish the day" demo -> "/"
+    Landing.tsx             # public page: photo hero (parallax + typewriter), About with
+                            #   scroll-revealed copy + the "finish the day" demo, Features
+                            #   (sticky heading), closing band, footer  ->  "/"
     Login.tsx               # sign in / sign up tabs (`?tab=signup`) + Google  ->  "/login"
     ForgotPassword.tsx / ResetPassword.tsx / AuthCallback.tsx
     VerifyEmail.tsx         # link target from confirmation emails ("/verify-email?token&next")
@@ -178,7 +180,7 @@ you back in the app instead of on the marketing/login page.
 - Refetching keeps the previous report on screen at reduced opacity (no spinner flash).
 - **Chart colours are tokens** in `index.css` (`--viz-completed` = accent, `--viz-created`,
   `--viz-present/partial/absent`), validated with the dataviz palette script against
-  `#fff` / `#0a0a0a`. Charts follow the dataviz rules: 2px lines, ≤24px bars with a 2px
+  `#fffcf6` / `#22211b` (the card surfaces). Charts follow the dataviz rules: 2px lines, ≤24px bars with a 2px
   surface gap, legend on every multi-series chart, tooltip with every series, and a
   chart/table toggle (the table view is the accessible fallback). Bars have 4px rounded
   data ends. Re-run the validator if you change these tokens.
@@ -215,13 +217,21 @@ you back in the app instead of on the marketing/login page.
 
 - Use the `@/` import alias (maps to `src/`).
 - Reuse `src/components/ui/*` shadcn primitives; don't hand-roll buttons/inputs/dialogs.
-- **Design language: minimalist and calm.** Light is the default (`ThemeProvider
-  defaultTheme="light"`, key `crewly-theme`); dark is a "forest night" theme from the
-  same palette. Style only with tokens so both work: canvas `bg-background` (sage
-  off-white), panels `bg-card` (white), insets `bg-surface`, `text-muted-foreground`,
-  `border-border`, `primary` (forest green), `olive` / `olive-soft` (progress, partial,
-  highlights), `secondary` (sage fill), `destructive` (soft brick). The forest-green
+- **Design language: minimalist, warm and calm ("Olive grove").** Light is the default
+  (`ThemeProvider defaultTheme="light"`, key `crewly-theme`); dark is a warm "olive night"
+  theme from the same palette. Style only with tokens so both work: canvas
+  `bg-background` (warm oat `#f5f0e6`), panels `bg-card` (warm white), insets
+  `bg-surface`, `text-muted-foreground`, `border-border`, `primary` (deep olive
+  `#4f5b2e`), `honey` / `honey-soft` (progress, partial, highlights), `secondary` (sand),
+  `destructive` (soft clay). Shadows use a warm tint (`rgb(46_38_20/…)`). The deep-olive
   **sidebar** is the one bold colour block — don't add more.
+- **Landing page motion** (`components/landing/`): `Typewriter` (types once in view,
+  full text for screen readers and reduced motion), `ScrollRevealText` (words brighten
+  with scroll), `DayDemo`, and framer `useScroll`/`useTransform` parallax on the hero
+  photo, the demo card and the closing band's leaf. Every scroll-linked transform is
+  zeroed under `useReducedMotion()`. The hero photo is self-hosted in
+  `public/images/hero-team-{1280,2400}.webp` (Unsplash License, by Sable Flow — keep the
+  footer credit).
 - **Status/priority pills are soft tints** (pale fill + deeper ink of the same hue), from
   `lib/projectMeta.ts` (`taskStatusColors`, `taskStatusDots`, `priorityColors`) and
   `ProjectStatusBadge` / `AttendanceDot` in `components/projects/shared.tsx`. Don't use

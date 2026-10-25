@@ -34,8 +34,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-olive: var(--olive);
-  --color-olive-soft: var(--olive-soft);
+  --color-honey: var(--honey);
+  --color-honey-soft: var(--honey-soft);
   --color-surface: var(--surface);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
@@ -52,95 +52,95 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* ── Light (default): white surfaces on a sage-tinted off-white canvas,
-   deep forest green primary, olive for progress and highlights. ── */
+/* ── Light (default): "Olive grove". Warm oat canvas, warm-white panels,
+   deep olive primary, honey-amber accent, soft clay for alerts. ── */
 :root {
   --radius: 0.875rem;
-  --background: #f3f5ee; /* canvas */
-  --surface: #f8f9f4; /* subtle inset areas (table heads, wells) */
-  --foreground: #1c2a21;
-  --card: #ffffff;
-  --card-foreground: #1c2a21;
-  --popover: #ffffff;
-  --popover-foreground: #1c2a21;
-  --primary: #2e5a43; /* forest */
-  --primary-foreground: #f6f8f2;
-  --secondary: #e6ecdf; /* sage fill */
-  --secondary-foreground: #24402f;
-  --muted: #ecefe6;
-  --muted-foreground: #5c6a5f;
-  --accent: #e9eee3;
-  --accent-foreground: #1c2a21;
-  --olive: #6e7b36;
-  --olive-soft: #eef0dc;
-  --destructive: #b4492f;
-  --border: #e1e5da;
-  --input: #d9dfd1;
-  --ring: #7f9c6a;
-  --chart-1: #2e5a43;
-  --chart-2: #6e7b36;
-  --chart-3: #8fae8a;
-  --chart-4: #c9b46a;
-  --chart-5: #5c6a5f;
-  /* The one bold block: a deep forest sidebar. */
-  --sidebar: #1f3a2b;
-  --sidebar-foreground: #dfe8dc;
-  --sidebar-primary: #f3f5ee;
-  --sidebar-primary-foreground: #1f3a2b;
+  --background: #f5f0e6; /* warm oat canvas */
+  --surface: #faf6ee; /* subtle inset areas (table heads, wells) */
+  --foreground: #2b2a22; /* warm charcoal */
+  --card: #fffcf6; /* warm white */
+  --card-foreground: #2b2a22;
+  --popover: #fffcf6;
+  --popover-foreground: #2b2a22;
+  --primary: #4f5b2e; /* deep olive */
+  --primary-foreground: #fbf8f0;
+  --secondary: #e8dfcb; /* sand */
+  --secondary-foreground: #3d4423;
+  --muted: #eee7d8;
+  --muted-foreground: #6b6656;
+  --accent: #efe8d9;
+  --accent-foreground: #2b2a22;
+  --honey: #9a6a1f; /* honey ink, readable on cream */
+  --honey-soft: #f6e9cf;
+  --destructive: #b4553c; /* soft clay */
+  --border: #e4dccb;
+  --input: #d9cfbb;
+  --ring: #8f9a5c;
+  --chart-1: #4f5b2e;
+  --chart-2: #c8923a;
+  --chart-3: #8f9a5c;
+  --chart-4: #b4553c;
+  --chart-5: #6b6656;
+  /* The one bold block: a deep olive sidebar. */
+  --sidebar: #353d1f;
+  --sidebar-foreground: #e9e4d2;
+  --sidebar-primary: #f5f0e6;
+  --sidebar-primary-foreground: #353d1f;
   --sidebar-accent: rgb(255 255 255 / 0.07);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgb(255 255 255 / 0.08);
-  --sidebar-ring: #9fc18f;
-  /* Report charts — validated with the dataviz palette script against #fff.
+  --sidebar-ring: #c8b46a;
+  /* Report charts — validated with the dataviz palette script against #fffcf6.
      present/partial/absent always ship with labels + a table view. */
-  --viz-completed: #2e5a43;
-  --viz-created: #8a9686;
-  --viz-present: #2f7d4f;
-  --viz-partial: #d19a1e;
-  --viz-absent: #7d8679;
+  --viz-completed: #4f5b2e;
+  --viz-created: #8c8572;
+  --viz-present: #4e7a3c;
+  --viz-partial: #d09a3c;
+  --viz-absent: #857d6a;
 }
 
-/* ── Dark: "forest night", built from the same palette. ── */
+/* ── Dark: "olive night", built from the same palette. ── */
 .dark {
-  --background: #121915;
-  --surface: #151d18;
-  --foreground: #e6ece3;
-  --card: #18211b;
-  --card-foreground: #e6ece3;
-  --popover: #1b251e;
-  --popover-foreground: #e6ece3;
-  --primary: #8dbf97;
-  --primary-foreground: #10201a;
-  --secondary: #22302a;
-  --secondary-foreground: #d7e3d3;
-  --muted: #1f2a23;
-  --muted-foreground: #9aa89c;
-  --accent: #243128;
-  --accent-foreground: #e6ece3;
-  --olive: #b5c26e;
-  --olive-soft: #2a3122;
-  --destructive: #e07a5f;
-  --border: #26332b;
-  --input: #2f3d34;
-  --ring: #8dbf97;
-  --chart-1: #8dbf97;
-  --chart-2: #b5c26e;
-  --chart-3: #5f8f6b;
-  --chart-4: #d9c27a;
-  --chart-5: #9aa89c;
-  --sidebar: #0e1411;
-  --sidebar-foreground: #c9d6c6;
-  --sidebar-primary: #8dbf97;
-  --sidebar-primary-foreground: #0e1411;
+  --background: #1a1915;
+  --surface: #1e1d18;
+  --foreground: #ede6d6;
+  --card: #22211b;
+  --card-foreground: #ede6d6;
+  --popover: #26251e;
+  --popover-foreground: #ede6d6;
+  --primary: #b7c27a;
+  --primary-foreground: #1d200f;
+  --secondary: #2e2d24;
+  --secondary-foreground: #e2dcc6;
+  --muted: #2a2921;
+  --muted-foreground: #a8a08b;
+  --accent: #2f2e25;
+  --accent-foreground: #ede6d6;
+  --honey: #e6b45a;
+  --honey-soft: #3a3020;
+  --destructive: #e08a6e;
+  --border: #33312a;
+  --input: #3d3b32;
+  --ring: #b7c27a;
+  --chart-1: #b7c27a;
+  --chart-2: #e6b45a;
+  --chart-3: #6f9a50;
+  --chart-4: #e08a6e;
+  --chart-5: #a8a08b;
+  --sidebar: #12110d;
+  --sidebar-foreground: #d6cfbb;
+  --sidebar-primary: #b7c27a;
+  --sidebar-primary-foreground: #12110d;
   --sidebar-accent: rgb(255 255 255 / 0.05);
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgb(255 255 255 / 0.06);
-  --sidebar-ring: #8dbf97;
-  --viz-completed: #8dbf97;
-  --viz-created: #6f7d72;
-  --viz-present: #2f8a55;
-  --viz-partial: #e6bb4f;
-  --viz-absent: #727f75;
+  --sidebar-ring: #b7c27a;
+  --viz-completed: #b7c27a;
+  --viz-created: #7c7766;
+  --viz-present: #6f9a50;
+  --viz-partial: #e6b45a;
+  --viz-absent: #7a7462;
 }
 
 @layer base {
@@ -148,6 +148,7 @@
     @apply border-border outline-ring/50;
   }
   html {
+    scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -187,11 +188,19 @@
     transform: scale(0.97);
   }
   @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
     button:not(:disabled):active,
     [role="button"]:not([aria-disabled="true"]):active {
       transform: none;
     }
   }
+}
+
+@keyframes caret {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 @layer utilities {
