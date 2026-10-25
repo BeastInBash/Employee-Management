@@ -44,9 +44,12 @@ src/
   App.tsx                   # providers + all routes
   index.css                 # Tailwind v4 import + theme tokens (light + .dark)
   pages/
-    Landing.tsx             # public page with the interactive "finish the day" demo -> "/"
+    Landing.tsx             # public page: photo hero (parallax + typewriter), About with
+                            #   scroll-revealed copy + the "finish the day" demo, Features
+                            #   (sticky heading), closing band, footer  ->  "/"
     Login.tsx               # sign in / sign up tabs (`?tab=signup`) + Google  ->  "/login"
     ForgotPassword.tsx / ResetPassword.tsx / AuthCallback.tsx
+    VerifyEmail.tsx         # link target from confirmation emails ("/verify-email?token&next")
     Dashboard.tsx           # "Members": searchable member list for the active workspace,
                             #   add/remove member, Workspace menu (submission hours,
                             #   new workspace / organization), onboarding empty states
@@ -76,7 +79,8 @@ src/
                             #   and their create/update/delete; all project/team wire types
   components/
     layout/                 # AppShell (sidebar + page transitions), Page (PageHeader,
-                            #   Section, Panel), AuthLayout, ChangePasswordDialog, Leaf (logo)
+                            #   Section, Panel), AuthLayout, ChangePasswordDialog, Leaf (logo),
+                            #   VerifyEmailBanner (soft email-verification reminder)
     tasks/                  # TaskBoard (4 columns, inline status, gliding cards),
                             #   TaskFormDialog (add/edit, mirrors API validation)
     projects/               # shared.tsx (badges, avatars, PeoplePicker, EmptyState),
@@ -92,7 +96,8 @@ src/
 
 ## Routing (`src/App.tsx`)
 
-Public: `/` (Landing), `/login`, `/forgot-password`, `/reset-password`, `/auth/callback`.
+Public: `/` (Landing), `/login`, `/forgot-password`, `/reset-password`, `/auth/callback`,
+`/verify-email`.
 Protected routes sit under `ProtectedRoute` → **`AppShell`** (a layout route that renders the
 sidebar and the page via `<Outlet>`), so pages render **content only** — no headers, no
 `min-h-screen` wrappers; start with `<PageHeader>`. Protected: `/dashboard`, `/attendance`,
@@ -118,6 +123,13 @@ you back in the app instead of on the marketing/login page.
   middleware accepts this header (it prefers a `token` cookie but falls back to Bearer), so
   the localStorage-token model works cross-site.
 - New members are created by an admin **into a workspace** and emailed a default password (`123456`).
+- **Email verification is soft.** `User.emailVerified` comes from login / `GET /auth/me`.
+  `AppShell` shows `VerifyEmailBanner` while it's `false` (resend button → `POST
+  /auth/resend-verification`, which may answer 429 with a wait time; dismissible for the
+  browser session) and refreshes the user once on mount so a confirmation made on another
+  device clears it. `/verify-email` posts the token (once — guarded against StrictMode's
+  double effect) and calls `AuthContext.refreshUser()` if this browser is signed in.
+  Emails are branded **WorkZen** while the app UI still says Crewly.
 - **Google sign-in:** `components/auth/GoogleSignInButton.tsx` (on the Login card) asks
   `GET /auth/providers` and renders only when Google is configured; clicking does a full-page
   `window.location.assign(VITE_API_URL + "/auth/google")`. The API returns to
@@ -168,7 +180,7 @@ you back in the app instead of on the marketing/login page.
 - Refetching keeps the previous report on screen at reduced opacity (no spinner flash).
 - **Chart colours are tokens** in `index.css` (`--viz-completed` = accent, `--viz-created`,
   `--viz-present/partial/absent`), validated with the dataviz palette script against
-  `#fff` / `#0a0a0a`. Charts follow the dataviz rules: 2px lines, ≤24px bars with a 2px
+  `#fffcf6` / `#22211b` (the card surfaces). Charts follow the dataviz rules: 2px lines, ≤24px bars with a 2px
   surface gap, legend on every multi-series chart, tooltip with every series, and a
   chart/table toggle (the table view is the accessible fallback). Bars have 4px rounded
   data ends. Re-run the validator if you change these tokens.
@@ -205,13 +217,21 @@ you back in the app instead of on the marketing/login page.
 
 - Use the `@/` import alias (maps to `src/`).
 - Reuse `src/components/ui/*` shadcn primitives; don't hand-roll buttons/inputs/dialogs.
-- **Design language: minimalist and calm.** Light is the default (`ThemeProvider
-  defaultTheme="light"`, key `crewly-theme`); dark is a "forest night" theme from the
-  same palette. Style only with tokens so both work: canvas `bg-background` (sage
-  off-white), panels `bg-card` (white), insets `bg-surface`, `text-muted-foreground`,
-  `border-border`, `primary` (forest green), `olive` / `olive-soft` (progress, partial,
-  highlights), `secondary` (sage fill), `destructive` (soft brick). The forest-green
+- **Design language: minimalist, warm and calm ("Olive grove").** Light is the default
+  (`ThemeProvider defaultTheme="light"`, key `crewly-theme`); dark is a warm "olive night"
+  theme from the same palette. Style only with tokens so both work: canvas
+  `bg-background` (warm oat `#f5f0e6`), panels `bg-card` (warm white), insets
+  `bg-surface`, `text-muted-foreground`, `border-border`, `primary` (deep olive
+  `#4f5b2e`), `honey` / `honey-soft` (progress, partial, highlights), `secondary` (sand),
+  `destructive` (soft clay). Shadows use a warm tint (`rgb(46_38_20/…)`). The deep-olive
   **sidebar** is the one bold colour block — don't add more.
+- **Landing page motion** (`components/landing/`): `Typewriter` (types once in view,
+  full text for screen readers and reduced motion), `ScrollRevealText` (words brighten
+  with scroll), `DayDemo`, and framer `useScroll`/`useTransform` parallax on the hero
+  photo, the demo card and the closing band's leaf. Every scroll-linked transform is
+  zeroed under `useReducedMotion()`. The hero photo is self-hosted in
+  `public/images/hero-team-{1280,2400}.webp` (Unsplash License, by Sable Flow — keep the
+  footer credit).
 - **Status/priority pills are soft tints** (pale fill + deeper ink of the same hue), from
   `lib/projectMeta.ts` (`taskStatusColors`, `taskStatusDots`, `priorityColors`) and
   `ProjectStatusBadge` / `AttendanceDot` in `components/projects/shared.tsx`. Don't use

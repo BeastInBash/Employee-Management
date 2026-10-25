@@ -14,22 +14,22 @@ jest.mock("@prisma/client", () => {
   };
 });
 
-// nodemailer must never reach the network during tests.
-jest.mock("nodemailer", () => ({
+// Resend must never reach the network during tests.
+jest.mock("resend", () => ({
   __esModule: true,
-  default: {
-    createTransport: jest.fn(() => ({
-      sendMail: jest.fn().mockResolvedValue({ messageId: "test" }),
-    })),
-  },
+  Resend: jest.fn(() => ({ emails: { send: jest.fn().mockResolvedValue({ data: { id: "test" }, error: null }) } })),
 }));
 
 // Mock the email util so controllers don't try to send mail and tests can
 // assert/override per case (e.g. simulate a mail outage).
 jest.mock("../src/utils/email", () => ({
   __esModule: true,
-  sendMemberCredentials: jest.fn().mockResolvedValue(undefined),
-  sendPasswordResetEmail: jest.fn().mockResolvedValue(undefined),
+  clientUrl: (path: string) => `http://localhost:5173${path}`,
+  sendMemberCredentials: jest.fn().mockResolvedValue(true),
+  sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
+  sendVerificationEmail: jest.fn().mockResolvedValue(true),
+  sendScopeNotice: jest.fn().mockResolvedValue(true),
+  sendScopeNotices: jest.fn().mockResolvedValue(undefined),
 }));
 
 // Mock bcrypt-backed password util so tests can drive compare results without

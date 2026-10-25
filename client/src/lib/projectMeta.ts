@@ -31,16 +31,16 @@ export const taskStatusLabels: Record<TaskStatus, string> = {
 // Soft tinted pills: a pale fill with a deeper ink of the same hue.
 export const taskStatusColors: Record<TaskStatus, string> = {
   todo: "bg-muted text-muted-foreground",
-  in_progress: "bg-olive-soft text-olive",
-  review: "bg-[#e6eef1] text-[#3d6274] dark:bg-[#1c2a31] dark:text-[#9ec3d4]",
+  in_progress: "bg-honey-soft text-honey",
+  review: "bg-[#e3ebe6] text-[#3e5f58] dark:bg-[#1f2b28] dark:text-[#a3c4bb]",
   completed: "bg-secondary text-primary",
 };
 
 /** Solid dot colour per status (for column headers and legends). */
 export const taskStatusDots: Record<TaskStatus, string> = {
   todo: "bg-muted-foreground/50",
-  in_progress: "bg-olive",
-  review: "bg-[#5b8aa0]",
+  in_progress: "bg-honey",
+  review: "bg-[#5f8a80]",
   completed: "bg-primary",
 };
 
@@ -58,8 +58,8 @@ export const priorityColors: Record<TaskPriority, string> = {
   urgent: "bg-[#f6e1da] text-[#953720] dark:bg-[#3a221c] dark:text-[#ef9a82]",
 };
 
-/** Calm swatches for projects and teams, drawn from the same green/earth palette. */
-export const COLOR_CHOICES = ["#2e5a43", "#6e7b36", "#8fae8a", "#3f7f7a", "#5b8aa0", "#c49a3a", "#b0694f", "#7b6b8f"];
+/** Calm swatches for projects and teams, drawn from the warm olive/earth palette. */
+export const COLOR_CHOICES = ["#4f5b2e", "#8f9a5c", "#c8923a", "#b4553c", "#a8744f", "#5f8a80", "#7a6a8f", "#6b6656"];
 
 /** "Due 12 Mar" / "No due date" — dates come from the API as ISO strings. */
 export const formatDate = (iso: string | null, empty = "—") =>

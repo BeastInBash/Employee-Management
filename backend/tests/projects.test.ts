@@ -3,6 +3,9 @@ import { Prisma, ScopeRole } from "@prisma/client";
 import { prismaMock } from "./singleton";
 import { createTestApp } from "./testApp";
 import { authHeader, ADMIN, MEMBER, makeTask } from "./helpers";
+import { sendScopeNotices } from "../src/utils/email";
+
+const noticesMock = sendScopeNotices as jest.Mock;
 
 const app = createTestApp();
 
@@ -101,6 +104,35 @@ describe("POST /api/projects", () => {
       { memberId: MY_SEAT, role: ScopeRole.lead },
       { memberId: OTHER_SEAT, role: ScopeRole.member },
     ]);
+    // Both people are told, the lead with a lead email.
+    expect(noticesMock.mock.calls[0]![0]).toEqual([
+      expect.objectContaining({ to: `${MY_SEAT}@example.com`, role: "lead", event: "added" }),
+      expect.objectContaining({ to: `${OTHER_SEAT}@example.com`, role: "member", event: "added" }),
+    ]);
+  });
+
+  it("doesn't email the person who made the change", async () => {
+    standAs("admin");
+    prismaMock.member.count.mockResolvedValue(1);
+    prismaMock.project.create.mockResolvedValue({
+      id: PROJECT,
+      name: "Solo",
+      description: null,
+      status: "active",
+      color: null,
+      startDate: null,
+      dueDate: null,
+      workspaceId: WS,
+      createdById: ADMIN.userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      // The admin seated themselves.
+      members: [{ role: ScopeRole.lead, member: { ...memberRow(MY_SEAT), userId: ADMIN.userId } }],
+      teams: [],
+    } as any);
+
+    await request(app).post("/api/projects").set("Authorization", as("admin")).send({ workspaceId: WS, name: "Solo", leadIds: [MY_SEAT] });
+    expect(noticesMock).not.toHaveBeenCalled();
   });
 });
 
@@ -126,8 +158,10 @@ describe("project seats", () => {
     prismaMock.projectMember.create.mockResolvedValue({
       role: ScopeRole.member,
       addedAt: new Date(),
-      member: memberRow(OTHER_SEAT),
+      member: memberRow(OTHER_SEAT, "Lena Kim"),
+      project: { name: "Relaunch" },
     } as any);
+    prismaMock.user.findUnique.mockResolvedValue({ name: "Marco Ruiz" } as any);
 
     const res = await request(app)
       .post(`/api/projects/${PROJECT}/members`)
@@ -136,6 +170,18 @@ describe("project seats", () => {
 
     expect(res.status).toBe(201);
     expect(res.body.member).toEqual(expect.objectContaining({ id: OTHER_SEAT, projectRole: "member" }));
+    expect(noticesMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        to: `${OTHER_SEAT}@example.com`,
+        name: "Lena Kim",
+        kind: "project",
+        scopeName: "Relaunch",
+        role: "member",
+        event: "added",
+        byName: "Marco Ruiz",
+        path: `/projects/${PROJECT}`,
+      }),
+    ]);
   });
 
   it("doesn't let a lead appoint another lead", async () => {
@@ -179,6 +225,27 @@ describe("project seats", () => {
       .set("Authorization", as("lead"));
     expect(res.status).toBe(403);
     expect(prismaMock.projectMember.delete).not.toHaveBeenCalled();
+  });
+
+  it("emails a member when an admin promotes them, but not on a no-op save", async () => {
+    standAs("admin");
+    prismaMock.user.findUnique.mockResolvedValue({ name: "Sam Admin" } as any);
+    prismaMock.projectMember.update.mockResolvedValue({
+      role: ScopeRole.lead,
+      member: memberRow(OTHER_SEAT, "Lena Kim"),
+      project: { name: "Relaunch" },
+    } as any);
+
+    // First call: the seat was a member → promotion → one email.
+    prismaMock.projectMember.findUnique.mockResolvedValueOnce({ role: ScopeRole.member } as any);
+    await request(app).patch(`/api/projects/${PROJECT}/members/${OTHER_SEAT}`).set("Authorization", as("admin")).send({ role: "lead" });
+    expect(noticesMock).toHaveBeenCalledTimes(1);
+    expect(noticesMock.mock.calls[0]![0][0]).toEqual(expect.objectContaining({ event: "promoted", role: "lead" }));
+
+    // Second call: already a lead → nothing new to say.
+    prismaMock.projectMember.findUnique.mockResolvedValueOnce({ role: ScopeRole.lead } as any);
+    await request(app).patch(`/api/projects/${PROJECT}/members/${OTHER_SEAT}`).set("Authorization", as("admin")).send({ role: "lead" });
+    expect(noticesMock).toHaveBeenCalledTimes(1);
   });
 
   it("only lets admins promote to lead", async () => {
@@ -318,6 +385,7 @@ describe("teams", () => {
       role: ScopeRole.member,
       joinedAt: new Date(),
       member: memberRow(OTHER_SEAT),
+      team: { name: "Design" },
     } as any);
 
     const ok = await request(app)

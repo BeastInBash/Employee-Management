@@ -22,7 +22,7 @@ const projectStatusStyles: Record<ProjectStatus, { pill: string; dot: string }> 
   planning: { pill: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/60" },
   active: { pill: "bg-secondary text-primary", dot: "bg-primary" },
   on_hold: { pill: "bg-[#f5ead2] text-[#7f5410] dark:bg-[#33291a] dark:text-[#e3b764]", dot: "bg-[#c49a3a]" },
-  completed: { pill: "bg-olive-soft text-olive", dot: "bg-olive" },
+  completed: { pill: "bg-honey-soft text-honey", dot: "bg-honey" },
   archived: { pill: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/40" },
 };
 
@@ -96,7 +96,7 @@ export const ProgressMeter = ({ value, className }: { value: number; className?:
   <div className={cn("flex items-center gap-3", className)}>
     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
       <div
-        className="h-full rounded-full bg-olive transition-[width] duration-500 ease-[var(--ease-out)]"
+        className="h-full rounded-full bg-honey transition-[width] duration-500 ease-[var(--ease-out)]"
         style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
       />
     </div>

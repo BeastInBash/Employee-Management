@@ -17,6 +17,7 @@ import {
 } from "../validation/projectValidation";
 import { getTodayISTDate } from "../utils/attendance";
 import { memberSummarySelect, serializeMember } from "./projects.controller";
+import { notifySeats } from "../utils/notify";
 
 const prisma = new PrismaClient();
 
@@ -106,6 +107,15 @@ export const createTeam = async (req: Request, res: Response) => {
             },
         },
         include: teamListInclude,
+    });
+
+    await notifySeats({
+        actorUserId: userId,
+        kind: "team",
+        scopeId: team.id,
+        scopeName: team.name,
+        seats: team.members,
+        event: "added",
     });
 
     res.status(201).json({ team: serializeTeamSummary(team, "admin") });
@@ -238,7 +248,15 @@ export const addTeamMember = async (req: Request, res: Response) => {
 
     const seat = await prisma.teamMember.create({
         data: { teamId, memberId, role },
-        select: { role: true, joinedAt: true, member: { select: memberSummarySelect } },
+        select: { role: true, joinedAt: true, member: { select: memberSummarySelect }, team: { select: { name: true } } },
+    });
+    await notifySeats({
+        actorUserId: req.user!.userId,
+        kind: "team",
+        scopeId: teamId,
+        scopeName: seat.team.name,
+        seats: [seat],
+        event: "added",
     });
     res.status(201).json({ member: { ...serializeMember(seat.member), teamRole: seat.role, joinedAt: seat.joinedAt } });
 };
@@ -251,11 +269,26 @@ export const updateTeamMember = async (req: Request, res: Response) => {
     if (access.access !== "admin") throw ApiError.forbidden("Only workspace admins can change team roles");
 
     const { role } = updateSeatSchema.parse(req.body);
+    const before = await prisma.teamMember.findUnique({
+        where: { teamId_memberId: { teamId, memberId } },
+        select: { role: true },
+    });
     const seat = await prisma.teamMember.update({
         where: { teamId_memberId: { teamId, memberId } },
         data: { role },
-        select: { role: true, joinedAt: true, member: { select: memberSummarySelect } },
+        select: { role: true, joinedAt: true, member: { select: memberSummarySelect }, team: { select: { name: true } } },
     });
+    // Only a real promotion is news; demotions and no-op saves stay quiet.
+    if (seat.role === ScopeRole.lead && before?.role !== ScopeRole.lead) {
+        await notifySeats({
+            actorUserId: req.user!.userId,
+            kind: "team",
+            scopeId: teamId,
+            scopeName: seat.team.name,
+            seats: [seat],
+            event: "promoted",
+        });
+    }
     res.json({ member: { ...serializeMember(seat.member), teamRole: seat.role, joinedAt: seat.joinedAt } });
 };
 

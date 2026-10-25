@@ -10,7 +10,8 @@ import {
 } from "../validation/authValidation";
 import { hashPassword, comparePassword } from "../utils/password";
 import { generateToken } from "../utils/jwt";
-import { sendPasswordResetEmail } from "../utils/email";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../utils/email";
+import { hashToken, issueVerificationToken, verificationCooldownLeft } from "../utils/verification";
 import crypto from "crypto";
 
 const prisma = new PrismaClient();
@@ -77,7 +78,8 @@ export async function login(req: Request, res: Response): Promise<void> {
             role: user.role,
         });
 
-        const { password, ...userWithoutPassword } = user;
+        // Never send credentials or token hashes to the client.
+        const { password, resetToken, resetTokenExpiry, emailVerificationToken, emailVerificationExpiry, ...userWithoutPassword } = user;
 
         setAuthCookie(res, token);
         res.json({
@@ -126,11 +128,17 @@ export async function signup(req: Request, res: Response): Promise<void> {
             role: user.role,
         });
 
-        const { password, ...userWithoutPassword } = user;
+        // Verification is soft: the account works right away, and the app
+        // nudges until the link is clicked.
+        const verificationToken = await issueVerificationToken(user.id);
+        const verificationSent = await sendVerificationEmail(user.email, user.name, verificationToken);
+
+        const { password, emailVerificationToken, emailVerificationExpiry, resetToken, resetTokenExpiry, ...userWithoutPassword } = user;
 
         res.status(201).json({
             token,
             user: userWithoutPassword,
+            verificationSent,
         });
     } catch (error: any) {
         console.error("Signup error:", error);
@@ -231,10 +239,11 @@ export async function forgotPassword(
                 data: { resetToken: tokenHash, resetTokenExpiry: expiry },
             });
 
+            // Never surface a send failure: the response must not reveal
+            // whether the account exists.
             try {
-                await sendPasswordResetEmail(user.email, user.name, rawToken);
+                await sendPasswordResetEmail(user.email, user.name, rawToken, RESET_TOKEN_TTL_MS / 3_600_000);
             } catch (emailError) {
-                // Don't leak the failure to the caller (enumeration); just log it.
                 console.error("Failed to send password reset email:", emailError);
             }
         }
@@ -321,6 +330,74 @@ export async function getMe(req: Request, res: Response): Promise<void> {
         res.json({ user, requiresPasswordChange: user.isPasswordReset });
     } catch (error) {
         console.error("Get me error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/**
+ * POST /api/auth/verify-email { token } — public, since the link may be opened
+ * on a device where the person isn't signed in.
+ */
+export async function verifyEmail(req: Request, res: Response): Promise<void> {
+    try {
+        const token = typeof req.body?.token === "string" ? req.body.token : "";
+        if (!/^[a-f0-9]{64}$/.test(token)) {
+            res.status(400).json({ message: "This confirmation link is incomplete. Open the newest email and try again." });
+            return;
+        }
+
+        const user = await prisma.user.findFirst({
+            where: { emailVerificationToken: hashToken(token), emailVerificationExpiry: { gte: new Date() } },
+            select: { id: true, email: true },
+        });
+        if (!user) {
+            res.status(400).json({
+                message: "This confirmation link has expired or was already used. Sign in and send yourself a new one.",
+            });
+            return;
+        }
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { emailVerified: true, emailVerificationToken: null, emailVerificationExpiry: null },
+        });
+        res.json({ message: "Email confirmed", email: user.email });
+    } catch (error) {
+        console.error("Verify email error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+}
+
+/** POST /api/auth/resend-verification (auth) — at most one email a minute. */
+export async function resendVerification(req: Request, res: Response): Promise<void> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.userId },
+            select: { id: true, email: true, name: true, emailVerified: true, emailVerificationExpiry: true },
+        });
+        if (!user) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+        if (user.emailVerified) {
+            res.json({ message: "Your email is already confirmed", alreadyVerified: true });
+            return;
+        }
+
+        const wait = verificationCooldownLeft(user.emailVerificationExpiry);
+        if (wait > 0) {
+            res.status(429).json({ message: `We just sent one. You can ask again in ${wait} seconds.`, retryAfter: wait });
+            return;
+        }
+
+        const token = await issueVerificationToken(user.id);
+        if (!(await sendVerificationEmail(user.email, user.name, token))) {
+            res.status(502).json({ message: "The email couldn't be sent right now. Try again in a few minutes." });
+            return;
+        }
+        res.json({ message: `Confirmation email sent to ${user.email}` });
+    } catch (error) {
+        console.error("Resend verification error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 }

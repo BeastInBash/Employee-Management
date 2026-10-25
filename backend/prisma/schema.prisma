@@ -119,6 +119,9 @@ model User {
   name             String
   // Set once the email has been proven (today: a Google sign-in with a verified email).
   emailVerified    Boolean   @default(false)
+  // SHA-256 of the token in the verification link (the raw token is only emailed).
+  emailVerificationToken  String?
+  emailVerificationExpiry DateTime?
   image            String?
   role             UserRole  @default(member)
   isPasswordReset  Boolean   @default(false)
