@@ -47,7 +47,8 @@ src/
     Landing.tsx             # public page: photo hero (parallax + typewriter), About with
                             #   scroll-revealed copy + the "finish the day" demo, Features
                             #   (sticky heading), closing band, footer  ->  "/"
-    Login.tsx               # sign in / sign up tabs (`?tab=signup`) + Google  ->  "/login"
+    Login.tsx               # sign in / sign up switch (sliding pill, `?tab=signup` kept in
+                            #   the URL), Google on both, panels slide on switch  ->  "/login"
     ForgotPassword.tsx / ResetPassword.tsx / AuthCallback.tsx
     VerifyEmail.tsx         # link target from confirmation emails ("/verify-email?token&next")
     Dashboard.tsx           # "Members": searchable member list for the active workspace,
@@ -79,7 +80,9 @@ src/
                             #   and their create/update/delete; all project/team wire types
   components/
     layout/                 # AppShell (sidebar + page transitions), Page (PageHeader,
-                            #   Section, Panel), AuthLayout, ChangePasswordDialog, Leaf (logo),
+                            #   Section, Panel), AuthLayout (split: photo panel with slow
+                            #   push-in + rotating captions | form; photo banner on phones),
+                            #   ChangePasswordDialog, Leaf (logo),
                             #   VerifyEmailBanner (soft email-verification reminder)
     tasks/                  # TaskBoard (4 columns, inline status, gliding cards),
                             #   TaskFormDialog (add/edit, mirrors API validation)
@@ -130,8 +133,10 @@ you back in the app instead of on the marketing/login page.
   device clears it. `/verify-email` posts the token (once — guarded against StrictMode's
   double effect) and calls `AuthContext.refreshUser()` if this browser is signed in.
   Emails are branded **WorkZen** while the app UI still says Crewly.
-- **Google sign-in:** `components/auth/GoogleSignInButton.tsx` (on the Login card) asks
-  `GET /auth/providers` and renders only when Google is configured; clicking does a full-page
+- **Google sign-in:** `components/auth/GoogleSignInButton.tsx` sits at the top of both the
+  Sign in and Sign up tabs ("Sign in with Google" / "Sign up with Google" via `label`). It
+  renders straight away and hides only if `GET /auth/providers` explicitly answers
+  `{ google: false }` (a slow or unreachable API never hides it); clicking does a full-page
   `window.location.assign(VITE_API_URL + "/auth/google")`. The API returns to
   **`/auth/callback`** (`pages/AuthCallback.tsx`, public route) with `#token=…`; the page
   strips the fragment, calls `AuthContext.loginWithToken(token)` (stores the token, loads
@@ -231,7 +236,9 @@ you back in the app instead of on the marketing/login page.
   photo, the demo card and the closing band's leaf. Every scroll-linked transform is
   zeroed under `useReducedMotion()`. The hero photo is self-hosted in
   `public/images/hero-team-{1280,2400}.webp` (Unsplash License, by Sable Flow — keep the
-  footer credit).
+  footer credit). The auth pages use `public/images/auth-desk-{900,1600}.webp` (Unsplash
+  License, by Dhony Koswara — credited on the photo panel) with a CSS `kenburns` keyframe
+  (`index.css`, off under `motion-reduce`).
 - **Status/priority pills are soft tints** (pale fill + deeper ink of the same hue), from
   `lib/projectMeta.ts` (`taskStatusColors`, `taskStatusDots`, `priorityColors`) and
   `ProjectStatusBadge` / `AttendanceDot` in `components/projects/shared.tsx`. Don't use
