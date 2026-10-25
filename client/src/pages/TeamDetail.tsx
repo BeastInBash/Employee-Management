@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, MoreHorizontal, Pencil, Trash2, UserMinus, UserPlus } from "lucide-react";
+import { ArrowLeft, BarChart3, Loader2, MoreHorizontal, Pencil, Trash2, UserMinus, UserPlus } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectContext";
 import type { Permissions, ScopeAccess, ScopeRole, TeamDetail as TeamDetailData, TeamMemberRow } from "@/contexts/ProjectContext";
 import { api, errorMessage } from "@/lib/api";
@@ -156,6 +156,10 @@ const TeamDetail = () => {
                     <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
                       <Pencil className="h-4 w-4" />
                       Edit details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate(`/reports?scope=team:${team.id}`)}>
+                      <BarChart3 className="h-4 w-4" />
+                      View report
                     </DropdownMenuItem>
                     {permissions.canDelete && (
                       <>

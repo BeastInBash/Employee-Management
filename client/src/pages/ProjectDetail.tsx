@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
+  BarChart3,
   CalendarDays,
   ChevronDown,
   Loader2,
@@ -209,6 +210,12 @@ const ProjectDetail = () => {
                       <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
                         <Pencil className="h-4 w-4" />
                         Edit details
+                      </DropdownMenuItem>
+                    )}
+                    {permissions.canManage && (
+                      <DropdownMenuItem onClick={() => navigate(`/reports?scope=project:${project.id}`)}>
+                        <BarChart3 className="h-4 w-4" />
+                        View report
                       </DropdownMenuItem>
                     )}
                     {permissions.canDelete && (

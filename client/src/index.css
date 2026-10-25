@@ -51,6 +51,14 @@
 
 :root {
   --radius: 0px;
+  /* Report charts — validated (dataviz validate_palette.js) against #fff / #0a0a0a.
+     Completed rides the accent; created/absent are recessive grays (>= 3:1);
+     present/partial use the fixed status steps and always ship with labels. */
+  --viz-completed: var(--primary);
+  --viz-created: #8a8a8a;
+  --viz-present: #0ca30c;
+  --viz-partial: #fab219;
+  --viz-absent: #8a8a8a;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -85,6 +93,8 @@
 }
 
 .dark {
+  --viz-created: #757575;
+  --viz-absent: #757575;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

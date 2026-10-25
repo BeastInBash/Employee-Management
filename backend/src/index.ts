@@ -12,6 +12,7 @@ import cookieParser from 'cookie-parser'
 import workspaceRouter from "./routes/workspace.router";
 import projectsRouter from "./routes/projects.router";
 import teamsRouter from "./routes/teams.router";
+import reportsRouter from "./routes/reports.router";
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use('/api/org', orgRouter)
 app.use('/api/workspace',workspaceRouter)
 app.use('/api/projects', projectsRouter)
 app.use('/api/teams', teamsRouter)
+app.use('/api/reports', reportsRouter)
 // Health check
 app.get("/health", (req, res) => {
     console.log("Working Fine ....")

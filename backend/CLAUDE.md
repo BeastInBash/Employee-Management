@@ -70,6 +70,7 @@ src/
     workspace.router.ts    # /api/workspace (authenticate; POST /create-workspace/:orgId)
     projects.router.ts     # /api/projects  (authenticate + handleError)
     teams.router.ts        # /api/teams     (authenticate + handleError)
+    reports.router.ts      # /api/reports   (authenticate + handleError)
   controllers/
     auth.controller.ts        # login, signup, changePassword, forgot/resetPassword
     members.controller.ts     # createMember, getMembers, getMember, deleteMember
@@ -80,6 +81,7 @@ src/
                               #   task window, listWorkspaceMembers
     projects.controller.ts    # projects CRUD, seats, team assignment, project tasks
     teams.controller.ts       # teams CRUD + seats
+    reports.controller.ts     # productivity/attendance report (IST day helpers live here)
     admin.controller.ts       # setUserRole  (NOT mounted on any route)
   middleware/
     auth.middleware.ts     # authenticate(): verifies JWT (cookie, falls back to Bearer) -> req.user
@@ -101,6 +103,7 @@ src/
     orgValidation.ts       # zod schemas for org query params (membership/workspace flags)
     workspaceValidation.ts # zod schema for the task-submission-window PATCH
     projectValidation.ts   # zod schemas for projects, teams, seats, project tasks
+    reportValidation.ts    # zod schema for the report query
 prisma/
   schema.prisma            # User, Member, Task, DailyAttendance, Organization,
                            #   OrgMembership, Workspace, WorkspaceMembership + enums
@@ -258,6 +261,20 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
   projects, `permissions`. `PATCH` *(admin/lead)*, `DELETE` *(admin)*.
 - Seats: same `POST/PATCH/DELETE /:teamId/members[/:memberId]` rules as projects.
 
+**`/api/reports`** (`authenticate`; throws → `handleError`)
+- `GET /?scope=workspace|project|team|me&id=<uuid>&from=YYYY-MM-DD&to=YYYY-MM-DD&excludeWeekends=true|false`
+  (default `true`; range ≤ 366 days, `id` required except for `me`). Access: workspace →
+  admin; project/team → admin or that project's/team's lead; `me` → the caller's own seats.
+  Project scope counts only that project's tasks but every participant's attendance.
+- Returns `{ scope, range, summary, trend[], members[] }`. Definitions: **completionRate** =
+  share of tasks *created* in the range that are now completed; **onTimeRate** = share of
+  tasks *completed* in the range with `completedAt <= dueDate`; **overdueOpen** = open tasks
+  past due right now; **avgCycleHours** = created→completed; **attendanceRate** =
+  (present + ½ partial) / recorded rows, Saturdays/Sundays skipped when `excludeWeekends`.
+  Rates are `null` when there's nothing to divide by.
+- Day bucketing is by **IST calendar day** (`istDateKey`); attendance rows are matched as
+  UTC-midnight dates, the same way `getTodayISTDate` writes them.
+
 **Existing task routes and projects:** `POST /api/tasks` accepts an optional `projectId`
 (the assignee must be a participant; the member seat is resolved in the project's
 workspace). `PATCH /api/tasks/:taskId` and `DELETE` also allow the **lead of the task's
@@ -283,6 +300,11 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
 - **Completion → present:** when a member completes a task (`PATCH` status→`completed`),
   `checkAndMarkPresent` checks whether **all of today's tasks** are completed; if so the
   day flips to `present`.
+- **Known quirk:** the cron (and `checkAndMarkPresent`) select "today's tasks" with
+  `createdAt` between `getTodayISTDate()` and +24h — i.e. UTC midnight to UTC midnight, not
+  the IST day. Tasks created 00:00–05:30 IST count toward the previous day. The cron also
+  writes an `absent` row for every member on weekends, which is why reports default to
+  `excludeWeekends`.
 - **EOD finalization (cron):** `attendancecron.ts` runs at **3:30 PM UTC = 9:00 PM IST**.
   For each member: no tasks today → `absent`; some-but-not-all complete → `partial`;
   all complete → `present`. Already-`present` rows are skipped.
@@ -337,6 +359,7 @@ anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`)
 - `tests/testApp.ts` builds an Express app for supertest; `tests/helpers.ts` has shared
   fixtures/utilities. Suites cover auth, members, tasks, attendance, middleware, the
   workspace task-submission window (`workspace.test.ts`, incl. the IST window helpers), and
+  reports (`reports.test.ts` — metric math, IST bucketing, weekend exclusion, access), and
   projects/teams permissions (`projects.test.ts` — its `standAs()` helper programs the
   lookups `utils/access.ts` makes, so a test can act as admin / lead / member / outsider).
   **~19 pre-existing failures** (auth-middleware 401s surfacing as 500, plus members/

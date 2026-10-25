@@ -57,6 +57,7 @@ src/
     Projects.tsx            # project grid + filters + "New project"   ("/projects")
     ProjectDetail.tsx       # board by status, People + Teams tabs    ("/projects/:projectId")
     Teams.tsx / TeamDetail.tsx  # team cards; roster w/ today's attendance ("/teams[/:teamId]")
+    Reports.tsx             # KPIs, throughput + attendance charts, people table, CSV ("/reports")
     NotFound.tsx
     Index.tsx               # legacy redirect-to-"/" helper (not routed)
   contexts/
@@ -77,11 +78,13 @@ src/
     AppHeader.tsx           # shared top nav used by the projects/teams pages
     projects/               # shared.tsx (badges, avatars, PeoplePicker, EmptyState),
                             #   ProjectFormDialog, TeamFormDialog, AddPeopleDialog
+    reports/ReportCharts.tsx  # StatTile, ThroughputChart, AttendanceChart (recharts)
     ProtectedRoute.tsx      # gates routes; redirects to "/login" when unauthenticated
     theme-provider.tsx      # ThemeProvider, useTheme, ThemeToggle
     ui/                     # shadcn components
   hooks/                    # use-workspace-people.ts loads Member seats for pickers
-  lib/                      # utils.ts (cn), api.ts (fetch helper), projectMeta.ts (labels/colours/dates)
+  lib/                      # utils.ts (cn), api.ts (fetch helper), projectMeta.ts (labels/colours/dates),
+                            #   reports.ts (report types, IST date presets, CSV export)
 ```
 
 ## Routing (`src/App.tsx`)
@@ -90,7 +93,7 @@ Public: `/` (Landing), `/login`, `/forgot-password`, `/reset-password`.
 Protected (wrapped by `ProtectedRoute`): `/dashboard`, `/attendance`,
 `/dashboard/member/:memberId/attendance`, `/admin/attendance`,
 `/member/:memberId`, `/todos/:memberId`, `/projects`, `/projects/:projectId`, `/teams`,
-`/teams/:teamId`. Everything else → `NotFound`.
+`/teams/:teamId`, `/reports`. Everything else → `NotFound`.
 
 After login, admins go to `/dashboard`; members go to `/todos/:id` (their tasks). The
 public `/` (Landing) and `/login` pages **redirect an already-authenticated user** to that
@@ -142,6 +145,23 @@ you back in the app instead of on the marketing/login page.
   so a task due today isn't overdue until the day is over.
 - Tasks carry `project?: { id, name, color }`; `TaskDetails` / `MemberDetail` cards show it
   as a link chip.
+
+## Reports (`/reports`)
+
+- Filters live in one row and in the **URL** (`?scope=project:<id>&range=7d|30d|90d|month|custom
+  &from&to&weekends=include`), so a report link is shareable; project/team pages link in
+  with `?scope=project:<id>` / `team:<id>`. Scope options come from `ProjectContext`
+  (admin → workspace + everything; others → "me" + what they lead).
+- Dates are **IST calendar days** (`istToday`, `presetRange`) to match the API.
+- Refetching keeps the previous report on screen at reduced opacity (no spinner flash).
+- **Chart colours are tokens** in `index.css` (`--viz-completed` = accent, `--viz-created`,
+  `--viz-present/partial/absent`), validated with the dataviz palette script against
+  `#fff` / `#0a0a0a`. Charts follow the dataviz rules: 2px lines, ≤24px bars with a 2px
+  surface gap, legend on every multi-series chart, tooltip with every series, and a
+  chart/table toggle (the table view is the accessible fallback). Bars keep **square ends**
+  to match the sharp-corner design language.
+- CSV export (`exportMembersCsv` / `exportDailyCsv`) neutralises cells starting with
+  `= + - @` so names can't run as spreadsheet formulas.
 
 ## Task submission window
 

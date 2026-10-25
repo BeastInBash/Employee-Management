@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { FolderKanban, LayoutGrid, ListChecks, LogOut, UsersRound, CalendarCheck } from "lucide-react";
+import { BarChart3, FolderKanban, LayoutGrid, ListChecks, LogOut, UsersRound, CalendarCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
@@ -25,6 +25,7 @@ export const AppHeader = ({ actions }: { actions?: ReactNode }) => {
     { to: "/projects", label: "Projects", icon: FolderKanban },
     { to: "/teams", label: "Teams", icon: UsersRound },
     { to: isAdmin ? "/admin/attendance" : "/attendance", label: "Attendance", icon: CalendarCheck },
+    { to: "/reports", label: "Reports", icon: BarChart3 },
   ];
 
   return (

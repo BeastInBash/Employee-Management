@@ -24,6 +24,7 @@ import Projects from "./pages/Projects";
 import ProjectDetail from "./pages/ProjectDetail";
 import Teams from "./pages/Teams";
 import TeamDetail from "./pages/TeamDetail";
+import Reports from "./pages/Reports";
 import MemberDashboard from "./pages/MembersDashboard";
 import AdminAttendancePanel from "./pages/AdminPanel";
 
@@ -61,6 +62,7 @@ const App = () => (
                                         <Route path="/projects/:projectId" element={<ProjectDetail />} />
                                         <Route path="/teams" element={<Teams />} />
                                         <Route path="/teams/:teamId" element={<TeamDetail />} />
+                                        <Route path="/reports" element={<Reports />} />
                                     </Route>
 
                                     <Route path="*" element={<NotFound />} />

@@ -45,6 +45,7 @@ import {
     Clock,
     FolderKanban,
     UsersRound,
+    BarChart3,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-provider";
 import { toast } from "@/components/ui/sonner";
@@ -296,6 +297,10 @@ const Dashboard = () => {
                         <Button variant="outline" size="sm" onClick={() => navigate("/teams")}>
                             <UsersRound className="h-4 w-4" />
                             Teams
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => navigate("/reports")}>
+                            <BarChart3 className="h-4 w-4" />
+                            Reports
                         </Button>
                         {isAdmin && (
                             <Button
