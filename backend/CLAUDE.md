@@ -25,12 +25,8 @@ end of day; the system marks them present / partial / absent automatically (see
 - **Better Auth 1.7** for the **Google OAuth handshake only** (see "Google sign-in"). It's
   ESM-only and loaded from this CommonJS build via Node's `require(esm)` (Node ≥ 22.12).
 - **zod** for request validation.
-- **nodemailer** for transactional email over **Gmail SMTP** (`smtp.gmail.com:587`
-  with a Gmail App Password — 2-Step Verification must be enabled). `resend` is a
-  dependency but not currently wired in. The member-credentials email is sent **from
-  the admin who created the member**: `from` uses the admin name + `SENDER_EMAIL`
-  (Gmail rewrites the From address to the authenticated account, so an arbitrary
-  admin address can't be used directly) and `Reply-To` is set to the admin's email.
+- **Resend** for transactional email (`utils/email.ts`), branded **WorkZen** and sent
+  from `EMAIL_FROM` (a verified Resend domain, `no-reply@workzen.besaif.in`). See "Email".
 - **node-cron** for two scheduled jobs (EOD attendance + keep-alive ping).
 - Deployed on **Vercel** (`vercel.json`, `@vercel/node`). Prod URL pinged by the
   keep-alive cron: `https://todo-app-fz58.onrender.com` (also references Render).
@@ -97,7 +93,9 @@ src/
     jwt.ts                 # generate/verify token (7d expiry)
     password.ts            # bcrypt hash/compare + DEFAULT_PASSWORD = "123456"
     hash.ts                # bcryptjs hash/compare (duplicate of password.ts, unused-ish)
-    email.ts               # nodemailer transporter + 2 HTML emails
+    email.ts               # Resend client, the WorkZen template, every email we send
+    verification.ts        # email-verification tokens (hash, TTL, resend cooldown)
+    notify.ts              # notifySeats(): team/project added + lead emails
     attendance.ts          # IST time helpers + the daily-window logic
     access.ts              # who is admin/lead/member of a workspace, project or team
     betterAuth.ts          # the Better Auth instance (Google provider, Auth* tables)
@@ -192,10 +190,14 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
 - `GET /me` *(auth)* → `{ user, requiresPasswordChange }`
 - `POST /login` → `{ token, user, requiresPasswordChange }` (401 with a "signs in with
   Google" message when the account has no password)
-- `POST /signup` → creates an **admin** User, returns `{ token, user }`
+- `POST /signup` → creates an **admin** User and emails a verification link; returns
+  `{ token, user, verificationSent }` (the account works before it's verified)
+- `POST /verify-email` `{ token }` *(public)* — confirms the address (one-time, 24h)
+- `POST /resend-verification` *(auth)* — new link; 429 + `retryAfter` within 60s of the
+  last one; `{ alreadyVerified: true }` if there's nothing to do
 - `POST /change-password` *(auth)* — verify old pw, set new (must differ), clear `isPasswordReset`
-- `POST /forgot-password` — takes `email` only; if the account exists, stores a hashed,
-  1-hour reset token and emails a reset link. Always returns a generic 200 (no user
+- `POST /forgot-password` — takes `email` only; if the account exists, stores a hashed
+  reset token (valid 4 days, `RESET_TOKEN_TTL_MS`) and emails a reset link. Always returns a generic 200 (no user
   enumeration).
 - `POST /reset-password` — resets pw via `token` + newPassword. The raw token from the
   email is SHA-256 hashed and matched against the stored hash + expiry.
@@ -297,6 +299,33 @@ responses include `project: { id, name, color } | null`.
 
 See `api-docs.md` for fuller request/response examples.
 
+## Email (Resend)
+
+All mail goes through `utils/email.ts`: one inline-styled template (off-white canvas,
+white card, forest-green button) with a plain-text alternative, branded **WorkZen**.
+Everything user-supplied (names, project/team names) is HTML-escaped. Sends never throw —
+they log and return `false` — so an email outage can't fail the request that triggered it.
+
+| Trigger | Function | Notes |
+|---|---|---|
+| Admin creates a new member | `sendMemberCredentials` | temp password + a "Confirm email and sign in" link (verification included); `Reply-To` = the admin |
+| Sign-up | `sendVerificationEmail` | soft verification — the account works immediately |
+| Resend from the app banner | `sendVerificationEmail` | max one a minute |
+| Forgot password | `sendPasswordResetEmail` | states the real link lifetime |
+| Added to a team / project | `sendScopeNotice` via `notifySeats` | on create (seeded seats) and on add |
+| Made a lead | `sendScopeNotice` (`event: "promoted"`) | only on a real member→lead change |
+
+`notifySeats` (`utils/notify.ts`) skips the person who made the change, is awaited (so
+serverless runtimes don't drop sends) and swallows errors. Assigning a whole **team** to a
+project does not email its members (it could be many people) — add that deliberately if
+wanted.
+
+**Email verification** (soft): `User.emailVerified` plus `emailVerificationToken`
+(SHA-256 of the emailed token) and `emailVerificationExpiry` (24h,
+`utils/verification.ts`). Google sign-in also sets `emailVerified`. A verified address
+matters for Google linking: `resolveGoogleUser` only switches off the password on the
+first Google sign-in to an **unverified** account, so verifying by link keeps a password.
+
 ## Google sign-in (Better Auth)
 
 Better Auth only runs the OAuth handshake; the app's own JWT stays the session.
@@ -385,9 +414,13 @@ Read from `process.env` (loaded via `dotenv` in `index.ts`). Required:
 - `DATABASE_URL` — Postgres connection string (Prisma).
 - `JWT_SECRET` — JWT signing secret. **Required** — `jwt.ts` throws on startup if it's
   missing (no insecure fallback).
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SENDER_EMAIL` — email sending.
-- `CLIENT_URL` — base URL of the client app, used to build links in emails (login +
-  password-reset). Defaults to `http://localhost:5173`.
+- `RESEND_API_KEY` — Resend key (a send-only key is enough). Without it, sends are
+  skipped with a warning and the app keeps working.
+- `EMAIL_FROM` — sender address on a domain verified in Resend, e.g.
+  `no-reply@workzen.besaif.in` (a bare address gets the "WorkZen" display name; you can
+  also pass `"Name <addr>"`). Resend rejects addresses on unverified domains (403).
+- `CLIENT_URL` — base URL of the client app, used to build every link in emails.
+  Defaults to `http://localhost:5173`.
 
 Google sign-in (optional — the button hides itself when unset):
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — OAuth client from Google Cloud Console.
@@ -412,8 +445,11 @@ anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`)
   fixtures/utilities. Suites cover auth, members, tasks, attendance, middleware, the
   workspace task-submission window (`workspace.test.ts`, incl. the IST window helpers), and
   reports (`reports.test.ts` — metric math, IST bucketing, weekend exclusion, access), and
-  projects/teams permissions (`projects.test.ts` — its `standAs()` helper programs the
-  lookups `utils/access.ts` makes, so a test can act as admin / lead / member / outsider).
+  projects/teams permissions and their notification emails (`projects.test.ts` — its
+  `standAs()` helper programs the lookups `utils/access.ts` makes, so a test can act as
+  admin / lead / member / outsider), and email verification (`verification.test.ts`).
+  `tests/singleton.ts` mocks `utils/email` (every send resolves `true`; assert on the
+  mocks) and the `resend` package, so tests never reach the network.
   **~19 pre-existing failures** (auth-middleware 401s surfacing as 500, plus members/
   attendance mocks that drifted from the controllers) are unrelated to that suite.
 - ts-jest relaxes a few strict-mode diagnostics (`2345/2322/2769`) so test doubles compile;

@@ -47,6 +47,7 @@ src/
     Landing.tsx             # public page with the interactive "finish the day" demo -> "/"
     Login.tsx               # sign in / sign up tabs (`?tab=signup`) + Google  ->  "/login"
     ForgotPassword.tsx / ResetPassword.tsx / AuthCallback.tsx
+    VerifyEmail.tsx         # link target from confirmation emails ("/verify-email?token&next")
     Dashboard.tsx           # "Members": searchable member list for the active workspace,
                             #   add/remove member, Workspace menu (submission hours,
                             #   new workspace / organization), onboarding empty states
@@ -76,7 +77,8 @@ src/
                             #   and their create/update/delete; all project/team wire types
   components/
     layout/                 # AppShell (sidebar + page transitions), Page (PageHeader,
-                            #   Section, Panel), AuthLayout, ChangePasswordDialog, Leaf (logo)
+                            #   Section, Panel), AuthLayout, ChangePasswordDialog, Leaf (logo),
+                            #   VerifyEmailBanner (soft email-verification reminder)
     tasks/                  # TaskBoard (4 columns, inline status, gliding cards),
                             #   TaskFormDialog (add/edit, mirrors API validation)
     projects/               # shared.tsx (badges, avatars, PeoplePicker, EmptyState),
@@ -92,7 +94,8 @@ src/
 
 ## Routing (`src/App.tsx`)
 
-Public: `/` (Landing), `/login`, `/forgot-password`, `/reset-password`, `/auth/callback`.
+Public: `/` (Landing), `/login`, `/forgot-password`, `/reset-password`, `/auth/callback`,
+`/verify-email`.
 Protected routes sit under `ProtectedRoute` → **`AppShell`** (a layout route that renders the
 sidebar and the page via `<Outlet>`), so pages render **content only** — no headers, no
 `min-h-screen` wrappers; start with `<PageHeader>`. Protected: `/dashboard`, `/attendance`,
@@ -118,6 +121,13 @@ you back in the app instead of on the marketing/login page.
   middleware accepts this header (it prefers a `token` cookie but falls back to Bearer), so
   the localStorage-token model works cross-site.
 - New members are created by an admin **into a workspace** and emailed a default password (`123456`).
+- **Email verification is soft.** `User.emailVerified` comes from login / `GET /auth/me`.
+  `AppShell` shows `VerifyEmailBanner` while it's `false` (resend button → `POST
+  /auth/resend-verification`, which may answer 429 with a wait time; dismissible for the
+  browser session) and refreshes the user once on mount so a confirmation made on another
+  device clears it. `/verify-email` posts the token (once — guarded against StrictMode's
+  double effect) and calls `AuthContext.refreshUser()` if this browser is signed in.
+  Emails are branded **WorkZen** while the app UI still says Crewly.
 - **Google sign-in:** `components/auth/GoogleSignInButton.tsx` (on the Login card) asks
   `GET /auth/providers` and renders only when Google is configured; clicking does a full-page
   `window.location.assign(VITE_API_URL + "/auth/google")`. The API returns to

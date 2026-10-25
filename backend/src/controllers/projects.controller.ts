@@ -26,6 +26,7 @@ import {
     taskWindowClosedMessage,
     toTaskWindow,
 } from "../utils/attendance";
+import { notifySeats } from "../utils/notify";
 
 const prisma = new PrismaClient();
 
@@ -220,6 +221,15 @@ export const createProject = async (req: Request, res: Response) => {
         include: projectListInclude,
     });
 
+    await notifySeats({
+        actorUserId: userId,
+        kind: "project",
+        scopeId: project.id,
+        scopeName: project.name,
+        seats: project.members,
+        event: "added",
+    });
+
     res.status(201).json({ project: serializeProjectSummary(project, undefined, "admin") });
 };
 
@@ -390,7 +400,15 @@ export const addProjectMember = async (req: Request, res: Response) => {
 
     const seat = await prisma.projectMember.create({
         data: { projectId, memberId, role },
-        select: { role: true, addedAt: true, member: { select: memberSummarySelect } },
+        select: { role: true, addedAt: true, member: { select: memberSummarySelect }, project: { select: { name: true } } },
+    });
+    await notifySeats({
+        actorUserId: req.user!.userId,
+        kind: "project",
+        scopeId: projectId,
+        scopeName: seat.project.name,
+        seats: [seat],
+        event: "added",
     });
     res.status(201).json({ member: { ...serializeMember(seat.member), projectRole: seat.role } });
 };
@@ -403,11 +421,26 @@ export const updateProjectMember = async (req: Request, res: Response) => {
     if (access.access !== "admin") throw ApiError.forbidden("Only workspace admins can change project roles");
 
     const { role } = updateSeatSchema.parse(req.body);
+    const before = await prisma.projectMember.findUnique({
+        where: { projectId_memberId: { projectId, memberId } },
+        select: { role: true },
+    });
     const seat = await prisma.projectMember.update({
         where: { projectId_memberId: { projectId, memberId } },
         data: { role },
-        select: { role: true, member: { select: memberSummarySelect } },
+        select: { role: true, member: { select: memberSummarySelect }, project: { select: { name: true } } },
     });
+    // Only a real promotion is news; demotions and no-op saves stay quiet.
+    if (seat.role === ScopeRole.lead && before?.role !== ScopeRole.lead) {
+        await notifySeats({
+            actorUserId: req.user!.userId,
+            kind: "project",
+            scopeId: projectId,
+            scopeName: seat.project.name,
+            seats: [seat],
+            event: "promoted",
+        });
+    }
     res.json({ member: { ...serializeMember(seat.member), projectRole: seat.role } });
 };
 

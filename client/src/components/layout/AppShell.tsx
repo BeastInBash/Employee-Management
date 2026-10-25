@@ -31,6 +31,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
 import { Leaf } from "./Leaf";
+import { VerifyEmailBanner } from "./VerifyEmailBanner";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutGrid; match?: (path: string) => boolean };
 
@@ -264,6 +265,7 @@ export const AppShell = () => {
       </Sheet>
 
       <main className="mx-auto w-full max-w-[1180px] px-4 py-6 sm:px-8 sm:py-10">
+        <VerifyEmailBanner />
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={pageKey}

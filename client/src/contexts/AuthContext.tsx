@@ -9,6 +9,8 @@ type User = {
   email: string;
   name: string;
   role: UserRole;
+  /** False until the address is confirmed (link in email, or Google sign-in). */
+  emailVerified?: boolean;
 };
 
 type AuthContextType = {
@@ -27,6 +29,8 @@ type AuthContextType = {
   logout: () => void;
   /** Adopt a JWT issued by an external sign-in (Google) and load the user. */
   loginWithToken: (token: string) => Promise<User | null>;
+  /** Reload the signed-in user from the API (e.g. after confirming the email). */
+  refreshUser: () => Promise<User | null>;
   isAuthenticated: boolean;
 };
 
@@ -168,7 +172,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       localStorage.setItem("user", JSON.stringify(data.user));
       setUser(data.user);
 
-      toast.success("Account created");
+      toast.success(
+        data.verificationSent ? `Account created. Check ${data.user.email} for a link to confirm your email.` : "Account created"
+      );
       return true;
     } catch (error) {
       console.error("Signup error:", error);
@@ -265,6 +271,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const refreshUser = async (): Promise<User | null> => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return null;
+    return loginWithToken(token);
+  };
+
   const logout = () => {
     /* ============================================
        BACKEND API CALL (Uncomment when backend is ready)
@@ -297,6 +309,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         changePassword,
         logout,
         loginWithToken,
+        refreshUser,
         isAuthenticated: !!user,
       }}
     >

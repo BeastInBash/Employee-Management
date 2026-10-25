@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { createMemberSchema } from "../validation/memberValidation";
 import { hashPassword, DEFAULT_PASSWORD } from "../utils/password";
 import { sendMemberCredentials } from "../utils/email";
+import { issueVerificationToken } from "../utils/verification";
 
 const prisma = new PrismaClient();
 
@@ -98,16 +99,18 @@ export async function createMember(req: Request, res: Response): Promise<void> {
                 select: { name: true, email: true },
             });
 
-            // Email the credentials. sendMemberCredentials swallows its own
-            // errors so a mail outage never blocks member creation.
-            await sendMemberCredentials(
+            // Email the credentials; the same email's button confirms the
+            // address. Sending never throws, so a mail outage can't block
+            // member creation — it's reported back as credentialsEmailed.
+            const verificationToken = await issueVerificationToken(memberUser.id);
+            credentialsEmailed = await sendMemberCredentials(
                 email,
                 validatedData.name,
                 DEFAULT_PASSWORD,
                 admin?.email ?? req.user.email,
-                admin?.name
+                admin?.name,
+                verificationToken
             );
-            credentialsEmailed = true;
         }
 
         // Create the member record
