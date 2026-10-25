@@ -23,7 +23,10 @@ end of day; the system marks them present / partial / absent automatically (see
   `prisma/schema.prisma`, migrations in `prisma/migrations/`.
 - **JWT** auth (`jsonwebtoken`) with **bcrypt**-hashed passwords.
 - **Better Auth 1.7** for the **Google OAuth handshake only** (see "Google sign-in"). It's
-  ESM-only and loaded from this CommonJS build via Node's `require(esm)` (Node ≥ 22.12).
+  ESM-only, so this CommonJS build loads it **lazily with a real `import()`** on first use
+  (`getAuth()` in `utils/betterAuth.ts`) rather than `require()` — a host without
+  `require(esm)` (Vercel crashed with `ERR_REQUIRE_ESM`) otherwise takes the whole API down.
+  `package.json` also pins `"engines": { "node": "22.x" }`.
 - **zod** for request validation.
 - **Resend** for transactional email (`utils/email.ts`), branded **WorkZen** and sent
   from `EMAIL_FROM` (a verified Resend domain, `no-reply@workzen.besaif.in`). See "Email".
@@ -346,10 +349,18 @@ Better Auth only runs the OAuth handshake; the app's own JWT stays the session.
   the default `123456`, and stops anyone who pre-registered someone else's address from
   keeping a password into it). Better Auth's own implicit account linking isn't used
   because it requires `emailVerified` on the local row, which legacy users don't have.
-- **Mounting** — `app.all("/api/better-auth/*splat", toNodeHandler(auth))` must stay
+- **Mounting** — `app.all("/api/better-auth/*splat", betterAuthHandler)` must stay
   **before** `express.json()`. `googleRouter` is mounted on `/api/auth` ahead of `authRoutes`.
-- **Tests** — Jest can't load ESM `better-auth`, so keep its imports in `betterAuth.ts` /
-  `google.router.ts` only (neither is in `tests/testApp.ts`); test logic via
+- **Loading (don't regress this)** — never value-import `better-auth` (or its subpaths) in
+  `src/`; only `import type`. `utils/betterAuth.ts` loads it with `new Function("s",
+  "return import(s)")` (TypeScript's CJS output would turn a plain `import()` back into
+  `require()`), from `pathToFileURL(require.resolve(...))`. `require.resolve` is safe (it
+  doesn't execute ESM) and is what lets Vercel's file tracer ship the package. Load failures
+  reset the cached promise so the next request retries. Check a build with
+  `node --no-experimental-require-module dist/index.js` — it reproduces the Vercel failure
+  if a static import sneaks back in.
+- **Tests** — Jest can't load ESM `better-auth`; it is only ever loaded lazily from
+  `betterAuth.ts`, and neither that nor `google.router.ts` is in `tests/testApp.ts`; test logic via
   `resolveGoogleUser` (`tests/googleAuth.test.ts`).
 - **Google Cloud setup** — OAuth client of type *Web application*; authorized redirect
   URIs: `http://localhost:3000/api/better-auth/callback/google` and
