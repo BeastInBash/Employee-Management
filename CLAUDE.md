@@ -137,9 +137,9 @@ client to a new domain, add it there or requests will be blocked.
 ## Deployment
 
 Both packages deploy to **Vercel** (each has its own `vercel.json`). The backend's
-end-of-day attendance runs from **Vercel Cron** (`crons` in `backend/vercel.json` →
-`GET /api/internal/cron/eod`, guarded by the `CRON_SECRET` env var, which must be set on the
-Vercel project). The backend also has Render/keep-alive references — see
+end-of-day attendance is triggered by **cron-job.org** once a day at 21:00 Asia/Kolkata
+(`GET /api/internal/cron/eod` with `Authorization: Bearer <CRON_SECRET>`; the env var must
+be set on the Vercel backend project). Test it any time with `?dryRun=1`, which writes nothing. The backend also has Render/keep-alive references — see
 `backend/CLAUDE.md`. The client `vercel.json` rewrites all paths to `/index.html` for SPA
 routing.
 

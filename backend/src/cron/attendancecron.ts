@@ -9,6 +9,8 @@ const WRITE_CHUNK = 100;
 
 export type EODSummary = {
   date: string;
+  /** True when nothing was written (a test run). */
+  dryRun: boolean;
   members: number;
   present: number;
   partial: number;
@@ -20,11 +22,12 @@ export type EODSummary = {
 /**
  * Schedule the 9:00 PM IST run in-process. Only for always-on hosts (Render,
  * local dev): a serverless function isn't running at 9 PM, so on Vercel the
- * run comes from Vercel Cron calling GET /api/internal/cron/eod instead.
+ * run comes from an external scheduler (cron-job.org) calling
+ * GET /api/internal/cron/eod instead.
  */
 export function startAttendanceCronJobs(): void {
   if (process.env.VERCEL) {
-    console.log("Attendance cron: running on Vercel, scheduled by Vercel Cron instead");
+    console.log("Attendance cron: running on Vercel, triggered externally via /api/internal/cron/eod");
     return;
   }
   // Fires at 9:00 PM IST = 3:30 PM UTC
@@ -42,9 +45,13 @@ export function startAttendanceCronJobs(): void {
  * Settle today's attendance for every member: no tasks → absent, some open →
  * partial, all done → present. Rows already marked present are left alone.
  * Safe to run more than once a day. Throws on failure so the caller can report it.
+ *
+ * With `dryRun`, everything is read and counted but nothing is written, so the
+ * trigger can be tested at any hour (a real run mid-day would mark everyone who
+ * hasn't planned yet as absent, and adding tasks later doesn't undo that).
  */
-export async function processEODAttendance(): Promise<EODSummary> {
-  console.log("Processing EOD attendance...");
+export async function processEODAttendance({ dryRun = false }: { dryRun?: boolean } = {}): Promise<EODSummary> {
+  console.log(dryRun ? "Processing EOD attendance (dry run)..." : "Processing EOD attendance...");
 
   const today = getTodayISTDate();
   const tomorrow = new Date(today.getTime() + 86400000);
@@ -72,6 +79,7 @@ export async function processEODAttendance(): Promise<EODSummary> {
 
   const summary: EODSummary = {
     date: today.toISOString().slice(0, 10),
+    dryRun,
     members: members.length,
     present: 0,
     partial: 0,
@@ -132,8 +140,11 @@ export async function processEODAttendance(): Promise<EODSummary> {
     );
   }
 
-  for (let i = 0; i < writes.length; i += WRITE_CHUNK) {
-    await prisma.$transaction(writes.slice(i, i + WRITE_CHUNK));
+  // Prisma queries are lazy: in a dry run the built upserts are simply never sent.
+  if (!dryRun) {
+    for (let i = 0; i < writes.length; i += WRITE_CHUNK) {
+      await prisma.$transaction(writes.slice(i, i + WRITE_CHUNK));
+    }
   }
 
   console.log("EOD attendance processing complete", summary);

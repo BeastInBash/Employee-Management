@@ -3,8 +3,8 @@ import { Router, Request, Response, NextFunction } from "express";
 import { processEODAttendance } from "../cron/attendancecron";
 
 // Machine-to-machine endpoints, called by schedulers rather than the client.
-// Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` when that env var is
-// set on the project; any other scheduler can send the same header.
+// The scheduler (cron-job.org in production) must send
+// `Authorization: Bearer <CRON_SECRET>`, matching the env var on the backend.
 const router = Router();
 
 function requireCronSecret(req: Request, res: Response, next: NextFunction): void {
@@ -22,10 +22,15 @@ function requireCronSecret(req: Request, res: Response, next: NextFunction): voi
     next();
 }
 
-/** End-of-day attendance (9:00 PM IST). GET for Vercel Cron, POST for a manual re-run. */
-const runEOD = async (_req: Request, res: Response): Promise<void> => {
+/**
+ * End-of-day attendance (9:00 PM IST). GET for the scheduler, POST for a manual
+ * re-run. `?dryRun=1` checks the whole path (auth, database, counts) without
+ * writing anything — use it to test outside 9 PM.
+ */
+const runEOD = async (req: Request, res: Response): Promise<void> => {
+    const dryRun = req.query.dryRun === "1" || req.query.dryRun === "true";
     try {
-        res.json(await processEODAttendance());
+        res.json(await processEODAttendance({ dryRun }));
     } catch (error) {
         console.error("EOD attendance processing error:", error);
         res.status(500).json({ message: "End-of-day attendance failed. Check the logs and re-run." });

@@ -33,7 +33,7 @@ end of day; the system marks them present / partial / absent automatically (see
 - **Resend** for transactional email (`utils/email.ts`), branded **WorkZen** and sent
   from `EMAIL_FROM` (a verified Resend domain, `no-reply@workzen.besaif.in`). See "Email".
 - **node-cron** for the EOD attendance job on always-on hosts (skipped when `VERCEL` is set;
-  on Vercel, **Vercel Cron** calls `GET /api/internal/cron/eod` instead) and a keep-alive
+  in production **cron-job.org** calls `GET /api/internal/cron/eod` instead) and a keep-alive
   ping (disabled).
 - Deployed on **Vercel** (`vercel.json`, `@vercel/node`). Prod URL pinged by the
   keep-alive cron: `https://todo-app-fz58.onrender.com` (also references Render).
@@ -412,13 +412,18 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
   skipped, so a re-run is safe. It reads members, today's tasks and today's rows in three
   queries and writes upserts in transactions of 100, then returns a summary
   (`{ date, members, present, partial, absent, alreadyPresent }`) and **throws on failure**.
-  - **Who triggers it:** on **Vercel** (production — `.env.prod`'s `BACKEND_URL`), serverless
-    functions aren't running at 9 PM, so `vercel.json` `crons` calls
-    `GET /api/internal/cron/eod`; Vercel sends `Authorization: Bearer $CRON_SECRET`. On an
-    always-on host (Render, local) `startAttendanceCronJobs()` schedules it with node-cron.
-    `POST` to the same path (same header) re-runs a day by hand. No `CRON_SECRET` → 503.
-  - Vercel **Hobby** runs cron jobs at most once a day and only *within the scheduled
-    hour* (so 9:00–9:59 PM IST); Pro runs them on the minute.
+  - **Who triggers it:** production runs on **Vercel** (`.env.prod`'s `BACKEND_URL`), where
+    serverless functions aren't running at 9 PM, so an external scheduler,
+    **cron-job.org**, calls `GET /api/internal/cron/eod` **once a day at 21:00
+    Asia/Kolkata** with the header `Authorization: Bearer <CRON_SECRET>` (set in its
+    Advanced → Headers). There is deliberately no `crons` entry in `vercel.json` (Hobby
+    only fires within the hour; one scheduler, one source of truth). On an always-on host
+    (Render, local) `startAttendanceCronJobs()` schedules it with node-cron. `POST` to the
+    same path (same header) re-runs a day by hand. No `CRON_SECRET` → 503; wrong → 401.
+  - **Never schedule it more often, or run it for real before 9 PM:** a mid-day run marks
+    everyone who hasn't planned yet as absent, and submitting tasks afterwards doesn't
+    change an existing row. To test the trigger at any hour use **`?dryRun=1`**: same auth,
+    reads and counts, response has `dryRun: true`, nothing is written.
 - "Today" is computed as UTC-midnight of the current IST calendar day
   (`getTodayISTDate`) so it lines up with Prisma's `@db.Date`.
 
@@ -484,8 +489,8 @@ Google sign-in (optional — the button hides itself when unset):
 - `CLIENT_URL` (above) is also where Google sign-in lands and is Better Auth's trusted origin.
 
 Scheduling: `CRON_SECRET` — **required in production** for end-of-day attendance; set it
-in the Vercel project's environment (Vercel Cron sends it automatically) or send it as
-`Authorization: Bearer …` from any other scheduler.
+in the Vercel backend project's environment, and send the same value from cron-job.org as
+`Authorization: Bearer …`.
 
 Optional: `PORT` (defaults **3000** in `index.ts`, but `config.ts` exports **3001** —
 inconsistent), `JWT_EXPIRES_IN` (default `"7d"`, though `generateToken` hardcodes `"7d"`

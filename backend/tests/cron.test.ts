@@ -49,7 +49,7 @@ describe("GET /api/internal/cron/eod", () => {
     const res = await request(app).get("/api/internal/cron/eod").set("Authorization", `Bearer ${SECRET}`);
 
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ members: 4, present: 1, partial: 1, absent: 1, alreadyPresent: 1 });
+    expect(res.body).toMatchObject({ dryRun: false, members: 4, present: 1, partial: 1, absent: 1, alreadyPresent: 1 });
     // Three reads for everyone, not two per member.
     expect(prismaMock.task.findMany).toHaveBeenCalledTimes(1);
     expect(prismaMock.dailyAttendance.findMany).toHaveBeenCalledTimes(1);
@@ -64,6 +64,24 @@ describe("GET /api/internal/cron/eod", () => {
     expect(byMember.done.update.status).toBe(AttendanceStatus.present);
     expect(byMember.done.create.taskSubmittedAt).toEqual(at(4));
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("with ?dryRun=1 counts the same way but writes nothing", async () => {
+    prismaMock.member.findMany.mockResolvedValue([{ id: "a" }, { id: "b" }] as any);
+    prismaMock.task.findMany.mockResolvedValue([{ memberId: "a", status: TaskStatus.todo, createdAt: new Date() }] as any);
+    prismaMock.dailyAttendance.findMany.mockResolvedValue([] as any);
+
+    const res = await request(app).get("/api/internal/cron/eod?dryRun=1").set("Authorization", `Bearer ${SECRET}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ dryRun: true, members: 2, partial: 1, absent: 1 });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("still needs the secret for a dry run", async () => {
+    const res = await request(app).get("/api/internal/cron/eod?dryRun=1");
+    expect(res.status).toBe(401);
+    expect(prismaMock.member.findMany).not.toHaveBeenCalled();
   });
 
   it("reports a failure as 500 so the scheduler logs it", async () => {
