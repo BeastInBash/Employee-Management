@@ -85,6 +85,7 @@ import {
 import { ProjectFormDialog } from "@/components/projects/ProjectFormDialog";
 import { AddPeopleDialog } from "@/components/projects/AddPeopleDialog";
 import { usePersistentState } from "@/hooks/use-persistent-state";
+import { Reveal } from "@/components/layout/Reveal";
 
 const COLUMNS: TaskStatus[] = ["todo", "in_progress", "review", "completed"];
 
@@ -164,7 +165,7 @@ const ProjectDetail = () => {
   };
 
   return (
-    <>
+    <Reveal>
       <PageHeader
         back={{ to: "/projects", label: "Projects" }}
         title={
@@ -352,7 +353,7 @@ const ProjectDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </Reveal>
   );
 };
 

@@ -43,6 +43,7 @@ import { TeamFormDialog } from "@/components/projects/TeamFormDialog";
 import { AddPeopleDialog } from "@/components/projects/AddPeopleDialog";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 import { useAuth } from "@/contexts/AuthContext";
+import { Reveal } from "@/components/layout/Reveal";
 
 type DetailResponse = { team: TeamDetailData; myRole: ScopeAccess; permissions: Permissions };
 
@@ -135,7 +136,7 @@ const TeamDetail = () => {
   );
 
   return (
-    <>
+    <Reveal>
       <PageHeader
         back={{ to: "/teams", label: "Teams" }}
         title={
@@ -368,7 +369,7 @@ const TeamDetail = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </Reveal>
   );
 };
 

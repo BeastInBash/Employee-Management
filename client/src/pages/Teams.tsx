@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { AvatarStack, EmptyState, RoleBadge } from "@/components/projects/shared";
 import { useWorkspacePeople } from "@/hooks/use-workspace-people";
 import { TeamFormDialog } from "@/components/projects/TeamFormDialog";
+import { Reveal } from "@/components/layout/Reveal";
 
 const Teams = () => {
   const { user } = useAuth();
@@ -99,7 +100,7 @@ const Teams = () => {
 };
 
 const TeamGrid = ({ teams, onOpen }: { teams: TeamSummary[]; onOpen: (id: string) => void }) => (
-  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+  <Reveal className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
     {teams.map((t) => (
       <button
         key={t.id}
@@ -134,7 +135,7 @@ const TeamGrid = ({ teams, onOpen }: { teams: TeamSummary[]; onOpen: (id: string
         </div>
       </button>
     ))}
-  </div>
+  </Reveal>
 );
 
 export default Teams;

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { usePersistentState } from "@/hooks/use-persistent-state";
+import { Reveal } from "@/components/layout/Reveal";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 const getAuthToken = () => localStorage.getItem("authToken");
@@ -170,7 +171,8 @@ export const MemberDashboard = () => {
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-1.5">
+          {/* Keyed so the real month fades in when it replaces the skeleton (and on a new month). */}
+          <Reveal key={loading && !data ? "loading" : `${year}-${month}`} className="grid grid-cols-7 gap-1.5">
             {/* Only blank out when there's nothing yet; cached data stays visible while it refreshes. */}
             {loading && !data
               ? Array.from({ length: 35 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)
@@ -205,7 +207,7 @@ export const MemberDashboard = () => {
                     </div>
                   );
                 })}
-          </div>
+          </Reveal>
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 border-t border-border/70 pt-4 text-xs text-muted-foreground">
             {(Object.keys(STATUS) as AttendanceStatus[]).map((s) => (
               <span key={s} className="flex items-center gap-1.5">
