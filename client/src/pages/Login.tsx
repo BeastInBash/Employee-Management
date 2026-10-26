@@ -27,7 +27,7 @@ const Login = () => {
   // Already signed in: go straight to the right place.
   useEffect(() => {
     if (!user) return;
-    navigate(user.role === "admin" ? "/dashboard" : `/todos/${user.id}`, { replace: true });
+    navigate(user.role === "admin" ? "/dashboard" : "/home", { replace: true });
   }, [user, navigate]);
 
   // Surface a failed Google attempt once, then drop the param so a refresh is clean.
@@ -54,7 +54,7 @@ const Login = () => {
       if (await login(loginEmail, loginPassword)) {
         const stored = localStorage.getItem("user");
         const parsed = stored ? JSON.parse(stored) : null;
-        navigate(parsed?.role === "admin" || !parsed?.id ? "/dashboard" : `/todos/${parsed.id}`);
+        navigate(parsed?.role === "admin" || !parsed?.id ? "/dashboard" : "/home");
       }
     } finally {
       setIsLoginLoading(false);
@@ -110,7 +110,7 @@ const Login = () => {
             {tab === value && (
               <motion.span
                 layoutId="auth-tab"
-                className="absolute inset-0 rounded-full bg-card shadow-[0_1px_3px_rgb(46_38_20/0.12)]"
+                className="absolute inset-0 rounded-full bg-card shadow-[0_1px_3px_rgb(78_34_15/0.12)]"
                 transition={{ type: "spring", duration: 0.35, bounce: 0.15 }}
               />
             )}
@@ -167,7 +167,7 @@ const Login = () => {
                 </Button>
               </form>
               <p className="text-center text-sm text-muted-foreground">
-                New to Crewly?{" "}
+                New to Workzen?{" "}
                 <button type="button" onClick={() => switchTab("signup")} className="font-medium text-primary hover:underline active:scale-100">
                   Create a workspace
                 </button>

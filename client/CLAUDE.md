@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-Guidance for working in this repository (the **client** of the Crewly app).
+Guidance for working in this repository (the **client** of the Workzen app).
 
 ## What this app is
 
-**Crewly** (formerly "Task Tracker" — the UI was rebranded; the repo/dirs are still
+**Workzen** (formerly "Task Tracker", then "Crewly" — the UI was rebranded; the repo/dirs are still
 `todo-app`, and the backend still calls itself Task Tracker) is a team task & attendance
 management web app. Two roles:
 
@@ -44,9 +44,10 @@ src/
   App.tsx                   # providers + all routes
   index.css                 # Tailwind v4 import + theme tokens (light + .dark)
   pages/
-    Landing.tsx             # public page: photo hero (parallax + typewriter), About with
-                            #   scroll-revealed copy + the "finish the day" demo, Features
-                            #   (sticky heading), closing band, footer  ->  "/"
+    Landing.tsx             # public page ("/"), aimed at startups & small businesses: photo
+                            #   hero, made-for marquee, before/after, how it works (the demo),
+                            #   a day in Workzen (pinned), team board, features bento, setup
+                            #   steps, FAQ, closing band, footer with a rising wordmark
     Login.tsx               # sign in / sign up switch (sliding pill, `?tab=signup` kept in
                             #   the URL), Google on both, panels slide on switch  ->  "/login"
     ForgotPassword.tsx / ResetPassword.tsx / AuthCallback.tsx
@@ -54,6 +55,11 @@ src/
     Dashboard.tsx           # "Members": searchable member list for the active workspace,
                             #   add/remove member, Workspace menu (submission hours,
                             #   new workspace / organization), onboarding empty states
+    Home.tsx                # a member's dashboard ("/home", where members land): bento grid of
+                            #   Today (tick to finish; status = the attendance it adds up to),
+                            #   month attendance calendar, done this week, overdue, coming up,
+                            #   project tasks, your projects, weekly attendance + throughput
+                            #   charts — from their tasks + GET /reports?scope=me
     MemberDetail.tsx        # admin view of one member: TaskBoard + assign/edit/delete
     TaskDetails.tsx         # a member's own board ("/todos/:userId") + submission-hours pill
     MembersDashboard.tsx    # monthly attendance calendar ("/attendance", or admin per-member)
@@ -82,10 +88,13 @@ src/
     layout/                 # AppShell (sidebar + page transitions), Page (PageHeader,
                             #   Section, Panel), AuthLayout (split: photo panel with slow
                             #   push-in + rotating captions | form; photo banner on phones),
-                            #   ChangePasswordDialog, Leaf (logo),
+                            #   ChangePasswordDialog,
                             #   VerifyEmailBanner (soft email-verification reminder)
     tasks/                  # TaskBoard (4 columns, inline status, gliding cards),
-                            #   TaskFormDialog (add/edit, mirrors API validation)
+                            #   TaskFormDialog (add/edit, mirrors API validation),
+                            #   TaskWindowPill (the member's submission hours)
+    home/                   # Home dashboard cells: Tile/StatCell/TaskLine, TodayTile,
+                            #   AttendanceCalendar (+ legend), WeeklyAttendance (recharts)
     projects/               # shared.tsx (badges, avatars, PeoplePicker, EmptyState),
                             #   ProjectFormDialog, TeamFormDialog, AddPeopleDialog
     reports/ReportCharts.tsx  # StatTile, ThroughputChart, AttendanceChart (recharts)
@@ -93,8 +102,10 @@ src/
     theme-provider.tsx      # ThemeProvider, useTheme, ThemeToggle
     ui/                     # shadcn components
   hooks/                    # use-workspace-people.ts loads Member seats for pickers
-  lib/                      # utils.ts (cn), api.ts (fetch helper), projectMeta.ts (labels/colours/dates),
-                            #   reports.ts (report types, IST date presets, CSV export)
+  lib/                      # utils.ts (cn), api.ts (fetch helper), projectMeta.ts (labels/colours/dates,
+                            #   greeting), reports.ts (report types, IST date keys/presets, CSV
+                            #   export), home.ts (per-person attendance maths), motion.ts (shared
+                            #   ease + grid stagger variants)
 ```
 
 ## Routing (`src/App.tsx`)
@@ -106,9 +117,10 @@ sidebar and the page via `<Outlet>`), so pages render **content only** — no he
 `min-h-screen` wrappers; start with `<PageHeader>`. Protected: `/dashboard`, `/attendance`,
 `/dashboard/member/:memberId/attendance`, `/admin/attendance`,
 `/member/:memberId`, `/todos/:memberId`, `/projects`, `/projects/:projectId`, `/teams`,
-`/teams/:teamId`, `/reports`. Everything else → `NotFound`.
+`/teams/:teamId`, `/reports`, `/home`. Everything else → `NotFound`.
 
-After login, admins go to `/dashboard`; members go to `/todos/:id` (their tasks). The
+After login, admins go to `/dashboard`; members go to `/home` (their dashboard; "My tasks"
+at `/todos/:id` is the full board). The
 public `/` (Landing) and `/login` pages **redirect an already-authenticated user** to that
 same destination (via a `useEffect` on `user`), so reopening the site while logged in drops
 you back in the app instead of on the marketing/login page.
@@ -132,7 +144,9 @@ you back in the app instead of on the marketing/login page.
   browser session) and refreshes the user once on mount so a confirmation made on another
   device clears it. `/verify-email` posts the token (once — guarded against StrictMode's
   double effect) and calls `AuthContext.refreshUser()` if this browser is signed in.
-  Emails are branded **WorkZen** while the app UI still says Crewly.
+  Emails are branded **WorkZen** (capital Z) while the app UI says **Workzen**.
+  The logo mark is lucide's `Feather`; the favicon is `public/favicon.svg` (cream
+  feather on terracotta) with `public/apple-touch-icon.png` for iOS.
 - **Google sign-in:** `components/auth/GoogleSignInButton.tsx` sits at the top of both the
   Sign in and Sign up tabs ("Sign in with Google" / "Sign up with Google" via `label`). It
   renders straight away and hides only if `GET /auth/providers` explicitly answers
@@ -183,9 +197,10 @@ you back in the app instead of on the marketing/login page.
   (admin → workspace + everything; others → "me" + what they lead).
 - Dates are **IST calendar days** (`istToday`, `presetRange`) to match the API.
 - Refetching keeps the previous report on screen at reduced opacity (no spinner flash).
-- **Chart colours are tokens** in `index.css` (`--viz-completed` = accent, `--viz-created`,
+- **Chart colours are tokens** in `index.css` (`--viz-completed`, `--viz-created`,
   `--viz-present/partial/absent`), validated with the dataviz palette script against
-  `#fffcf6` / `#22211b` (the card surfaces). Charts follow the dataviz rules: 2px lines, ≤24px bars with a 2px
+  `#fcf8ec` / `#1f1b18` (the card surfaces). Terracotta is kept out of charts (it
+  collapses into sage for protan viewers). Charts follow the dataviz rules: 2px lines, ≤24px bars with a 2px
   surface gap, legend on every multi-series chart, tooltip with every series, and a
   chart/table toggle (the table view is the accessible fallback). Bars have 4px rounded
   data ends. Re-run the validator if you change these tokens.
@@ -222,30 +237,50 @@ you back in the app instead of on the marketing/login page.
 
 - Use the `@/` import alias (maps to `src/`).
 - Reuse `src/components/ui/*` shadcn primitives; don't hand-roll buttons/inputs/dialogs.
-- **Design language: minimalist, warm and calm ("Olive grove").** Light is the default
-  (`ThemeProvider defaultTheme="light"`, key `crewly-theme`); dark is a warm "olive night"
-  theme from the same palette. Style only with tokens so both work: canvas
-  `bg-background` (warm oat `#f5f0e6`), panels `bg-card` (warm white), insets
-  `bg-surface`, `text-muted-foreground`, `border-border`, `primary` (deep olive
-  `#4f5b2e`), `honey` / `honey-soft` (progress, partial, highlights), `secondary` (sand),
-  `destructive` (soft clay). Shadows use a warm tint (`rgb(46_38_20/…)`). The deep-olive
-  **sidebar** is the one bold colour block — don't add more.
-- **Landing page motion** (`components/landing/`): `Typewriter` (types once in view,
-  full text for screen readers and reduced motion), `ScrollRevealText` (words brighten
-  with scroll), `DayDemo`, and framer `useScroll`/`useTransform` parallax on the hero
-  photo, the demo card and the closing band's leaf. Every scroll-linked transform is
-  zeroed under `useReducedMotion()`. The hero photo is self-hosted in
-  `public/images/hero-team-{1280,2400}.webp` (Unsplash License, by Sable Flow — keep the
-  footer credit). The auth pages use `public/images/auth-desk-{900,1600}.webp` (Unsplash
-  License, by Dhony Koswara — credited on the photo panel) with a CSS `kenburns` keyframe
-  (`index.css`, off under `motion-reduce`).
+- **Design language: minimalist, warm and calm ("Earth").** Palette: cream `#f7f1de`,
+  sage `#b0ba99`, caramel `#9d6638`, espresso `#4e220f`, plus terracotta for actions.
+  Light is the default (`ThemeProvider defaultTheme="light"`, key `crewly-theme`); dark
+  is a near-neutral charcoal (`#171412`) so large areas never turn muddy brown. Style
+  only with tokens so both work: canvas `bg-background` (cream), panels `bg-card`, insets
+  `bg-surface`, text `foreground` (espresso), `text-muted-foreground`, `border-border`.
+  Colour has one meaning each: `primary` (terracotta `#a4521f`) = **act here** (buttons,
+  selected controls) and never a status; `sage` / `sage-soft` = done, present, success;
+  `honey` / `honey-soft` (caramel) = in progress, partial; `destructive` (brick) = errors
+  and absent. Shadows use an espresso tint (`rgb(78_34_15/…)`). The espresso **sidebar**
+  is the one bold colour block — don't add more. Photo panels (landing hero, auth pages)
+  are shaded with `--hero-shade` (an "r g b" triplet) and accented with `--hero-accent`.
+- **Landing page** (`components/landing/`, composed in `pages/Landing.tsx`): one motion idea
+  per section, every scroll-linked transform zeroed under `useReducedMotion()`, and copy that
+  states real product behaviour (keep it true: the FAQ and the day timeline quote the 9 PM IST
+  cron, the submission window and the invite email). Pieces: hero (photo parallax,
+  `Typewriter` headline, word-by-word subcopy, two floating product cards at different scroll
+  depths), `Marquee` (CSS `marquee` keyframe, pauses on hover, wraps under reduced motion),
+  `BeforeAfter` (panels enter from opposite sides, dotted spines draw with scroll),
+  `AttendanceFlow` (the interactive tasks → attendance demo; same rules as
+  `attendancecron.ts`), `DayTimeline` (≥lg: a `h-[300vh]` section pins and scroll moves the
+  day sideways; phones/reduced motion get a grid), `TeamBoard` (espresso band, the page's one
+  dark section; board tilts upright on scroll, bars fill, statuses resolve), `FeatureBento`
+  (seven real features with small illustrations that play once), `SetupSteps` (numbered —
+  a real sequence — joined by a line that draws with scroll), `Faq` (shadcn accordion),
+  closing band (typewriter + drifting feather), footer wordmark that rises in. `LineReveal`
+  is the section-headline treatment; the nav carries a scroll-progress line. The root uses
+  `overflow-x-clip` (not hidden) so side-entering panels can't widen the page while sticky
+  sections still pin. No invented customers, logos, testimonials, prices or stats. The hero
+  photo is self-hosted in
+  `public/images/hero-team-earth-{1280,2400}.webp` (Unsplash License, by Sable Flow — keep
+  the footer credit). The auth pages use `public/images/auth-desk-earth-{900,1600}.webp`
+  (Unsplash License, by Dhony Koswara — credited on the photo panel). Both `-earth`
+  files are tritone-graded copies of the originals (still alongside) to sit in the
+  palette. The auth photo drifts with a CSS `kenburns` keyframe (`index.css`, off under
+  `motion-reduce`).
 - **Status/priority pills are soft tints** (pale fill + deeper ink of the same hue), from
   `lib/projectMeta.ts` (`taskStatusColors`, `taskStatusDots`, `priorityColors`) and
   `ProjectStatusBadge` / `AttendanceDot` in `components/projects/shared.tsx`. Don't use
   saturated Tailwind palette colours (`bg-blue-500`, `bg-emerald-500`…).
-- **Typography:** one family, **Onest** (`--font-sans`, loaded in `index.html`). Headings
-  get weight 600 and tight tracking from the base layer; no second display face, no
-  monospace, **no all-caps tracked labels**. Use `tabular-nums` for numbers in columns.
+- **Typography:** one family site-wide, **Roboto** with **Inter** as the fallback
+  (`--font-sans` / `--font-display`, both loaded from Google Fonts in `index.html`).
+  Headings get weight 600 and tight tracking from the base layer; no second display face,
+  no monospace, **no all-caps tracked labels**. Use `tabular-nums` for numbers in columns.
 - **Rounded, with a hierarchy** (`--radius: 0.875rem`): controls `rounded-sm` (10px),
   inputs/menus `rounded-md`/`rounded-lg`, cards and panels `rounded-xl`, dialogs
   `rounded-2xl`, badges/avatars/switches `rounded-full`. Hairline borders

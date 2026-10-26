@@ -45,7 +45,7 @@ const ForgotPassword = () => {
       title={submitted ? "Check your inbox" : "Reset your password"}
       description={
         submitted
-          ? `If ${email} has a Crewly account, a reset link is on its way. It works for one hour.`
+          ? `If ${email} has a Workzen account, a reset link is on its way. It works for one hour.`
           : "Enter the email you sign in with and we'll send you a link to set a new password."
       }
       footer={
@@ -56,7 +56,7 @@ const ForgotPassword = () => {
     >
       {submitted ? (
         <div className="flex items-center gap-3 rounded-xl bg-secondary p-4 text-sm text-secondary-foreground">
-          <MailCheck className="h-5 w-5 shrink-0 text-primary" />
+          <MailCheck className="h-5 w-5 shrink-0 text-sage" />
           Didn't get it? Check spam, or try again in a minute.
         </div>
       ) : (

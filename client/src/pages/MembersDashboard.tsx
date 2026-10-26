@@ -39,7 +39,7 @@ interface AttendanceResponse {
 }
 
 const STATUS: Record<AttendanceStatus, { label: string; cell: string; dot: string; text: string }> = {
-    present: { label: "Present", cell: "bg-secondary text-primary", dot: "bg-[var(--viz-present)]", text: "text-primary" },
+    present: { label: "Present", cell: "bg-sage-soft text-sage", dot: "bg-[var(--viz-present)]", text: "text-sage" },
     partial: { label: "Partial", cell: "bg-honey-soft text-honey", dot: "bg-[var(--viz-partial)]", text: "text-honey" },
     absent: { label: "Absent", cell: "bg-destructive/8 text-destructive", dot: "bg-destructive/70", text: "text-destructive" },
 };

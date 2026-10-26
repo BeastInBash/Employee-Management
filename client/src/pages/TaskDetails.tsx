@@ -1,20 +1,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Clock, Lock, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTasks } from "@/contexts/TaskContext";
 import type { Task } from "@/contexts/TaskContext";
 import { PageHeader } from "@/components/layout/Page";
 import { TaskBoard } from "@/components/tasks/TaskBoard";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
+import { TaskWindowPill } from "@/components/tasks/TaskWindowPill";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
-import { cn } from "@/lib/utils";
-
-const greeting = () => {
-    const h = new Date().getHours();
-    return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-};
+import { greeting } from "@/lib/projectMeta";
 
 /** A member's own board ("/todos/:userId"). Admins are sent to their dashboard. */
 const TaskDetails = () => {
@@ -73,17 +69,7 @@ const TaskDetails = () => {
                 }
                 actions={
                     <>
-                        {taskWindow && (
-                            <span
-                                className={cn(
-                                    "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm",
-                                    closed ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground"
-                                )}
-                            >
-                                {closed ? <Lock className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}
-                                {restricted ? (closed ? `Opens ${taskWindow.label}` : `Open ${taskWindow.label}`) : "Add tasks anytime"}
-                            </span>
-                        )}
+                        {taskWindow && <TaskWindowPill taskWindow={taskWindow} />}
                         {isOwnBoard && (
                             <Button
                                 onClick={openAdd}

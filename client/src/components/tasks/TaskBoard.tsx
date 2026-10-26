@@ -141,7 +141,7 @@ const TaskCard = ({
   const done = task.status === "completed";
 
   return (
-    <div className="space-y-2.5 rounded-lg border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgb(46_38_20/0.04)]">
+    <div className="space-y-2.5 rounded-lg border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgb(78_34_15/0.04)]">
       <div className="flex items-start justify-between gap-2">
         <p className={cn("text-sm font-medium leading-snug", done && "text-muted-foreground line-through decoration-muted-foreground/50")}>
           {task.title}

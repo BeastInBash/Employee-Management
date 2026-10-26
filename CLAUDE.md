@@ -2,8 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Repository-level guidance for the **Crewly** monorepo (the client UI was rebranded from
-"Task Tracker"; repo/dirs are still `todo-app` and the backend still calls itself Task
+Repository-level guidance for the **Workzen** monorepo (the client UI was rebranded from
+"Task Tracker", then "Crewly"; emails spell it "WorkZen"; repo/dirs are still `todo-app` and the backend still calls itself Task
 Tracker internally). This is the umbrella context; each package has its own detailed
 `CLAUDE.md`:
 
@@ -15,7 +15,7 @@ cross-cutting picture and the contract between the two.
 
 ## What this app is
 
-**Crewly** is a team task & attendance management app where **attendance is derived
+**Workzen** is a team task & attendance management app where **attendance is derived
 from task activity** rather than entered manually. Tenancy is **Org → Workspace →
 Members** (a `Member` is a user's seat in one workspace; see the package docs). Two roles:
 

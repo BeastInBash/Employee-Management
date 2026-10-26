@@ -58,7 +58,7 @@ interface AllMembersReportResponse {
 }
 
 const STATUS: Record<AttendanceStatus, { label: string; pill: string; dot: string; cell: string }> = {
-    present: { label: "Present", pill: "bg-secondary text-primary", dot: "bg-[var(--viz-present)]", cell: "bg-secondary text-primary" },
+    present: { label: "Present", pill: "bg-sage-soft text-sage", dot: "bg-[var(--viz-present)]", cell: "bg-sage-soft text-sage" },
     partial: { label: "Partial", pill: "bg-honey-soft text-honey", dot: "bg-[var(--viz-partial)]", cell: "bg-honey-soft text-honey" },
     absent: { label: "Absent", pill: "bg-destructive/8 text-destructive", dot: "bg-destructive/70", cell: "bg-destructive/8 text-destructive" },
 };

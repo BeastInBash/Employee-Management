@@ -14,6 +14,12 @@ export const projectStatusLabels: Record<ProjectStatus, string> = {
 
 export const STATUS_ORDER: TaskStatus[] = ["todo", "in_progress", "review", "completed"];
 
+/** "Good morning" / "Good afternoon" / "Good evening" by the viewer's clock. */
+export const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+};
+
 /** "Today, 6:00 PM" / "Tomorrow, 9:30 AM" / "3 Nov 2026, 6:00 PM". */
 export const dueLabel = (due: Date) => {
   if (isToday(due)) return `Today, ${format(due, "h:mm a")}`;
@@ -33,7 +39,7 @@ export const taskStatusColors: Record<TaskStatus, string> = {
   todo: "bg-muted text-muted-foreground",
   in_progress: "bg-honey-soft text-honey",
   review: "bg-[#e3ebe6] text-[#3e5f58] dark:bg-[#1f2b28] dark:text-[#a3c4bb]",
-  completed: "bg-secondary text-primary",
+  completed: "bg-sage-soft text-sage",
 };
 
 /** Solid dot colour per status (for column headers and legends). */
@@ -41,7 +47,7 @@ export const taskStatusDots: Record<TaskStatus, string> = {
   todo: "bg-muted-foreground/50",
   in_progress: "bg-honey",
   review: "bg-[#5f8a80]",
-  completed: "bg-primary",
+  completed: "bg-sage",
 };
 
 export const priorityLabels: Record<TaskPriority, string> = {
@@ -58,8 +64,8 @@ export const priorityColors: Record<TaskPriority, string> = {
   urgent: "bg-[#f6e1da] text-[#953720] dark:bg-[#3a221c] dark:text-[#ef9a82]",
 };
 
-/** Calm swatches for projects and teams, drawn from the warm olive/earth palette. */
-export const COLOR_CHOICES = ["#4f5b2e", "#8f9a5c", "#c8923a", "#b4553c", "#a8744f", "#5f8a80", "#7a6a8f", "#6b6656"];
+/** Calm swatches for projects and teams, drawn from the Earth palette. */
+export const COLOR_CHOICES = ["#a4521f", "#5a6a3c", "#9d6638", "#4e220f", "#c49a3a", "#5f8a80", "#5a80bd", "#7a5a45"];
 
 /** "Due 12 Mar" / "No due date" — dates come from the API as ISO strings. */
 export const formatDate = (iso: string | null, empty = "—") =>

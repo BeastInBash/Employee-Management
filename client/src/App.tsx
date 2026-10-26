@@ -20,6 +20,7 @@ import ResetPassword from "./pages/ResetPassword";
 // import Invitations from "./pages/Invitations";
 import NotFound from "./pages/NotFound";
 import TaskDetails from "./pages/TaskDetails";
+import Home from "./pages/Home";
 import { TaskProvider } from "./contexts/TaskContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
 import Projects from "./pages/Projects";
@@ -58,6 +59,7 @@ const App = () => (
                                     <Route element={<ProtectedRoute />}>
                                       <Route element={<AppShell />}>
 
+                                        <Route path="/home" element={<Home />} />
                                         <Route path="/dashboard" element={<Dashboard />} />
                                         <Route path="/attendance" element={<MemberDashboard />} />
 

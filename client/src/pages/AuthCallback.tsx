@@ -34,7 +34,7 @@ const AuthCallback = () => {
         return;
       }
       if (params.get("new")) {
-        toast.success(`Welcome to Crewly, ${user.name.split(" ")[0]}! Start by creating your organization.`);
+        toast.success(`Welcome to Workzen, ${user.name.split(" ")[0]}! Start by creating your organization.`);
       } else {
         toast.success("Signed in with Google");
       }
@@ -43,7 +43,7 @@ const AuthCallback = () => {
           duration: 10000,
         });
       }
-      navigate(user.role === "admin" ? "/dashboard" : `/todos/${user.id}`, { replace: true });
+      navigate(user.role === "admin" ? "/dashboard" : "/home", { replace: true });
     });
   }, [loginWithToken, navigate]);
 
