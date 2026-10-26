@@ -137,7 +137,10 @@ you back in the app instead of on the marketing/login page.
 - Authenticated requests send `Authorization: Bearer <token>`. The backend `authenticate`
   middleware accepts this header (it prefers a `token` cookie but falls back to Bearer), so
   the localStorage-token model works cross-site.
-- New members are created by an admin **into a workspace** and emailed a default password (`123456`).
+- New members are created by an admin **into a workspace** with no password; their invite
+  email opens `/reset-password?token=…&welcome=1`, where `ResetPassword.tsx` shows
+  first-password copy ("Choose your password" / "Set password"). Login toasts the server's
+  message, which covers "use your invite" and the refused legacy `123456`.
 - **Email verification is soft.** `User.emailVerified` comes from login / `GET /auth/me`.
   `AppShell` shows `VerifyEmailBanner` while it's `false` (resend button → `POST
   /auth/resend-verification`, which may answer 429 with a wait time; dismissible for the

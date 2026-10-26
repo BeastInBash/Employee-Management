@@ -20,7 +20,7 @@ from task activity** rather than entered manually. Tenancy is **Org → Workspac
 Members** (a `Member` is a user's seat in one workspace; see the package docs). Two roles:
 
 - **Admin** — signs up, creates organizations & workspaces, adds team members into a
-  workspace (who are emailed a default password `123456`), assigns/views tasks, and
+  workspace (who are emailed a link to choose their own password), assigns/views tasks, and
   reviews attendance across the team.
 - **Member** — created by an admin, submits their daily tasks (**any time** by default, or
   within a window the admin configures per workspace) and completes them through the day;
@@ -79,8 +79,11 @@ cd client && bun run lint && bun run build
   but **falls back to the Bearer header**, so this works cross-site. Tokens (and the login
   cookie) last **7 days**; the client keeps the session for the full token life by decoding
   the JWT `exp` and only clearing storage once it has actually expired.
-- **First login:** new members get the default password `123456` and `isPasswordReset:
-  true`; the client is responsible for forcing a password change.
+- **First login:** new members have **no password**. Their invite email links to
+  `/reset-password?token=…&welcome=1` (7-day one-time token), where they choose one; that
+  also verifies their email. Accounts from before invites still carry the old shared
+  `123456`: login refuses it (403 `password_setup_required`) and emails the owner a link
+  instead, so knowing someone's address is never enough to get in.
 - **Google sign-in (Better Auth):** the client navigates to `${VITE_API_URL}/auth/google`;
   Better Auth (mounted at `/api/better-auth`) runs the OAuth handshake on the API's origin,
   then `/api/auth/google/complete` matches the Google-verified email to a `User`, issues the
@@ -133,8 +136,10 @@ client to a new domain, add it there or requests will be blocked.
 
 ## Deployment
 
-Both packages deploy to **Vercel** (each has its own `vercel.json`). The backend also has
-Render/keep-alive references (a cron pings the prod URL to stay warm) — see
+Both packages deploy to **Vercel** (each has its own `vercel.json`). The backend's
+end-of-day attendance is triggered by **cron-job.org** once a day at 21:00 Asia/Kolkata
+(`GET /api/internal/cron/eod` with `Authorization: Bearer <CRON_SECRET>`; the env var must
+be set on the Vercel backend project). Test it any time with `?dryRun=1`, which writes nothing. The backend also has Render/keep-alive references — see
 `backend/CLAUDE.md`. The client `vercel.json` rewrites all paths to `/index.html` for SPA
 routing.
 

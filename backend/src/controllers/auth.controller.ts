@@ -8,21 +8,13 @@ import {
     forgotPasswordSchema,
     resetPasswordSchema,
 } from "../validation/authValidation";
-import { hashPassword, comparePassword } from "../utils/password";
+import { hashPassword, comparePassword, DEFAULT_PASSWORD } from "../utils/password";
 import { generateToken } from "../utils/jwt";
-import { sendPasswordResetEmail, sendVerificationEmail } from "../utils/email";
+import { sendPasswordResetEmail, sendPasswordSetupEmail, sendVerificationEmail } from "../utils/email";
 import { hashToken, issueVerificationToken, verificationCooldownLeft } from "../utils/verification";
-import crypto from "crypto";
+import { INVITE_TOKEN_TTL_MS, RESET_TOKEN_TTL_MS, issuePasswordToken, sentRecently } from "../utils/passwordToken";
 
 const prisma = new PrismaClient();
-
-// Password reset tokens are short-lived; the raw token is emailed to the user
-// and only its SHA-256 hash is persisted, so a database leak can't be replayed.
-const RESET_TOKEN_TTL_MS = 4 * 24 * 60 * 60 * 1000; // 4 days
-
-function hashResetToken(token: string): string {
-    return crypto.createHash("sha256").update(token).digest("hex");
-}
 
 /** The login cookie mirrors the JWT's 7-day lifetime. */
 export function setAuthCookie(res: Response, token: string): void {
@@ -54,10 +46,13 @@ export async function login(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        // Google-only accounts have no password to check against.
+        // No password yet: an invited member who hasn't opened their invite, or
+        // a Google-only account.
         if (!user.password) {
             res.status(401).json({
-                message: "This account signs in with Google. Use \"Continue with Google\" or reset your password.",
+                message: user.isPasswordReset
+                    ? "You haven't chosen a password yet. Use the link in your invite email, or \"Forgot password\" to get a new one. You can also continue with Google."
+                    : "This account signs in with Google. Use \"Continue with Google\" or reset your password.",
             });
             return;
         }
@@ -69,6 +64,21 @@ export async function login(req: Request, res: Response): Promise<void> {
 
         if (!isPasswordValid) {
             res.status(401).json({ message: "Invalid email or password" });
+            return;
+        }
+
+        // Members added before invites were given a shared temporary password,
+        // so knowing someone's address was enough to get into their account.
+        // Refuse it, and email the owner a link to choose their own instead.
+        if (user.isPasswordReset && validatedData.password === DEFAULT_PASSWORD) {
+            if (!sentRecently(user.resetTokenExpiry, INVITE_TOKEN_TTL_MS)) {
+                const setupToken = await issuePasswordToken(user.id, INVITE_TOKEN_TTL_MS);
+                await sendPasswordSetupEmail(user.email, user.name, setupToken, INVITE_TOKEN_TTL_MS / 86_400_000);
+            }
+            res.status(403).json({
+                code: "password_setup_required",
+                message: "Temporary passwords no longer work. We've emailed you a link to choose your own password.",
+            });
             return;
         }
 
@@ -230,14 +240,7 @@ export async function forgotPassword(
         // Always respond the same way whether or not the account exists, so this
         // endpoint can't be used to enumerate registered email addresses.
         if (user) {
-            const rawToken = crypto.randomBytes(32).toString("hex");
-            const tokenHash = hashResetToken(rawToken);
-            const expiry = new Date(Date.now() + RESET_TOKEN_TTL_MS);
-
-            await prisma.user.update({
-                where: { id: user.id },
-                data: { resetToken: tokenHash, resetTokenExpiry: expiry },
-            });
+            const rawToken = await issuePasswordToken(user.id, RESET_TOKEN_TTL_MS);
 
             // Never surface a send failure: the response must not reveal
             // whether the account exists.
@@ -269,7 +272,7 @@ export async function resetPassword(
     try {
         const validatedData = resetPasswordSchema.parse(req.body);
 
-        const tokenHash = hashResetToken(validatedData.token);
+        const tokenHash = hashToken(validatedData.token);
 
         const user = await prisma.user.findFirst({
             where: {
@@ -292,6 +295,11 @@ export async function resetPassword(
                 resetToken: null,
                 resetTokenExpiry: null,
                 isPasswordReset: false,
+                // The link only reached this inbox, so using it proves the
+                // address (this is how invited members confirm theirs).
+                emailVerified: true,
+                emailVerificationToken: null,
+                emailVerificationExpiry: null,
             },
         });
 

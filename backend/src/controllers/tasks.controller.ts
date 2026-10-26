@@ -117,13 +117,15 @@ export async function createTask(req: Request, res: Response): Promise<void> {
 
         if (req.user.role === UserRole.member) {
             const today = getTodayISTDate();
+            // Planned but not finished yet is partial, which is also what the day
+            // settles to if it stays that way; finishing the list flips it to present.
             await prisma.dailyAttendance.upsert({
                 where: { memberId_date: { memberId, date: today } },
                 update: {},
                 create: {
                     memberId,
                     date: today,
-                    status: AttendanceStatus.absent,
+                    status: AttendanceStatus.partial,
                     taskSubmittedAt: new Date(),
                 },
             });

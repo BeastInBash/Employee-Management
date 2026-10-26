@@ -578,7 +578,8 @@ export const createProjectTask = async (req: Request, res: Response) => {
         await prisma.dailyAttendance.upsert({
             where: { memberId_date: { memberId: assigneeId, date: today } },
             update: {},
-            create: { memberId: assigneeId, date: today, status: AttendanceStatus.absent, taskSubmittedAt: new Date() },
+            // Planned but not finished yet: partial (see tasks.controller createTask).
+            create: { memberId: assigneeId, date: today, status: AttendanceStatus.partial, taskSubmittedAt: new Date() },
         });
     }
 

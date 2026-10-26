@@ -2,9 +2,8 @@ import { Request, Response } from "express";
 import { PrismaClient, UserRole, OrgRole, Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 import { createMemberSchema } from "../validation/memberValidation";
-import { hashPassword, DEFAULT_PASSWORD } from "../utils/password";
-import { sendMemberCredentials } from "../utils/email";
-import { issueVerificationToken } from "../utils/verification";
+import { sendMemberInvite } from "../utils/email";
+import { INVITE_TOKEN_TTL_MS, issuePasswordToken } from "../utils/passwordToken";
 
 const prisma = new PrismaClient();
 
@@ -75,41 +74,43 @@ export async function createMember(req: Request, res: Response): Promise<void> {
         }
 
         let memberUser = existingUser;
-        let credentialsEmailed = false;
+        let invited = false;
+        let inviteEmailed = false;
 
-        // Create the user account (with a default password) only if it's new.
+        // Create the user account only if it's new. It has no password at all:
+        // a known starting password would let anyone who knows the address in
+        // before its owner. They choose one from the invite link instead.
         if (!memberUser) {
-            const hashedPassword = await hashPassword(DEFAULT_PASSWORD);
-
             memberUser = await prisma.user.create({
                 data: {
                     email,
-                    password: hashedPassword,
+                    password: null,
                     name: validatedData.name,
                     role: UserRole.member,
-                    isPasswordReset: true, // Flag to indicate password needs to be changed
+                    isPasswordReset: true, // still has to choose a password
                 },
                 include: { members: { select: { id: true, workspaceId: true } } },
             });
 
-            // Look up the admin so the credentials email is sent *from* them
+            // Look up the admin so the invite is sent *from* them
             // (From/Reply-To), not the generic relay sender.
             const admin = await prisma.user.findUnique({
                 where: { id: req.user.userId },
                 select: { name: true, email: true },
             });
 
-            // Email the credentials; the same email's button confirms the
-            // address. Sending never throws, so a mail outage can't block
-            // member creation — it's reported back as credentialsEmailed.
-            const verificationToken = await issueVerificationToken(memberUser.id);
-            credentialsEmailed = await sendMemberCredentials(
+            // Choosing a password from this link also confirms the address.
+            // Sending never throws, so a mail outage can't block member
+            // creation; it's reported back in the response message.
+            invited = true;
+            const inviteToken = await issuePasswordToken(memberUser.id, INVITE_TOKEN_TTL_MS);
+            inviteEmailed = await sendMemberInvite(
                 email,
                 validatedData.name,
-                DEFAULT_PASSWORD,
+                inviteToken,
+                INVITE_TOKEN_TTL_MS / 86_400_000,
                 admin?.email ?? req.user.email,
-                admin?.name,
-                verificationToken
+                admin?.name
             );
         }
 
@@ -127,9 +128,11 @@ export async function createMember(req: Request, res: Response): Promise<void> {
 
         res.status(201).json({
             memberData,
-            message: credentialsEmailed
-                ? `Member added successfully. Login credentials were emailed to ${email}.`
-                : "Member added successfully.",
+            message: !invited
+                ? "Member added successfully."
+                : inviteEmailed
+                  ? `Member added. We emailed ${email} a link to choose their password.`
+                  : `Member added, but the invite email couldn't be sent. Ask them to use "Forgot password" on the sign-in page.`,
         });
     } catch (error: any) {
         console.error("Create member error:", error);

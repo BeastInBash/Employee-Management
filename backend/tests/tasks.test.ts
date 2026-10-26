@@ -68,8 +68,9 @@ describe("POST /api/tasks (member)", () => {
             date: new Date("2026-06-21T00:00:00.000Z"),
           },
         },
+        // Planned but not finished yet counts as partial from the start.
         create: expect.objectContaining({
-          status: AttendanceStatus.absent,
+          status: AttendanceStatus.partial,
         }),
       })
     );

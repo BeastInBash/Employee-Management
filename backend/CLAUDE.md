@@ -8,7 +8,7 @@ Guidance for working in this repository (the **backend** of the Task Tracker app
 that the React client (`../client`) talks to. Two roles:
 
 - **Admin** — signs up, creates team members, assigns/views tasks, and reviews attendance.
-- **Member** — created by an admin (emailed a default password `123456`), submits and
+- **Member** — created by an admin (emailed an invite link to choose a password), submits and
   updates their own daily tasks, and views their own attendance.
 
 The core domain idea: **attendance is derived from task activity**. A member submits their
@@ -28,9 +28,13 @@ end of day; the system marks them present / partial / absent automatically (see
   `require(esm)` (Vercel crashed with `ERR_REQUIRE_ESM`) otherwise takes the whole API down.
   `package.json` also pins `"engines": { "node": "22.x" }`.
 - **zod** for request validation.
+- **helmet** (security headers) and **express-rate-limit** (`middleware/rateLimit.ts`); see
+  "Auth & security conventions".
 - **Resend** for transactional email (`utils/email.ts`), branded **WorkZen** and sent
   from `EMAIL_FROM` (a verified Resend domain, `no-reply@workzen.besaif.in`). See "Email".
-- **node-cron** for two scheduled jobs (EOD attendance + keep-alive ping).
+- **node-cron** for the EOD attendance job on always-on hosts (skipped when `VERCEL` is set;
+  in production **cron-job.org** calls `GET /api/internal/cron/eod` instead) and a keep-alive
+  ping (disabled).
 - Deployed on **Vercel** (`vercel.json`, `@vercel/node`). Prod URL pinged by the
   keep-alive cron: `https://todo-app-fz58.onrender.com` (also references Render).
 
@@ -73,6 +77,7 @@ src/
     teams.router.ts        # /api/teams     (authenticate + handleError)
     reports.router.ts      # /api/reports   (authenticate + handleError)
     google.router.ts       # /api/auth/providers, /api/auth/google, /api/auth/google/complete
+    internal.router.ts     # /api/internal/cron/eod — scheduler-only, Bearer CRON_SECRET
   controllers/
     auth.controller.ts        # login, signup, changePassword, forgot/resetPassword
     members.controller.ts     # createMember, getMembers, getMember, deleteMember
@@ -89,12 +94,14 @@ src/
     auth.middleware.ts     # authenticate(): verifies JWT (cookie, falls back to Bearer) -> req.user
     roleCheck.ts           # requireAdmin, canManageTask, canViewMemberTasks
     error.middleware.ts    # handleError: ApiError-aware error handler (statusCode + message)
+    rateLimit.ts           # per-IP / per-email limiters for auth routes + a wide /api ceiling
   cron/
     attendancecron.ts      # 9:00 PM IST EOD attendance finalization
     pingcron.ts            # every 5 min health ping (keep dyno warm)
   utils/
     jwt.ts                 # generate/verify token (7d expiry)
-    password.ts            # bcrypt hash/compare + DEFAULT_PASSWORD = "123456"
+    password.ts            # bcrypt hash/compare + legacy DEFAULT_PASSWORD (only to refuse it)
+    passwordToken.ts       # one-time set-password tokens for resets and invites (TTLs, cooldown)
     hash.ts                # bcryptjs hash/compare (duplicate of password.ts, unused-ish)
     email.ts               # Resend client, the WorkZen template, every email we send
     verification.ts        # email-verification tokens (hash, TTL, resend cooldown)
@@ -203,12 +210,19 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
   reset token (valid 4 days, `RESET_TOKEN_TTL_MS`) and emails a reset link. Always returns a generic 200 (no user
   enumeration).
 - `POST /reset-password` — resets pw via `token` + newPassword. The raw token from the
-  email is SHA-256 hashed and matched against the stored hash + expiry.
+  email is SHA-256 hashed and matched against the stored hash + expiry. Success also sets
+  `emailVerified` (the link only reached that inbox). The same endpoint takes invite tokens.
+- `POST /login` refuses the legacy shared password `123456` for any account that never
+  chose its own (`isPasswordReset`): 403 `{ code: "password_setup_required" }` plus a
+  set-password email. An invited member with no password yet gets a 401 pointing at their
+  invite.
 
 **`/api/members`** (all `authenticate`)
 - `POST /` *(admin)* — create member; body now **requires `workspaceId`** (the controller
   verifies the workspace exists and the admin owns / is owner-admin of its org); creates
-  the User w/ DEFAULT_PASSWORD if new and emails credentials; sets `isPasswordReset: true`.
+  the User **with no password** if new (`isPasswordReset: true` = hasn't chosen one yet),
+  stores a 7-day invite token and emails `sendMemberInvite`. Re-adding an existing user to
+  another workspace sends nothing.
   The "already a member" check is **per workspace** (a user can be a member of several).
 - `GET /` — admin: members they created; member: their own member row(s)
 - `GET /:memberId` *(admin)* — single member by Member id
@@ -311,7 +325,8 @@ they log and return `false` — so an email outage can't fail the request that t
 
 | Trigger | Function | Notes |
 |---|---|---|
-| Admin creates a new member | `sendMemberCredentials` | temp password + a "Confirm email and sign in" link (verification included); `Reply-To` = the admin |
+| Admin creates a new member | `sendMemberInvite` | a "Choose your password" link (7 days; using it also verifies the email); `Reply-To` = the admin |
+| Login with the legacy `123456` | `sendPasswordSetupEmail` | the same kind of link; at most one a minute per account |
 | Sign-up | `sendVerificationEmail` | soft verification — the account works immediately |
 | Resend from the app banner | `sendVerificationEmail` | max one a minute |
 | Forgot password | `sendPasswordResetEmail` | states the real link lifetime |
@@ -346,7 +361,7 @@ Better Auth only runs the OAuth handshake; the app's own JWT stays the session.
 - **Matching** (`utils/googleAuth.ts`) — by the Google-verified email (unverified Google
   emails are refused). Unknown email → new **admin** with no password. Existing account
   whose `emailVerified` is still false → mark verified and **null the password** (kills
-  the default `123456`, and stops anyone who pre-registered someone else's address from
+  any legacy default password, and stops anyone who pre-registered someone else's address from
   keeping a password into it). Better Auth's own implicit account linking isn't used
   because it requires `emailVerified` on the local row, which legacy users don't have.
 - **Mounting** — `app.all("/api/better-auth/*splat", betterAuthHandler)` must stay
@@ -378,7 +393,9 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
   `createTask` via `toTaskWindow` + `isWithinTaskWindow`. A blocked request returns
   **403** with the message *and* the serialized `taskWindow` so the client can correct a
   stale copy. Admin-created tasks are never constrained. Submitting creates/keeps a
-  `DailyAttendance` row (default `absent`, `taskSubmittedAt` set).
+  `DailyAttendance` row as **`partial`** (planned, not finished yet — what the day settles to
+  if it stays that way) with `taskSubmittedAt` set. The cron's remaining unique job is the
+  **absent** row for members who planned nothing (there's no event to react to).
   `isWithinTaskSubmissionWindow()` (the old fixed 9–11 AM helper) survives only for the
   legacy `submissionWindowOpen` field on the admin "today" overview.
 - **Completion → present:** when a member completes a task (`PATCH` status→`completed`),
@@ -389,9 +406,24 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
   the IST day. Tasks created 00:00–05:30 IST count toward the previous day. The cron also
   writes an `absent` row for every member on weekends, which is why reports default to
   `excludeWeekends`.
-- **EOD finalization (cron):** `attendancecron.ts` runs at **3:30 PM UTC = 9:00 PM IST**.
-  For each member: no tasks today → `absent`; some-but-not-all complete → `partial`;
-  all complete → `present`. Already-`present` rows are skipped.
+- **EOD finalization (cron):** `processEODAttendance()` in `attendancecron.ts`, at
+  **3:30 PM UTC = 9:00 PM IST**. For each member: no tasks today → `absent`;
+  some-but-not-all complete → `partial`; all complete → `present`. Already-`present` rows are
+  skipped, so a re-run is safe. It reads members, today's tasks and today's rows in three
+  queries and writes upserts in transactions of 100, then returns a summary
+  (`{ date, members, present, partial, absent, alreadyPresent }`) and **throws on failure**.
+  - **Who triggers it:** production runs on **Vercel** (`.env.prod`'s `BACKEND_URL`), where
+    serverless functions aren't running at 9 PM, so an external scheduler,
+    **cron-job.org**, calls `GET /api/internal/cron/eod` **once a day at 21:00
+    Asia/Kolkata** with the header `Authorization: Bearer <CRON_SECRET>` (set in its
+    Advanced → Headers). There is deliberately no `crons` entry in `vercel.json` (Hobby
+    only fires within the hour; one scheduler, one source of truth). On an always-on host
+    (Render, local) `startAttendanceCronJobs()` schedules it with node-cron. `POST` to the
+    same path (same header) re-runs a day by hand. No `CRON_SECRET` → 503; wrong → 401.
+  - **Never schedule it more often, or run it for real before 9 PM:** a mid-day run marks
+    everyone who hasn't planned yet as absent, and submitting tasks afterwards doesn't
+    change an existing row. To test the trigger at any hour use **`?dryRun=1`**: same auth,
+    reads and counts, response has `dryRun: true`, nothing is written.
 - "Today" is computed as UTC-midnight of the current IST calendar day
   (`getTodayISTDate`) so it lines up with Prisma's `@db.Date`.
 
@@ -406,8 +438,23 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
 - The **login cookie `maxAge` is 7d** (`auth.controller.ts`), matching the JWT lifetime —
   they were previously mismatched (cookie 4d), which expired the session early. The client
   authenticates via the localStorage Bearer token anyway, but keep the two in sync.
-- Passwords hashed with bcrypt, **cost 10**. New members get `DEFAULT_PASSWORD`
-  (`"123456"`) and `isPasswordReset: true`; the client should force a change.
+- **Rate limits** (`middleware/rateLimit.ts`, all answer 429 `{ message, code: "rate_limited",
+  limiter }` + `RateLimit`/`Retry-After` headers; the client toasts `message`):
+  login 20 failures / 15 min per IP and 8 / 15 min per email (successes don't count, so an
+  office behind one IP isn't locked out; change-password shares the IP counter);
+  forgot-password 10 / h per IP and 3 / h per email; signup 5 / h per IP; reset-password
+  and verify-email 20 / 15 min per IP; resend-verification 10 / h per IP (plus its own
+  60s per-account cooldown); everything under `/api` 1500 / 5 min per IP. Counters are
+  **in memory**, so on Vercel each warm instance counts separately (a per-instance ceiling);
+  a shared store such as Redis would make them exact. `app.set("trust proxy", 1)` makes
+  `req.ip` the visitor (Vercel/Render are one hop) — keep it, or every request shares the
+  proxy's IP and one limit blocks everyone. Limiters skip under `NODE_ENV=test`;
+  `tests/rateLimit.test.ts` enables them with `RATE_LIMIT_IN_TESTS`.
+- **helmet** sets security headers on every response, with
+  `crossOriginResourcePolicy: "cross-origin"` because the client is on another origin.
+- Passwords hashed with bcrypt, **cost 10**. **No account is ever created with a known
+  password**: new members get none and choose one from their invite link. Don't
+  reintroduce a default password; `DEFAULT_PASSWORD` exists only so login can refuse it.
 - Project/team access lives in `utils/access.ts` (`getProjectAccess` / `getTeamAccess` →
   `admin | lead | member | null`, `canManage()`), keyed off Member seats in the resource's
   workspace — not off `User.role`. Use it for new scoped routes instead of ad-hoc checks.
@@ -440,6 +487,10 @@ Google sign-in (optional — the button hides itself when unset):
 - `BETTER_AUTH_SECRET` — signs Better Auth cookies; falls back to `JWT_SECRET` if unset.
   Set a separate one in production.
 - `CLIENT_URL` (above) is also where Google sign-in lands and is Better Auth's trusted origin.
+
+Scheduling: `CRON_SECRET` — **required in production** for end-of-day attendance; set it
+in the Vercel backend project's environment, and send the same value from cron-job.org as
+`Authorization: Bearer …`.
 
 Optional: `PORT` (defaults **3000** in `index.ts`, but `config.ts` exports **3001** —
 inconsistent), `JWT_EXPIRES_IN` (default `"7d"`, though `generateToken` hardcodes `"7d"`

@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import dotenv from "dotenv";
 import authRoutes from "./routes/auth.router";
 import memberRoutes from "./routes/members.router";
@@ -13,8 +14,10 @@ import workspaceRouter from "./routes/workspace.router";
 import projectsRouter from "./routes/projects.router";
 import teamsRouter from "./routes/teams.router";
 import reportsRouter from "./routes/reports.router";
+import internalRouter from "./routes/internal.router";
 import googleRouter from "./routes/google.router";
 import { betterAuthHandler } from "./utils/betterAuth";
+import { apiByIp } from "./middleware/rateLimit";
 
 dotenv.config();
 
@@ -23,6 +26,11 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 
+// Vercel and Render sit one proxy in front of the app; trusting that hop makes
+// req.ip the visitor's address (rate limits key on it) instead of the proxy's.
+app.set("trust proxy", 1);
+// Security headers. The client lives on another origin, so let it read responses.
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
 // Better Auth parses its own bodies, so it must be mounted before express.json().
 app.all("/api/better-auth/*splat", betterAuthHandler);
@@ -36,6 +44,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 // Routes
+app.use("/api", apiByIp);
 app.use("/api/auth", googleRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/members", memberRoutes);
@@ -46,6 +55,7 @@ app.use('/api/workspace',workspaceRouter)
 app.use('/api/projects', projectsRouter)
 app.use('/api/teams', teamsRouter)
 app.use('/api/reports', reportsRouter)
+app.use('/api/internal', internalRouter)
 // Health check
 app.get("/health", (req, res) => {
     console.log("Working Fine ....")

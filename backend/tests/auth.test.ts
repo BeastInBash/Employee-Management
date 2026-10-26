@@ -4,7 +4,7 @@ import { prismaMock } from "./singleton";
 import { createTestApp } from "./testApp";
 import { makeUser, authHeader, ADMIN } from "./helpers";
 import { comparePassword, hashPassword } from "../src/utils/password";
-import { sendPasswordResetEmail } from "../src/utils/email";
+import { sendPasswordResetEmail, sendPasswordSetupEmail } from "../src/utils/email";
 import crypto from "crypto";
 
 const app = createTestApp();
@@ -12,6 +12,7 @@ const app = createTestApp();
 const compareMock = comparePassword as jest.Mock;
 const hashMock = hashPassword as jest.Mock;
 const resetEmailMock = sendPasswordResetEmail as jest.Mock;
+const setupEmailMock = sendPasswordSetupEmail as jest.Mock;
 
 describe("POST /api/auth/login", () => {
   it("logs in with valid credentials and omits the password", async () => {
@@ -255,6 +256,58 @@ describe("POST /api/auth/change-password", () => {
   });
 });
 
+describe("POST /api/auth/login with the old temporary password", () => {
+  it("refuses the shared default password and emails a link to choose one", async () => {
+    const user = makeUser({ id: "u1", email: "old@example.com", isPasswordReset: true, resetTokenExpiry: null });
+    prismaMock.user.findUnique.mockResolvedValue(user as any);
+    prismaMock.user.update.mockResolvedValue(user as any);
+    compareMock.mockResolvedValue(true);
+
+    const res = await request(app).post("/api/auth/login").send({ email: "old@example.com", password: "123456" });
+
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("password_setup_required");
+    expect(res.body).not.toHaveProperty("token");
+    const updateArg = prismaMock.user.update.mock.calls[0]![0] as any;
+    expect(updateArg.data.resetToken).toMatch(/^[a-f0-9]{64}$/);
+    expect(setupEmailMock).toHaveBeenCalledTimes(1);
+    expect(setupEmailMock.mock.calls[0]![0]).toBe("old@example.com");
+  });
+
+  it("doesn't email again within the cooldown", async () => {
+    // A 7-day link issued a few seconds ago.
+    const recent = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000 - 5_000);
+    prismaMock.user.findUnique.mockResolvedValue(makeUser({ isPasswordReset: true, resetTokenExpiry: recent }) as any);
+    compareMock.mockResolvedValue(true);
+
+    const res = await request(app).post("/api/auth/login").send({ email: "user@example.com", password: "123456" });
+
+    expect(res.status).toBe(403);
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+    expect(setupEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("still signs in someone who has chosen their own password", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(makeUser({ isPasswordReset: false }) as any);
+    compareMock.mockResolvedValue(true);
+
+    const res = await request(app).post("/api/auth/login").send({ email: "user@example.com", password: "123456" });
+
+    expect(res.status).toBe(200);
+    expect(setupEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("tells an invited member with no password yet to use their invite", async () => {
+    prismaMock.user.findUnique.mockResolvedValue(makeUser({ password: null, isPasswordReset: true }) as any);
+
+    const res = await request(app).post("/api/auth/login").send({ email: "user@example.com", password: "anything" });
+
+    expect(res.status).toBe(401);
+    expect(res.body.message).toMatch(/invite email/);
+    expect(compareMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /api/auth/forgot-password", () => {
   it("stores a hashed token and emails a link when the account exists", async () => {
     const user = makeUser({ id: "u1", email: "user@example.com" });
@@ -331,7 +384,8 @@ describe("POST /api/auth/reset-password", () => {
     expect(findArg.where.resetToken).toBe(expectedHash);
     expect(findArg.where.resetTokenExpiry.gte).toBeInstanceOf(Date);
 
-    // Token fields are cleared on success.
+    // Token fields are cleared on success, and using the emailed link
+    // confirms the address (how invited members verify theirs).
     expect(prismaMock.user.update).toHaveBeenCalledWith({
       where: { id: "u1" },
       data: {
@@ -339,6 +393,9 @@ describe("POST /api/auth/reset-password", () => {
         resetToken: null,
         resetTokenExpiry: null,
         isPasswordReset: false,
+        emailVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpiry: null,
       },
     });
   });
