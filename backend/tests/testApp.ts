@@ -30,16 +30,9 @@ export function createTestApp(): express.Express {
   });
 
   // Same fallthrough error handler as production.
-  app.use(
-    (
-      err: any,
-      _req: express.Request,
-      res: express.Response,
-      _next: express.NextFunction
-    ) => {
-      res.status(500).json({ message: "Something went wrong!" });
-    }
-  );
+  app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    res.status(500).json({ message: "Something went wrong!" });
+  });
 
   return app;
 }

@@ -32,7 +32,12 @@ describe("GET /api/internal/cron/eod", () => {
 
   it("settles each member's day in one batch and reports the counts", async () => {
     const at = (h: number) => new Date(Date.UTC(2026, 9, 26, h));
-    prismaMock.member.findMany.mockResolvedValue([{ id: "done" }, { id: "some" }, { id: "none" }, { id: "early" }] as any);
+    prismaMock.member.findMany.mockResolvedValue([
+      { id: "done" },
+      { id: "some" },
+      { id: "none" },
+      { id: "early" },
+    ] as any);
     prismaMock.task.findMany.mockResolvedValue([
       { memberId: "done", status: TaskStatus.completed, createdAt: at(5) },
       { memberId: "done", status: TaskStatus.completed, createdAt: at(4) },
@@ -68,7 +73,9 @@ describe("GET /api/internal/cron/eod", () => {
 
   it("with ?dryRun=1 counts the same way but writes nothing", async () => {
     prismaMock.member.findMany.mockResolvedValue([{ id: "a" }, { id: "b" }] as any);
-    prismaMock.task.findMany.mockResolvedValue([{ memberId: "a", status: TaskStatus.todo, createdAt: new Date() }] as any);
+    prismaMock.task.findMany.mockResolvedValue([
+      { memberId: "a", status: TaskStatus.todo, createdAt: new Date() },
+    ] as any);
     prismaMock.dailyAttendance.findMany.mockResolvedValue([] as any);
 
     const res = await request(app).get("/api/internal/cron/eod?dryRun=1").set("Authorization", `Bearer ${SECRET}`);

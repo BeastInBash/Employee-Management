@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "./AuthContext";
@@ -50,14 +44,8 @@ type OrgContextType = {
   setActiveWorkspaceId: (workspaceId: string) => void;
   refreshOrgs: () => Promise<void>;
   createOrganization: (name: string) => Promise<Organization | void>;
-  createWorkspace: (
-    name: string,
-    orgId?: string
-  ) => Promise<Workspace | void>;
-  updateTaskWindow: (
-    workspaceId: string,
-    window: TaskWindow
-  ) => Promise<TaskWindow | void>;
+  createWorkspace: (name: string, orgId?: string) => Promise<Workspace | void>;
+  updateTaskWindow: (workspaceId: string, window: TaskWindow) => Promise<TaskWindow | void>;
 };
 
 const OrgContext = createContext<OrgContextType | undefined>(undefined);
@@ -105,22 +93,24 @@ const normalizeTaskWindow = (source: TaskWindowSource): TaskWindow => {
   };
 };
 
+// An org as GET /org/getMyOrgs sends it: dates as strings, the task window as raw columns.
+type RawWorkspace = { id: string; name: string; orgId: string; createdAt: string } & NonNullable<TaskWindowSource>;
+type RawOrg = { id: string; name: string; ownerId: string; createdAt: string; workspaces?: RawWorkspace[] };
+
 // Normalizes the API org shape into our typed model (Date coercion + safe defaults).
-const normalizeOrg = (o: any): Organization => ({
+const normalizeOrg = (o: RawOrg): Organization => ({
   id: o.id,
   name: o.name,
   ownerId: o.ownerId,
   createdAt: new Date(o.createdAt),
   workspaces: Array.isArray(o.workspaces)
-    ? o.workspaces.map(
-        (w: any): Workspace => ({
-          id: w.id,
-          name: w.name,
-          orgId: w.orgId,
-          createdAt: new Date(w.createdAt),
-          taskWindow: normalizeTaskWindow(w),
-        })
-      )
+    ? o.workspaces.map((w: RawWorkspace): Workspace => ({
+        id: w.id,
+        name: w.name,
+        orgId: w.orgId,
+        createdAt: new Date(w.createdAt),
+        taskWindow: normalizeTaskWindow(w),
+      }))
     : [],
 });
 
@@ -130,11 +120,9 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
   // Start in the loading state when a token is present so the dashboard's
   // onboarding gates don't flash before the first fetch resolves.
   const [isLoading, setIsLoading] = useState(() => !!getAuthToken());
-  const [activeOrgId, setActiveOrgIdState] = useState<string | null>(
-    () => localStorage.getItem(ACTIVE_ORG_KEY)
-  );
-  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(
-    () => localStorage.getItem(ACTIVE_WORKSPACE_KEY)
+  const [activeOrgId, setActiveOrgIdState] = useState<string | null>(() => localStorage.getItem(ACTIVE_ORG_KEY));
+  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(() =>
+    localStorage.getItem(ACTIVE_WORKSPACE_KEY),
   );
 
   const setActiveOrgId = (orgId: string) => {
@@ -155,10 +143,9 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
     if (!token) return;
     try {
       setIsLoading(true);
-      const response = await fetch(
-        `${API_BASE_URL}/org/getMyOrgs?workspace=true`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await fetch(`${API_BASE_URL}/org/getMyOrgs?workspace=true`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) return;
       const data = await response.json();
       const orgs: Organization[] = (data?.allOrgs ?? []).map(normalizeOrg);
@@ -173,7 +160,6 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (user) fetchOrgs();
     else setOrganizations([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Keep the active org valid: fall back to the first org when the stored id is
@@ -191,10 +177,10 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
 
   const activeOrg = useMemo(
     () => organizations.find((o) => o.id === activeOrgId) ?? null,
-    [organizations, activeOrgId]
+    [organizations, activeOrgId],
   );
 
-  const workspaces = activeOrg?.workspaces ?? [];
+  const workspaces = useMemo(() => activeOrg?.workspaces ?? [], [activeOrg]);
 
   // Keep the active workspace valid within the active org.
   useEffect(() => {
@@ -215,7 +201,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
 
   const activeWorkspace = useMemo(
     () => workspaces.find((w) => w.id === activeWorkspaceId) ?? null,
-    [workspaces, activeWorkspaceId]
+    [workspaces, activeWorkspaceId],
   );
 
   const createOrganization = async (name: string) => {
@@ -265,17 +251,14 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/org/${targetOrgId}/workspaces`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ workspaceName: name }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/org/${targetOrgId}/workspaces`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ workspaceName: name }),
+      });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         toast.error(error.message || "Failed to create workspace");
@@ -291,11 +274,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
       };
       // Insert the workspace into its org and select it.
       setOrganizations((prev) =>
-        prev.map((o) =>
-          o.id === targetOrgId
-            ? { ...o, workspaces: [...o.workspaces, created] }
-            : o
-        )
+        prev.map((o) => (o.id === targetOrgId ? { ...o, workspaces: [...o.workspaces, created] } : o)),
       );
       setActiveWorkspaceId(created.id);
       toast.success("Workspace created");
@@ -316,21 +295,18 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/workspace/${workspaceId}/task-window`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            enabled: window.enabled,
-            startTime: window.startTime,
-            endTime: window.endTime,
-          }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/workspace/${workspaceId}/task-window`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          enabled: window.enabled,
+          startTime: window.startTime,
+          endTime: window.endTime,
+        }),
+      });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         toast.error(error.message || "Failed to update the task window");
@@ -341,15 +317,13 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
       setOrganizations((prev) =>
         prev.map((org) => ({
           ...org,
-          workspaces: org.workspaces.map((ws) =>
-            ws.id === workspaceId ? { ...ws, taskWindow: saved } : ws
-          ),
-        }))
+          workspaces: org.workspaces.map((ws) => (ws.id === workspaceId ? { ...ws, taskWindow: saved } : ws)),
+        })),
       );
       toast.success(
         saved.enabled
           ? `Members can submit tasks ${saved.startTime}–${saved.endTime} IST`
-          : "Members can now submit tasks anytime"
+          : "Members can now submit tasks anytime",
       );
       return saved;
     } catch (error) {

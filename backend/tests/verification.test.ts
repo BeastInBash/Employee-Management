@@ -13,7 +13,13 @@ describe("POST /api/auth/signup", () => {
   it("sends a verification email but signs the person in right away", async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
     prismaMock.user.create.mockResolvedValue(
-      makeUser({ id: "new-admin", email: "sam@example.com", name: "Sam Rivera", role: "admin", emailVerified: false }) as any
+      makeUser({
+        id: "new-admin",
+        email: "sam@example.com",
+        name: "Sam Rivera",
+        role: "admin",
+        emailVerified: false,
+      }) as any,
     );
     prismaMock.user.update.mockResolvedValue({} as any);
 

@@ -78,7 +78,13 @@ export const TeamFormDialog = ({
         <div className="space-y-4 py-2">
           <div className="space-y-2">
             <Label htmlFor="team-name">Name</Label>
-            <Input id="team-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Design" autoFocus />
+            <Input
+              id="team-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Design"
+              autoFocus
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="team-description">Description</Label>
@@ -110,7 +116,13 @@ export const TeamFormDialog = ({
               </div>
               <div className="space-y-2">
                 <Label>Members</Label>
-                <PeoplePicker people={people} value={memberIds} onChange={setMemberIds} exclude={leadIds} placeholder="Add members" />
+                <PeoplePicker
+                  people={people}
+                  value={memberIds}
+                  onChange={setMemberIds}
+                  exclude={leadIds}
+                  placeholder="Add members"
+                />
               </div>
             </>
           )}

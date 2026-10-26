@@ -15,19 +15,11 @@ export const MEMBER = {
   role: UserRole.member,
 };
 
-export function tokenFor(payload: {
-  userId: string;
-  email: string;
-  role: UserRole;
-}): string {
+export function tokenFor(payload: { userId: string; email: string; role: UserRole }): string {
   return generateToken(payload);
 }
 
-export function authHeader(payload: {
-  userId: string;
-  email: string;
-  role: UserRole;
-}): string {
+export function authHeader(payload: { userId: string; email: string; role: UserRole }): string {
   return `Bearer ${tokenFor(payload)}`;
 }
 

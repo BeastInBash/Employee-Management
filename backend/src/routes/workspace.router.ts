@@ -9,11 +9,11 @@ import {
 import { handleError } from "../middleware/error.middleware";
 const workspaceRouter = Router();
 
-workspaceRouter.use(authenticate)
-workspaceRouter.post('/create-workspace/:orgId', createWorkspace)
-workspaceRouter.get('/:workspaceId/task-window', getTaskWindow)
-workspaceRouter.patch('/:workspaceId/task-window', updateTaskWindow)
-workspaceRouter.get('/:workspaceId/members', listWorkspaceMembers)
-workspaceRouter.use(handleError)
+workspaceRouter.use(authenticate);
+workspaceRouter.post("/create-workspace/:orgId", createWorkspace);
+workspaceRouter.get("/:workspaceId/task-window", getTaskWindow);
+workspaceRouter.patch("/:workspaceId/task-window", updateTaskWindow);
+workspaceRouter.get("/:workspaceId/members", listWorkspaceMembers);
+workspaceRouter.use(handleError);
 
 export default workspaceRouter;

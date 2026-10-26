@@ -4,14 +4,14 @@ import { createOrganization, getMyOrganization, getOrgById } from "../controller
 import { createWorkspace } from "../controllers/workspace.controller";
 import { handleError } from "../middleware/error.middleware";
 
-const orgRouter = Router()
+const orgRouter = Router();
 
-orgRouter.use(authenticate)
+orgRouter.use(authenticate);
 
-orgRouter.post('/createOrganization', createOrganization)
-orgRouter.get('/getMyOrgs', getMyOrganization)
-orgRouter.get("/getOrg", getOrgById)
-orgRouter.post('/:orgId/workspaces', createWorkspace)
-orgRouter.use(handleError)
+orgRouter.post("/createOrganization", createOrganization);
+orgRouter.get("/getMyOrgs", getMyOrganization);
+orgRouter.get("/getOrg", getOrgById);
+orgRouter.post("/:orgId/workspaces", createWorkspace);
+orgRouter.use(handleError);
 
 export default orgRouter;

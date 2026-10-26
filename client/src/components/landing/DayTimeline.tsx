@@ -118,7 +118,12 @@ const STOPS = [
 
 /** `pinned` cards keep a fixed width so the row can ride sideways; stacked ones fill their cell. */
 const Card = ({ stop, pinned }: { stop: (typeof STOPS)[number]; pinned?: boolean }) => (
-  <article className={cn("flex shrink-0 flex-col rounded-[28px] border border-border/80 bg-card p-6 sm:p-7", pinned ? "w-[400px]" : "w-full")}>
+  <article
+    className={cn(
+      "flex shrink-0 flex-col rounded-[28px] border border-border/80 bg-card p-6 sm:p-7",
+      pinned ? "w-[400px]" : "w-full",
+    )}
+  >
     <span className="text-sm font-medium text-primary tabular">{stop.time}</span>
     <h3 className="mt-3 text-2xl tracking-tight">{stop.title}</h3>
     <p className="mt-2 text-[15px] leading-relaxed text-muted-foreground">{stop.body}</p>
@@ -148,7 +153,8 @@ const Pinned = () => {
   useLayoutEffect(() => {
     const measure = () => {
       // How far the row must travel for its last card to come fully into view.
-      if (track.current && viewport.current) setDistance(Math.max(0, track.current.offsetWidth - viewport.current.clientWidth));
+      if (track.current && viewport.current)
+        setDistance(Math.max(0, track.current.offsetWidth - viewport.current.clientWidth));
     };
     measure();
     window.addEventListener("resize", measure);

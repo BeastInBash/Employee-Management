@@ -1,0 +1,2 @@
+# Lint, format and type-check what's staged (see the .lintstagedrc.mjs files).
+bunx lint-staged

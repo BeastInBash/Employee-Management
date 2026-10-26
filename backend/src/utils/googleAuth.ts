@@ -10,8 +10,7 @@ export interface GoogleProfile {
 }
 
 export type GoogleSignInResult =
-    | { ok: true; user: User; created: boolean; passwordDisabled: boolean }
-    | { ok: false; reason: "email_unverified" };
+    { ok: true; user: User; created: boolean; passwordDisabled: boolean } | { ok: false; reason: "email_unverified" };
 
 /**
  * Map a Google identity onto the app's User, keyed by the verified email.

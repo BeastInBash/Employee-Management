@@ -1,10 +1,5 @@
 import { Router } from "express";
-import {
-    createMember,
-    getMembers,
-    getMember,
-    deleteMember,
-} from "../controllers/members.controller";
+import { createMember, getMembers, getMember, deleteMember } from "../controllers/members.controller";
 import { authenticate } from "../middleware/auth.middleware";
 import { requireAdmin } from "../middleware/roleCheck";
 

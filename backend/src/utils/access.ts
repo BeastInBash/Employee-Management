@@ -29,11 +29,7 @@ export async function isOrgAdmin(userId: string, orgId: string): Promise<boolean
             select: { role: true },
         }),
     ]);
-    return (
-        org?.ownerId === userId ||
-        membership?.role === OrgRole.owner ||
-        membership?.role === OrgRole.admin
-    );
+    return org?.ownerId === userId || membership?.role === OrgRole.owner || membership?.role === OrgRole.admin;
 }
 
 /** Resolve the caller's standing in a workspace. Throws 404 for unknown workspaces. */

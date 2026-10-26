@@ -8,15 +8,15 @@ const prisma = new PrismaClient();
 const WRITE_CHUNK = 100;
 
 export type EODSummary = {
-  date: string;
-  /** True when nothing was written (a test run). */
-  dryRun: boolean;
-  members: number;
-  present: number;
-  partial: number;
-  absent: number;
-  /** Already present before the run (finished their list during the day). */
-  alreadyPresent: number;
+    date: string;
+    /** True when nothing was written (a test run). */
+    dryRun: boolean;
+    members: number;
+    present: number;
+    partial: number;
+    absent: number;
+    /** Already present before the run (finished their list during the day). */
+    alreadyPresent: number;
 };
 
 /**
@@ -26,19 +26,19 @@ export type EODSummary = {
  * GET /api/internal/cron/eod instead.
  */
 export function startAttendanceCronJobs(): void {
-  if (process.env.VERCEL) {
-    console.log("Attendance cron: running on Vercel, triggered externally via /api/internal/cron/eod");
-    return;
-  }
-  // Fires at 9:00 PM IST = 3:30 PM UTC
-  cron.schedule(
-    "30 15 * * *",
-    () => {
-      processEODAttendance().catch((error) => console.error("EOD attendance processing error:", error));
-    },
-    { timezone: "UTC" }
-  );
-  console.log("Attendance cron jobs scheduled");
+    if (process.env.VERCEL) {
+        console.log("Attendance cron: running on Vercel, triggered externally via /api/internal/cron/eod");
+        return;
+    }
+    // Fires at 9:00 PM IST = 3:30 PM UTC
+    cron.schedule(
+        "30 15 * * *",
+        () => {
+            processEODAttendance().catch((error) => console.error("EOD attendance processing error:", error));
+        },
+        { timezone: "UTC" },
+    );
+    console.log("Attendance cron jobs scheduled");
 }
 
 /**
@@ -51,102 +51,111 @@ export function startAttendanceCronJobs(): void {
  * hasn't planned yet as absent, and adding tasks later doesn't undo that).
  */
 export async function processEODAttendance({ dryRun = false }: { dryRun?: boolean } = {}): Promise<EODSummary> {
-  console.log(dryRun ? "Processing EOD attendance (dry run)..." : "Processing EOD attendance...");
+    console.log(dryRun ? "Processing EOD attendance (dry run)..." : "Processing EOD attendance...");
 
-  const today = getTodayISTDate();
-  const tomorrow = new Date(today.getTime() + 86400000);
+    const today = getTodayISTDate();
+    const tomorrow = new Date(today.getTime() + 86400000);
 
-  // Three reads for the whole day instead of two per member.
-  const [members, tasks, records] = await Promise.all([
-    prisma.member.findMany({ select: { id: true } }),
-    prisma.task.findMany({
-      where: { createdAt: { gte: today, lt: tomorrow } },
-      select: { memberId: true, status: true, createdAt: true },
-    }),
-    prisma.dailyAttendance.findMany({
-      where: { date: today },
-      select: { memberId: true, status: true, taskSubmittedAt: true },
-    }),
-  ]);
+    // Three reads for the whole day instead of two per member.
+    const [members, tasks, records] = await Promise.all([
+        prisma.member.findMany({ select: { id: true } }),
+        prisma.task.findMany({
+            where: { createdAt: { gte: today, lt: tomorrow } },
+            select: { memberId: true, status: true, createdAt: true },
+        }),
+        prisma.dailyAttendance.findMany({
+            where: { date: today },
+            select: { memberId: true, status: true, taskSubmittedAt: true },
+        }),
+    ]);
 
-  const tasksByMember = new Map<string, { status: TaskStatus; createdAt: Date }[]>();
-  for (const t of tasks) {
-    const list = tasksByMember.get(t.memberId);
-    if (list) list.push(t);
-    else tasksByMember.set(t.memberId, [t]);
-  }
-  const recordByMember = new Map(records.map((r) => [r.memberId, r]));
+    const tasksByMember = new Map<string, { status: TaskStatus; createdAt: Date }[]>();
+    for (const t of tasks) {
+        const list = tasksByMember.get(t.memberId);
+        if (list) list.push(t);
+        else tasksByMember.set(t.memberId, [t]);
+    }
+    const recordByMember = new Map(records.map((r) => [r.memberId, r]));
 
-  const summary: EODSummary = {
-    date: today.toISOString().slice(0, 10),
-    dryRun,
-    members: members.length,
-    present: 0,
-    partial: 0,
-    absent: 0,
-    alreadyPresent: 0,
-  };
-  const writes: Prisma.PrismaPromise<unknown>[] = [];
-  const now = new Date();
+    const summary: EODSummary = {
+        date: today.toISOString().slice(0, 10),
+        dryRun,
+        members: members.length,
+        present: 0,
+        partial: 0,
+        absent: 0,
+        alreadyPresent: 0,
+    };
+    const writes: Prisma.PrismaPromise<unknown>[] = [];
+    const now = new Date();
 
-  for (const { id: memberId } of members) {
-    const existing = recordByMember.get(memberId);
+    for (const { id: memberId } of members) {
+        const existing = recordByMember.get(memberId);
 
-    // Already finalized as present — skip
-    if (existing?.status === AttendanceStatus.present) {
-      summary.alreadyPresent++;
-      continue;
+        // Already finalized as present — skip
+        if (existing?.status === AttendanceStatus.present) {
+            summary.alreadyPresent++;
+            continue;
+        }
+
+        const where = { memberId_date: { memberId, date: today } };
+        const todaysTasks = tasksByMember.get(memberId) ?? [];
+
+        // No tasks submitted today → absent
+        if (todaysTasks.length === 0) {
+            summary.absent++;
+            writes.push(
+                prisma.dailyAttendance.upsert({
+                    where,
+                    update: { status: AttendanceStatus.absent },
+                    create: { memberId, date: today, status: AttendanceStatus.absent },
+                }),
+            );
+            continue;
+        }
+
+        const firstSubmitted = todaysTasks.reduce(
+            (min, t) => (t.createdAt < min ? t.createdAt : min),
+            todaysTasks[0]!.createdAt,
+        );
+        const taskSubmittedAt = existing?.taskSubmittedAt ?? firstSubmitted;
+
+        if (!todaysTasks.every((t) => t.status === TaskStatus.completed)) {
+            summary.partial++;
+            writes.push(
+                prisma.dailyAttendance.upsert({
+                    where,
+                    update: { status: AttendanceStatus.partial },
+                    create: { memberId, date: today, status: AttendanceStatus.partial, taskSubmittedAt },
+                }),
+            );
+            continue;
+        }
+
+        // All tasks completed → present
+        summary.present++;
+        writes.push(
+            prisma.dailyAttendance.upsert({
+                where,
+                update: { status: AttendanceStatus.present, allTasksCompletedAt: now },
+                create: {
+                    memberId,
+                    date: today,
+                    status: AttendanceStatus.present,
+                    taskSubmittedAt,
+                    allTasksCompletedAt: now,
+                },
+            }),
+        );
     }
 
-    const where = { memberId_date: { memberId, date: today } };
-    const todaysTasks = tasksByMember.get(memberId) ?? [];
-
-    // No tasks submitted today → absent
-    if (todaysTasks.length === 0) {
-      summary.absent++;
-      writes.push(
-        prisma.dailyAttendance.upsert({
-          where,
-          update: { status: AttendanceStatus.absent },
-          create: { memberId, date: today, status: AttendanceStatus.absent },
-        })
-      );
-      continue;
+    // Prisma queries are lazy: in a dry run the built upserts are simply never sent.
+    if (!dryRun) {
+        for (let i = 0; i < writes.length; i += WRITE_CHUNK) {
+            await prisma.$transaction(writes.slice(i, i + WRITE_CHUNK));
+        }
     }
 
-    const firstSubmitted = todaysTasks.reduce((min, t) => (t.createdAt < min ? t.createdAt : min), todaysTasks[0]!.createdAt);
-    const taskSubmittedAt = existing?.taskSubmittedAt ?? firstSubmitted;
-
-    if (!todaysTasks.every((t) => t.status === TaskStatus.completed)) {
-      summary.partial++;
-      writes.push(
-        prisma.dailyAttendance.upsert({
-          where,
-          update: { status: AttendanceStatus.partial },
-          create: { memberId, date: today, status: AttendanceStatus.partial, taskSubmittedAt },
-        })
-      );
-      continue;
-    }
-
-    // All tasks completed → present
-    summary.present++;
-    writes.push(
-      prisma.dailyAttendance.upsert({
-        where,
-        update: { status: AttendanceStatus.present, allTasksCompletedAt: now },
-        create: { memberId, date: today, status: AttendanceStatus.present, taskSubmittedAt, allTasksCompletedAt: now },
-      })
-    );
-  }
-
-  // Prisma queries are lazy: in a dry run the built upserts are simply never sent.
-  if (!dryRun) {
-    for (let i = 0; i < writes.length; i += WRITE_CHUNK) {
-      await prisma.$transaction(writes.slice(i, i + WRITE_CHUNK));
-    }
-  }
-
-  console.log("EOD attendance processing complete", summary);
-  return summary;
+    console.log("EOD attendance processing complete", summary);
+    return summary;
 }

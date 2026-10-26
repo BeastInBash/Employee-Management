@@ -1,23 +1,68 @@
-name: Linting and Formatting on PR
+name: Checks
+
 on:
   pull_request:
     branches:
       - "**"
 
 jobs:
-  build:
+  client:
+    name: Client (format, lint, type-check, build)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Install Dependencies
-        run: bun install
+      - name: Install root tooling
+        run: bun install --frozen-lockfile
 
-      - name: Run Build
+      - name: Install client dependencies
+        working-directory: client
+        run: bun install --frozen-lockfile
+
+      - name: Check formatting
+        run: bunx prettier --check client
+
+      - name: Lint
+        working-directory: client
+        run: bun run lint --max-warnings=0
+
+      - name: Type-check and build
+        working-directory: client
         run: bun run build
+
+  backend:
+    name: Backend (format, lint, build, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install root tooling
+        run: bun install --frozen-lockfile
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: bun install --frozen-lockfile
+
+      - name: Check formatting
+        run: bunx prettier --check backend
+
+      - name: Lint
+        working-directory: backend
+        run: bun run lint --max-warnings=0
+
+      - name: Build
+        working-directory: backend
+        run: bun run build
+
+      # Not blocking yet: ~13 known failures (auth middleware returns 500
+      # instead of 401; stale attendance mocks). Make this blocking once fixed.
+      - name: Test
+        working-directory: backend
+        run: bun run test
+        continue-on-error: true

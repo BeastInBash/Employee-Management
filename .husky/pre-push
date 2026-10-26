@@ -1,0 +1,17 @@
+# Build whichever packages changed since the last push (both if unsure), so a
+# broken build never reaches the remote. Skip once with: git push --no-verify
+range="@{u}..HEAD"
+if git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
+  changed=$(git diff --name-only "$range")
+else
+  changed=$(printf 'client/\nbackend/\n')
+fi
+
+if echo "$changed" | grep -q "^client/"; then
+  echo "pre-push: building client"
+  (cd client && bun run build) || exit 1
+fi
+if echo "$changed" | grep -q "^backend/"; then
+  echo "pre-push: building backend"
+  (cd backend && bun run build) || exit 1
+fi

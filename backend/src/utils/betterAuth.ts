@@ -23,7 +23,10 @@ const prisma = new PrismaClient();
 
 /** Public URL of this API — Google redirects back to `${API_URL}/api/better-auth/callback/google`. */
 // Not BACKEND_URL: that one targets the keep-alive ping and points at prod even locally.
-export const API_URL = (process.env.BETTER_AUTH_URL ?? `http://localhost:${process.env.PORT ?? 3000}`).replace(/\/$/, "");
+export const API_URL = (process.env.BETTER_AUTH_URL ?? `http://localhost:${process.env.PORT ?? 3000}`).replace(
+    /\/$/,
+    "",
+);
 export const CLIENT_URL = (process.env.CLIENT_URL ?? "http://localhost:5173").replace(/\/$/, "");
 
 export const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);

@@ -2,11 +2,10 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "@/components/ui/sonner";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL; 
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 import { useAuth } from "./AuthContext";
 import { parseTask } from "@/lib/tasks";
-
 
 const getAuthToken = () => localStorage.getItem("authToken");
 
@@ -55,7 +54,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskWindow, setTaskWindow] = useState<TaskWindowInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  console.log(isLoading)
+  console.log(isLoading);
 
   const refreshTaskWindow = async (): Promise<TaskWindowInfo | null> => {
     const token = getAuthToken();
@@ -82,9 +81,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     else setTaskWindow(null);
   }, [user]);
 
-  const addTask = async (
-    task: Omit<Task, "id" | "createdAt" | "completedAt">
-  ) => {
+  const addTask = async (task: Omit<Task, "id" | "createdAt" | "completedAt">) => {
     const token = getAuthToken();
     if (!token) {
       toast.error("You must be logged in");
@@ -97,9 +94,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     // Cheap client-side guard; the backend is still the authority (and returns
     // the current window on a 403 so we can correct a stale local copy).
     if (taskWindow && taskWindow.enabled && !taskWindow.open) {
-      toast.error(
-        `Tasks can only be submitted between ${taskWindow.startTime} and ${taskWindow.endTime} IST`
-      );
+      toast.error(`Tasks can only be submitted between ${taskWindow.startTime} and ${taskWindow.endTime} IST`);
       return;
     }
     try {
@@ -263,8 +258,8 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       });
 
       // Fallback to older route if server uses /tasks/:memberId
-      
-      const  data = await res.json();
+
+      const data = await res.json();
 
       const parsed: Task[] = (data.tasks || []).map(parseTask);
 

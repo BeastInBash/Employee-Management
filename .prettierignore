@@ -1,0 +1,14 @@
+# Build output and dependencies
+node_modules/
+dist/
+coverage/
+**/bun.lock
+
+# Generated or vendored
+backend/src/generated/
+backend/prisma/migrations/
+client/public/
+.husky/_/
+
+# Docs stay as written (tables and line breaks are deliberate)
+*.md

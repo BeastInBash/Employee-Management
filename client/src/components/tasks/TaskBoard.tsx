@@ -2,7 +2,17 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { isPast } from "date-fns";
-import { AlertTriangle, CalendarDays, Check, ChevronDown, Loader2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Loader2,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import type { Task, TaskStatus } from "@/contexts/TaskContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -143,13 +153,23 @@ const TaskCard = ({
   return (
     <div className="space-y-2.5 rounded-lg border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgb(78_34_15/0.04)]">
       <div className="flex items-start justify-between gap-2">
-        <p className={cn("text-sm font-medium leading-snug", done && "text-muted-foreground line-through decoration-muted-foreground/50")}>
+        <p
+          className={cn(
+            "text-sm font-medium leading-snug",
+            done && "text-muted-foreground line-through decoration-muted-foreground/50",
+          )}
+        >
           {task.title}
         </p>
         {canManage && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" className="-mr-1 -mt-1 h-7 w-7 shrink-0" aria-label={`Actions for ${task.title}`}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="-mr-1 -mt-1 h-7 w-7 shrink-0"
+                aria-label={`Actions for ${task.title}`}
+              >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -204,7 +224,10 @@ const TaskCard = ({
             to={`/projects/${task.project.id}`}
             className="inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-xs text-muted-foreground ring-1 ring-border transition-colors hover:text-foreground"
           >
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: task.project.color ?? "var(--primary)" }} />
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: task.project.color ?? "var(--primary)" }}
+            />
             <span className="truncate">{task.project.name}</span>
           </Link>
         )}

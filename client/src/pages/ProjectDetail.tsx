@@ -63,8 +63,25 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AttendanceDot, ColorSwatch, EmptyState, PeoplePicker, PersonAvatar, ProgressMeter, ProjectStatusBadge, RoleBadge } from "@/components/projects/shared";
-import { formatDate, fromDueDateInput, priorityColors, priorityLabels, projectStatusLabels, taskStatusDots, taskStatusLabels } from "@/lib/projectMeta";
+import {
+  AttendanceDot,
+  ColorSwatch,
+  EmptyState,
+  PeoplePicker,
+  PersonAvatar,
+  ProgressMeter,
+  ProjectStatusBadge,
+  RoleBadge,
+} from "@/components/projects/shared";
+import {
+  formatDate,
+  fromDueDateInput,
+  priorityColors,
+  priorityLabels,
+  projectStatusLabels,
+  taskStatusDots,
+  taskStatusLabels,
+} from "@/lib/projectMeta";
 import { ProjectFormDialog } from "@/components/projects/ProjectFormDialog";
 import { AddPeopleDialog } from "@/components/projects/AddPeopleDialog";
 
@@ -149,7 +166,10 @@ const ProjectDetail = () => {
         back={{ to: "/projects", label: "Projects" }}
         title={
           <span className="flex items-center gap-3">
-            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: project.color ?? "var(--primary)" }} />
+            <span
+              className="h-3 w-3 shrink-0 rounded-full"
+              style={{ backgroundColor: project.color ?? "var(--primary)" }}
+            />
             <span className="break-words">{project.name}</span>
           </span>
         }
@@ -190,76 +210,78 @@ const ProjectDetail = () => {
         }
       />
 
-        <section className="mb-8 rounded-xl border border-border/80 bg-card">
-          <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                {permissions.canManage ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger className="flex items-center gap-1">
-                      <ProjectStatusBadge status={project.status} />
-                      <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      {(Object.keys(projectStatusLabels) as ProjectStatus[]).map((s) => (
-                        <DropdownMenuItem key={s} onClick={() => setStatus(s)}>
-                          {projectStatusLabels[s]}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : (
-                  <ProjectStatusBadge status={project.status} />
-                )}
-                <RoleBadge role={detail.myRole} />
-              </div>
-              <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  {!project.startDate && !project.dueDate
-                    ? "No dates set"
-                    : `${formatDate(project.startDate, "Open start")} to ${formatDate(project.dueDate, "no due date")}`}
-                </span>
-                <span>{project.people.length} {project.people.length === 1 ? "person" : "people"}</span>
-                {project.teams.length > 0 && <span>{project.teams.map((t) => t.name).join(", ")}</span>}
-              </p>
+      <section className="mb-8 rounded-xl border border-border/80 bg-card">
+        <div className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {permissions.canManage ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex items-center gap-1">
+                    <ProjectStatusBadge status={project.status} />
+                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {(Object.keys(projectStatusLabels) as ProjectStatus[]).map((s) => (
+                      <DropdownMenuItem key={s} onClick={() => setStatus(s)}>
+                        {projectStatusLabels[s]}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <ProjectStatusBadge status={project.status} />
+              )}
+              <RoleBadge role={detail.myRole} />
             </div>
-            <dl className="grid grid-cols-4 gap-6 text-right">
-              <HeaderStat label="Tasks" value={stats.total} />
-              <HeaderStat label="Done" value={stats.completed} />
-              <HeaderStat label="Active" value={stats.inProgress} />
-              <HeaderStat label="Overdue" value={stats.overdue} warn={stats.overdue > 0} />
-            </dl>
+            <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5" />
+                {!project.startDate && !project.dueDate
+                  ? "No dates set"
+                  : `${formatDate(project.startDate, "Open start")} to ${formatDate(project.dueDate, "no due date")}`}
+              </span>
+              <span>
+                {project.people.length} {project.people.length === 1 ? "person" : "people"}
+              </span>
+              {project.teams.length > 0 && <span>{project.teams.map((t) => t.name).join(", ")}</span>}
+            </p>
           </div>
-          <div className="border-t border-border/70 px-5 py-4">
-            <ProgressMeter value={stats.progress} />
-          </div>
-        </section>
+          <dl className="grid grid-cols-4 gap-6 text-right">
+            <HeaderStat label="Tasks" value={stats.total} />
+            <HeaderStat label="Done" value={stats.completed} />
+            <HeaderStat label="Active" value={stats.inProgress} />
+            <HeaderStat label="Overdue" value={stats.overdue} warn={stats.overdue > 0} />
+          </dl>
+        </div>
+        <div className="border-t border-border/70 px-5 py-4">
+          <ProgressMeter value={stats.progress} />
+        </div>
+      </section>
 
-        <Tabs defaultValue="board">
-          <TabsList>
-            <TabsTrigger value="board">Board</TabsTrigger>
-            <TabsTrigger value="people">People ({project.people.length})</TabsTrigger>
-            <TabsTrigger value="teams">Teams ({project.teams.length})</TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="board">
+        <TabsList>
+          <TabsTrigger value="board">Board</TabsTrigger>
+          <TabsTrigger value="people">People ({project.people.length})</TabsTrigger>
+          <TabsTrigger value="teams">Teams ({project.teams.length})</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="board" className="mt-5">
-            <Board
-              projectId={project.id}
-              people={project.people}
-              tasks={tasks}
-              setTasks={setTasks}
-              canManage={permissions.canManage}
-              myMemberId={me?.id}
-            />
-          </TabsContent>
-          <TabsContent value="people" className="mt-5">
-            <PeoplePanel detail={detail} setDetail={setDetail} reload={load} />
-          </TabsContent>
-          <TabsContent value="teams" className="mt-5">
-            <TeamsPanel detail={detail} reload={load} />
-          </TabsContent>
-        </Tabs>
+        <TabsContent value="board" className="mt-5">
+          <Board
+            projectId={project.id}
+            people={project.people}
+            tasks={tasks}
+            setTasks={setTasks}
+            canManage={permissions.canManage}
+            myMemberId={me?.id}
+          />
+        </TabsContent>
+        <TabsContent value="people" className="mt-5">
+          <PeoplePanel detail={detail} setDetail={setDetail} reload={load} />
+        </TabsContent>
+        <TabsContent value="teams" className="mt-5">
+          <TeamsPanel detail={detail} reload={load} />
+        </TabsContent>
+      </Tabs>
 
       <ProjectFormDialog
         open={isEditOpen}
@@ -304,8 +326,8 @@ const ProjectDetail = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete “{project.name}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              The project and its member list will be removed. Its {tasks.length} task{tasks.length === 1 ? "" : "s"} stay on
-              each person's task list, just without a project.
+              The project and its member list will be removed. Its {tasks.length} task{tasks.length === 1 ? "" : "s"}{" "}
+              stay on each person's task list, just without a project.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -361,7 +383,11 @@ const Board = ({
   const [taskToDelete, setTaskToDelete] = useState<ProjectTask | null>(null);
 
   const visible = tasks.filter((t) =>
-    assigneeFilter === "all" ? true : assigneeFilter === "me" ? t.memberId === myMemberId : t.memberId === assigneeFilter
+    assigneeFilter === "all"
+      ? true
+      : assigneeFilter === "me"
+        ? t.memberId === myMemberId
+        : t.memberId === assigneeFilter,
   );
 
   const canEdit = (t: ProjectTask) => canManage || t.memberId === myMemberId;
@@ -369,7 +395,10 @@ const Board = ({
   const changeStatus = async (task: ProjectTask, status: TaskStatus) => {
     setBusyTaskId(task.id);
     try {
-      const updated = await api<Omit<ProjectTask, "assignee">>(`/tasks/${task.id}`, { method: "PATCH", body: { status } });
+      const updated = await api<Omit<ProjectTask, "assignee">>(`/tasks/${task.id}`, {
+        method: "PATCH",
+        body: { status },
+      });
       setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, ...updated, assignee: t.assignee } : t)));
     } catch (e) {
       toast.error(errorMessage(e));
@@ -438,7 +467,9 @@ const Board = ({
                     <span className="text-xs tabular-nums text-muted-foreground">{column.length}</span>
                   </div>
                   <div className="flex-1 space-y-2">
-                    {column.length === 0 && <p className="py-8 text-center text-xs text-muted-foreground">Nothing here</p>}
+                    {column.length === 0 && (
+                      <p className="py-8 text-center text-xs text-muted-foreground">Nothing here</p>
+                    )}
                     <AnimatePresence initial={false}>
                       {column.map((t) => (
                         // A status change re-parents the card; layoutId lets it glide to its new column.
@@ -525,13 +556,21 @@ const BoardCard = ({
   return (
     <div className="space-y-2.5 rounded-lg border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgb(78_34_15/0.04)]">
       <div className="flex items-start justify-between gap-2">
-        <p className={`text-sm leading-snug ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}>
+        <p
+          className={`text-sm leading-snug ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}
+        >
           {task.title}
         </p>
         {(canEdit || canDelete) && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" disabled={isBusy} aria-label="Task actions">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0"
+                disabled={isBusy}
+                aria-label="Task actions"
+              >
                 {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <MoreHorizontal className="h-3 w-3" />}
               </Button>
             </DropdownMenuTrigger>
@@ -648,7 +687,12 @@ const AddTaskDialog = ({
           </div>
           <div className="space-y-2">
             <Label htmlFor="task-description">Description</Label>
-            <Textarea id="task-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Textarea
+              id="task-description"
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
             {description.length > 0 && description.trim().length < 10 && (
               <p className="text-xs text-muted-foreground">At least 10 characters.</p>
             )}
@@ -677,7 +721,13 @@ const AddTaskDialog = ({
           {canAssignOthers && (
             <div className="space-y-2">
               <Label>Assignee</Label>
-              <PeoplePicker people={people} value={assignee} onChange={setAssignee} single placeholder="Choose someone" />
+              <PeoplePicker
+                people={people}
+                value={assignee}
+                onChange={setAssignee}
+                single
+                placeholder="Choose someone"
+              />
             </div>
           )}
         </div>
@@ -716,7 +766,10 @@ const PeoplePanel = ({
       await api(`/projects/${project.id}/members/${person.id}`, { method: "PATCH", body: { role } });
       setDetail({
         ...detail,
-        project: { ...project, people: project.people.map((p) => (p.id === person.id ? { ...p, projectRole: role } : p)) },
+        project: {
+          ...project,
+          people: project.people.map((p) => (p.id === person.id ? { ...p, projectRole: role } : p)),
+        },
       });
       toast.success(role === "lead" ? `${person.name} now leads this project` : `${person.name} is no longer a lead`);
     } catch (e) {
@@ -736,7 +789,7 @@ const PeoplePanel = ({
         project: {
           ...project,
           people: project.people.flatMap((p) =>
-            p.id !== person.id ? [p] : p.viaTeams.length ? [{ ...p, projectRole: null }] : []
+            p.id !== person.id ? [p] : p.viaTeams.length ? [{ ...p, projectRole: null }] : [],
           ),
         },
       });
@@ -780,7 +833,9 @@ const PeoplePanel = ({
             <tbody className="divide-y divide-border/70">
               {sorted.map((p) => {
                 const canRemove =
-                  permissions.canManage && p.projectRole !== null && (p.projectRole !== "lead" || permissions.canAssignLeads);
+                  permissions.canManage &&
+                  p.projectRole !== null &&
+                  (p.projectRole !== "lead" || permissions.canAssignLeads);
                 const showMenu = canRemove || (permissions.canAssignLeads && p.projectRole !== null);
                 return (
                   <tr key={p.id}>
@@ -819,8 +874,17 @@ const PeoplePanel = ({
                       {showMenu && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" disabled={busyId === p.id} aria-label={`Manage ${p.name}`}>
-                              {busyId === p.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={busyId === p.id}
+                              aria-label={`Manage ${p.name}`}
+                            >
+                              {busyId === p.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <MoreHorizontal className="h-4 w-4" />
+                              )}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">

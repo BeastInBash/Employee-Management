@@ -148,7 +148,10 @@ type ProjectContextType = {
   updateProject: (id: string, patch: ProjectPatch) => Promise<ProjectSummary | void>;
   deleteProject: (id: string) => Promise<boolean>;
   createTeam: (input: TeamInput) => Promise<TeamSummary | void>;
-  updateTeam: (id: string, patch: { name?: string; description?: string | null; color?: string | null }) => Promise<TeamSummary | void>;
+  updateTeam: (
+    id: string,
+    patch: { name?: string; description?: string | null; color?: string | null },
+  ) => Promise<TeamSummary | void>;
   deleteTeam: (id: string) => Promise<boolean>;
 };
 
@@ -202,7 +205,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
       // Seeded teams now count one more project.
       if (input.teamIds?.length) {
         setTeams((prev) =>
-          prev.map((t) => (input.teamIds!.includes(t.id) ? { ...t, projectCount: t.projectCount + 1 } : t))
+          prev.map((t) => (input.teamIds!.includes(t.id) ? { ...t, projectCount: t.projectCount + 1 } : t)),
         );
       }
       toast.success("Project created");

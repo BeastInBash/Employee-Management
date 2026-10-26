@@ -9,5 +9,4 @@ process.env.SMTP_HOST = "smtp.example.com";
 process.env.SMTP_PORT = "587";
 process.env.SMTP_USER = "smtp-user";
 process.env.SMTP_PASS = "smtp-pass";
-process.env.DATABASE_URL =
-  "postgresql://user:pass@localhost:5432/test?schema=public";
+process.env.DATABASE_URL = "postgresql://user:pass@localhost:5432/test?schema=public";

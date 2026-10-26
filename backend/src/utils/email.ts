@@ -46,7 +46,10 @@ interface EmailContent {
  * One calm template for every email: warm oat canvas, warm-white card, olive
  * button — the same palette as the app. Inline styles only (email clients).
  */
-function render({ preview, heading, paragraphs, button, details, footnote }: EmailContent): { html: string; text: string } {
+function render({ preview, heading, paragraphs, button, details, footnote }: EmailContent): {
+    html: string;
+    text: string;
+} {
     const green = "#4f5b2e";
     const ink = "#2b2a22";
     const muted = "#6b6656";
@@ -69,7 +72,7 @@ function render({ preview, heading, paragraphs, button, details, footnote }: Ema
         ${details
             .map(
                 ([k, v]) =>
-                    `<tr><td style="padding:10px 16px;font-size:14px;color:${muted};width:110px;">${esc(k)}</td><td style="padding:10px 16px;font-size:14px;color:${ink};font-weight:600;">${esc(v)}</td></tr>`
+                    `<tr><td style="padding:10px 16px;font-size:14px;color:${muted};width:110px;">${esc(k)}</td><td style="padding:10px 16px;font-size:14px;color:${ink};font-weight:600;">${esc(v)}</td></tr>`,
             )
             .join("")}
       </table>`
@@ -137,7 +140,7 @@ export function sendMemberInvite(
     inviteToken: string,
     validForDays: number,
     adminEmail: string,
-    adminName?: string
+    adminName?: string,
 ): Promise<boolean> {
     const inviter = adminName ?? "Your admin";
     return send(
@@ -154,7 +157,7 @@ export function sendMemberInvite(
             button: { label: "Choose your password", url: clientUrl(`/reset-password?token=${inviteToken}&welcome=1`) },
             footnote: `This link works for ${validForDays} days. If it runs out, use "Forgot password" on the sign-in page to get a new one. Questions? Reply to this email to reach ${inviter}.`,
         },
-        adminEmail
+        adminEmail,
     );
 }
 
@@ -162,7 +165,12 @@ export function sendMemberInvite(
  * Sent when someone signs in with the old shared temporary password: it no
  * longer works, so the account's owner gets a link to choose their own.
  */
-export function sendPasswordSetupEmail(email: string, name: string, token: string, validForDays: number): Promise<boolean> {
+export function sendPasswordSetupEmail(
+    email: string,
+    name: string,
+    token: string,
+    validForDays: number,
+): Promise<boolean> {
     return send(email, `Choose your ${BRAND} password`, {
         preview: "Temporary passwords no longer work. Choose your own in one step.",
         heading: "Choose your password",
@@ -179,13 +187,20 @@ export function sendVerificationEmail(email: string, name: string, token: string
     return send(email, `Confirm your email for ${BRAND}`, {
         preview: "One click to confirm this is your address.",
         heading: "Confirm your email address",
-        paragraphs: [`Hi ${name.split(" ")[0]}, please confirm that this is your email address so we can keep your ${BRAND} account secure.`],
+        paragraphs: [
+            `Hi ${name.split(" ")[0]}, please confirm that this is your email address so we can keep your ${BRAND} account secure.`,
+        ],
         button: { label: "Confirm email", url: clientUrl(`/verify-email?token=${token}`) },
         footnote: "This link works for 24 hours. If you didn't create an account, you can ignore this email.",
     });
 }
 
-export function sendPasswordResetEmail(email: string, name: string, resetToken: string, validForHours: number): Promise<boolean> {
+export function sendPasswordResetEmail(
+    email: string,
+    name: string,
+    resetToken: string,
+    validForHours: number,
+): Promise<boolean> {
     const duration = validForHours % 24 === 0 ? `${validForHours / 24} days` : `${validForHours} hours`;
     return send(email, `Reset your ${BRAND} password`, {
         preview: "Use this link to choose a new password.",
@@ -237,7 +252,11 @@ export function sendScopeNotice(n: ScopeNotice): Promise<boolean> {
             n.event === "promoted"
                 ? `Hi ${first}, ${n.byName} made you the lead of the ${what} ${n.scopeName}.`
                 : `Hi ${first}, ${n.byName} added you to the ${what} ${n.scopeName}${isLead ? " as its lead" : ""}.`,
-            isLead ? leadDuties : n.kind === "project" ? "You'll see its tasks on your board and can add your own." : "You'll find your teammates and their projects on the team page.",
+            isLead
+                ? leadDuties
+                : n.kind === "project"
+                  ? "You'll see its tasks on your board and can add your own."
+                  : "You'll find your teammates and their projects on the team page.",
         ],
         button: { label: `Open ${what}`, url: clientUrl(n.path) },
     });

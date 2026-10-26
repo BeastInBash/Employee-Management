@@ -48,14 +48,14 @@ const Panel = ({
       transition={{ duration: 0.7, ease: EASE }}
       className={cn(
         "rounded-[28px] border p-6 sm:p-8",
-        tone === "before" ? "border-destructive/20 bg-destructive/[0.05]" : "border-sage/25 bg-sage-soft/70"
+        tone === "before" ? "border-destructive/20 bg-destructive/[0.05]" : "border-sage/25 bg-sage-soft/70",
       )}
     >
       <div className="mb-6 flex items-center gap-3">
         <span
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-full",
-            tone === "before" ? "bg-destructive/12 text-destructive" : "bg-sage text-sage-foreground"
+            tone === "before" ? "bg-destructive/12 text-destructive" : "bg-sage text-sage-foreground",
           )}
         >
           <Icon className="h-4 w-4" strokeWidth={2.5} />
@@ -64,25 +64,41 @@ const Panel = ({
       </div>
       <div className="relative">
         {/* The dotted spine draws down the list as the section scrolls through. */}
-        <span aria-hidden className="absolute bottom-3 left-[11px] top-3 w-px border-l border-dashed border-current opacity-15" />
+        <span
+          aria-hidden
+          className="absolute bottom-3 left-[11px] top-3 w-px border-l border-dashed border-current opacity-15"
+        />
         <motion.span
           aria-hidden
           style={{ scaleY: progress }}
           className={cn(
             "absolute bottom-3 left-[11px] top-3 w-px origin-top border-l border-dashed",
-            tone === "before" ? "border-destructive/60" : "border-sage"
+            tone === "before" ? "border-destructive/60" : "border-sage",
           )}
         />
-        <motion.ul variants={list} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.4 }} className="space-y-5">
+        <motion.ul
+          variants={list}
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, amount: 0.4 }}
+          className="space-y-5"
+        >
           {items.map((text) => (
             <motion.li key={text} variants={item} className="relative flex items-start gap-4">
               <span
                 className={cn(
                   "relative mt-1 h-[23px] w-[23px] shrink-0 rounded-full border-2 bg-card",
-                  tone === "before" ? "border-destructive/40" : "border-sage"
+                  tone === "before" ? "border-destructive/40" : "border-sage",
                 )}
               />
-              <span className={cn("text-[15px] leading-relaxed", tone === "before" ? "text-muted-foreground" : "text-foreground")}>{text}</span>
+              <span
+                className={cn(
+                  "text-[15px] leading-relaxed",
+                  tone === "before" ? "text-muted-foreground" : "text-foreground",
+                )}
+              >
+                {text}
+              </span>
             </motion.li>
           ))}
         </motion.ul>
@@ -113,8 +129,8 @@ export const BeforeAfter = () => {
             transition={{ duration: 0.6, delay: 0.25 }}
             className="max-w-[44ch] text-lg leading-relaxed text-muted-foreground lg:pt-3"
           >
-            Punch-in apps and timesheets measure hours at a desk. For a small team, the question that matters is simpler:
-            did today's work get done?
+            Punch-in apps and timesheets measure hours at a desk. For a small team, the question that matters is
+            simpler: did today's work get done?
           </motion.p>
         </div>
         <div ref={ref} className="mt-14 grid gap-5 md:grid-cols-2">

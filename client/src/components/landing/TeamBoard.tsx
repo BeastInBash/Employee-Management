@@ -41,10 +41,11 @@ export const TeamBoard = () => {
   const scale = useTransform(scrollYProgress, [0, 1], [reduce ? 1 : 0.92, 1]);
   const y = useTransform(scrollYProgress, [0, 1], [reduce ? 0 : 60, 0]);
 
-  const counts = ROWS.reduce(
-    (acc, r) => ({ ...acc, [statusOf(r)]: acc[statusOf(r)] + 1 }),
-    { present: 0, partial: 0, none: 0 } as Record<ReturnType<typeof statusOf>, number>
-  );
+  const counts = ROWS.reduce((acc, r) => ({ ...acc, [statusOf(r)]: acc[statusOf(r)] + 1 }), {
+    present: 0,
+    partial: 0,
+    none: 0,
+  } as Record<ReturnType<typeof statusOf>, number>);
 
   return (
     <section id="team" className="scroll-mt-16 bg-sidebar text-sidebar-foreground">
@@ -88,7 +89,10 @@ export const TeamBoard = () => {
                 const status = statusOf(r);
                 const pct = r.planned ? (r.done / r.planned) * 100 : 0;
                 return (
-                  <li key={r.name} className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 px-5 py-4 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.1fr)_9.5rem] sm:px-7">
+                  <li
+                    key={r.name}
+                    className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 px-5 py-4 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.1fr)_9.5rem] sm:px-7"
+                  >
                     <span className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-secondary-foreground">
                       {initials(r.name)}
                     </span>
@@ -117,7 +121,7 @@ export const TeamBoard = () => {
                       transition={{ type: "spring", duration: 0.45, bounce: 0.3, delay: 0.9 + i * 0.12 }}
                       className={cn(
                         "col-span-2 inline-flex w-fit items-center gap-1.5 justify-self-start rounded-full px-3 py-1 text-sm font-medium sm:col-span-1 sm:justify-self-end",
-                        pill[status].tone
+                        pill[status].tone,
                       )}
                     >
                       {status === "present" && <Check className="h-3.5 w-3.5" />}

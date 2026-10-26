@@ -22,41 +22,28 @@ describe("authenticate middleware", () => {
   });
 
   it("rejects an Authorization header without the Bearer scheme", async () => {
-    const res = await request(app)
-      .get("/api/members")
-      .set("Authorization", "Token abc.def.ghi");
+    const res = await request(app).get("/api/members").set("Authorization", "Token abc.def.ghi");
     expect(res.status).toBe(401);
     expect(res.body.message).toBe("Authentication required");
   });
 
   it("rejects a malformed / garbage token", async () => {
-    const res = await request(app)
-      .get("/api/members")
-      .set("Authorization", "Bearer not-a-real-jwt");
+    const res = await request(app).get("/api/members").set("Authorization", "Bearer not-a-real-jwt");
     expect(res.status).toBe(401);
     expect(res.body.message).toBe("Invalid or expired token");
   });
 
   it("rejects a token signed with the wrong secret", async () => {
-    const forged = jwt.sign(
-      { userId: "x", email: "x@example.com", role: "admin" },
-      "the-wrong-secret"
-    );
-    const res = await request(app)
-      .get("/api/members")
-      .set("Authorization", `Bearer ${forged}`);
+    const forged = jwt.sign({ userId: "x", email: "x@example.com", role: "admin" }, "the-wrong-secret");
+    const res = await request(app).get("/api/members").set("Authorization", `Bearer ${forged}`);
     expect(res.status).toBe(401);
   });
 
   it("rejects an expired token", async () => {
-    const expired = jwt.sign(
-      { userId: "x", email: "x@example.com", role: "admin" },
-      process.env.JWT_SECRET as string,
-      { expiresIn: "-1h" }
-    );
-    const res = await request(app)
-      .get("/api/members")
-      .set("Authorization", `Bearer ${expired}`);
+    const expired = jwt.sign({ userId: "x", email: "x@example.com", role: "admin" }, process.env.JWT_SECRET as string, {
+      expiresIn: "-1h",
+    });
+    const res = await request(app).get("/api/members").set("Authorization", `Bearer ${expired}`);
     expect(res.status).toBe(401);
     expect(res.body.message).toBe("Invalid or expired token");
   });
@@ -64,9 +51,7 @@ describe("authenticate middleware", () => {
   it("accepts a validly signed token and reaches the handler", async () => {
     // No DB mock set → handler runs and (since member.findMany resolves to the
     // default deep-mock undefined) returns 200 with an empty body shape.
-    const res = await request(app)
-      .get("/api/members")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/members").set("Authorization", authHeader(ADMIN));
     expect(res.status).toBe(200);
   });
 });

@@ -42,8 +42,7 @@ export async function createMember(req: Request, res: Response): Promise<void> {
                 where: { userId_orgId: { userId: req.user.userId, orgId: workspace.org.id } },
             });
             authorized =
-                !!orgMembership &&
-                (orgMembership.role === OrgRole.owner || orgMembership.role === OrgRole.admin);
+                !!orgMembership && (orgMembership.role === OrgRole.owner || orgMembership.role === OrgRole.admin);
         }
 
         if (!authorized) {
@@ -110,7 +109,7 @@ export async function createMember(req: Request, res: Response): Promise<void> {
                 inviteToken,
                 INVITE_TOKEN_TTL_MS / 86_400_000,
                 admin?.email ?? req.user.email,
-                admin?.name
+                admin?.name,
             );
         }
 
@@ -134,17 +133,14 @@ export async function createMember(req: Request, res: Response): Promise<void> {
                   ? `Member added. We emailed ${email} a link to choose their password.`
                   : `Member added, but the invite email couldn't be sent. Ask them to use "Forgot password" on the sign-in page.`,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Create member error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
             return;
         }
         // Unique-constraint race (e.g. the same member created twice concurrently)
-        if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === "P2002"
-        ) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
             res.status(409).json({ message: "This person is already a member" });
             return;
         }
@@ -198,14 +194,14 @@ export async function getMember(req: Request, res: Response): Promise<void> {
             res.status(403).json({ message: "Access denied" });
             return;
         }
-        console.log("Params", req.params)
+        console.log("Params", req.params);
         const { memberId } = req.params;
 
         const member = await prisma.member.findUnique({
-            where: { id: memberId! as string}, // ✅ was: { id: memberId }
+            where: { id: memberId! as string }, // ✅ was: { id: memberId }
             include: { user: { select: { name: true } } },
         });
-        console.log("Memeber data", member)
+        console.log("Memeber data", member);
         if (!member) {
             res.status(404).json({ message: "Member not found" });
             return;
@@ -238,7 +234,7 @@ export async function deleteMember(req: Request, res: Response): Promise<void> {
         }
 
         const member = await prisma.member.findUnique({
-            where: { id: memberId as string},
+            where: { id: memberId as string },
             include: { user: { select: { id: true, role: true } } },
         });
         if (!member) {

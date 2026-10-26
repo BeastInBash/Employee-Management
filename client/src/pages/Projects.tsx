@@ -97,7 +97,12 @@ const Projects = () => {
         </Tabs>
         <div className="relative sm:ml-auto sm:w-64">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search projects" className="bg-card pl-9" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search projects"
+            className="bg-card pl-9"
+          />
         </div>
       </div>
 
@@ -142,7 +147,11 @@ const Projects = () => {
               key={p.id}
               variants={{
                 hidden: { opacity: 0, transform: "translateY(6px)" },
-                show: { opacity: 1, transform: "translateY(0px)", transition: { duration: 0.25, ease: [0.23, 1, 0.32, 1] } },
+                show: {
+                  opacity: 1,
+                  transform: "translateY(0px)",
+                  transition: { duration: 0.25, ease: [0.23, 1, 0.32, 1] },
+                },
               }}
             >
               <ProjectCard project={p} onOpen={() => navigate(`/projects/${p.id}`)} />
@@ -187,12 +196,17 @@ const ProjectCard = ({ project: p, onOpen }: { project: ProjectSummary; onOpen: 
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: p.color ?? "var(--primary)" }} />
+          <span
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: p.color ?? "var(--primary)" }}
+          />
           <h3 className="truncate text-[15px]">{p.name}</h3>
         </div>
         <ProjectStatusBadge status={p.status} />
       </div>
-      <p className="mb-5 line-clamp-2 min-h-10 text-sm text-muted-foreground">{p.description || "No description yet."}</p>
+      <p className="mb-5 line-clamp-2 min-h-10 text-sm text-muted-foreground">
+        {p.description || "No description yet."}
+      </p>
       <ProgressMeter value={p.stats.progress} className="mb-2" />
       <p className="text-xs text-muted-foreground">
         {p.stats.completed} of {p.stats.total} tasks done
@@ -206,7 +220,12 @@ const ProjectCard = ({ project: p, onOpen }: { project: ProjectSummary; onOpen: 
             <span className="truncate text-xs text-muted-foreground">{p.teams.map((t) => t.name).join(", ")}</span>
           )}
         </div>
-        <span className={cn("flex shrink-0 items-center gap-1 text-xs", late ? "text-destructive" : "text-muted-foreground")}>
+        <span
+          className={cn(
+            "flex shrink-0 items-center gap-1 text-xs",
+            late ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
           <CalendarDays className="h-3.5 w-3.5" />
           {formatDate(p.dueDate, "No due date")}
         </span>

@@ -150,7 +150,11 @@ export function downloadCsv(filename: string, header: string[], rows: (string | 
   URL.revokeObjectURL(url);
 }
 
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "report";
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "report";
 
 export function exportMembersCsv(report: Report) {
   downloadCsv(
@@ -180,7 +184,7 @@ export function exportMembersCsv(report: Report) {
       m.partial,
       m.absent,
       m.attendanceRate,
-    ])
+    ]),
   );
 }
 
@@ -188,6 +192,6 @@ export function exportDailyCsv(report: Report) {
   downloadCsv(
     `${slug(report.scope.name)}-daily-${report.range.from}-to-${report.range.to}.csv`,
     ["Date", "Weekend", "Tasks created", "Tasks completed", "Present", "Partial", "Absent"],
-    report.trend.map((d) => [d.date, d.weekend ? "yes" : "no", d.created, d.completed, d.present, d.partial, d.absent])
+    report.trend.map((d) => [d.date, d.weekend ? "yes" : "no", d.created, d.completed, d.present, d.partial, d.absent]),
   );
 }

@@ -5,7 +5,10 @@ import { LineReveal } from "./LineReveal";
 
 // A real sequence, so the steps are numbered.
 const STEPS = [
-  { title: "Create your workspace", body: "Sign up, then name your organisation and its first workspace. One per shop, office or department." },
+  {
+    title: "Create your workspace",
+    body: "Sign up, then name your organisation and its first workspace. One per shop, office or department.",
+  },
   { title: "Add your people", body: "Each person gets an email with their sign-in details, or signs in with Google." },
   { title: "Plan tomorrow", body: "Everyone writes their first list. From then on, attendance takes care of itself." },
 ];
@@ -20,17 +23,27 @@ export const SetupSteps = () => {
   return (
     <section id="setup" className="scroll-mt-16 border-y border-border/70 bg-card">
       <div className="mx-auto max-w-[1180px] px-5 py-24 sm:px-8 sm:py-28">
-        <LineReveal lines={["Up and running", "this afternoon."]} className="text-[34px] leading-[1.08] tracking-[-0.03em] sm:text-[48px]" />
+        <LineReveal
+          lines={["Up and running", "this afternoon."]}
+          className="text-[34px] leading-[1.08] tracking-[-0.03em] sm:text-[48px]"
+        />
         <ol ref={ref} className="relative mt-14 grid gap-10 md:grid-cols-3 md:gap-8">
           {/* The connecting line, circle to circle: across on wide screens, down the side on
               phones. On md the third circle starts one column + gap in from the right. */}
-          <span aria-hidden className="absolute left-[19px] top-5 bottom-5 w-px bg-border md:bottom-auto md:left-5 md:right-[calc((100%-4rem)/3-20px)] md:top-[19px] md:h-px md:w-auto" />
+          <span
+            aria-hidden
+            className="absolute left-[19px] top-5 bottom-5 w-px bg-border md:bottom-auto md:left-5 md:right-[calc((100%-4rem)/3-20px)] md:top-[19px] md:h-px md:w-auto"
+          />
           <motion.span
             aria-hidden
             style={{ scaleX: line }}
             className="absolute left-5 right-[calc((100%-4rem)/3-20px)] top-[19px] hidden h-px origin-left bg-primary md:block"
           />
-          <motion.span aria-hidden style={{ scaleY: line }} className="absolute bottom-5 left-[19px] top-5 w-px origin-top bg-primary md:hidden" />
+          <motion.span
+            aria-hidden
+            style={{ scaleY: line }}
+            className="absolute bottom-5 left-[19px] top-5 w-px origin-top bg-primary md:hidden"
+          />
           {STEPS.map((s, i) => (
             <motion.li
               key={s.title}

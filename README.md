@@ -41,6 +41,12 @@ The `CLAUDE.md` files are the detailed project guides: [root](CLAUDE.md) for the
 
 > **Use a separate database for development.** Everything you do locally (sign-ups, tasks, migrations, test data) writes to whatever `DATABASE_URL` points at. Create a dev database or a Neon branch, and never point your local `.env` at production.
 
+### 0. Repo tooling
+
+```bash
+bun install                    # at the repo root: Prettier, lint-staged and the git hooks
+```
+
 ### 1. Backend
 
 ```bash
@@ -91,6 +97,16 @@ Never commit `.env` files.
 
 ## Scripts
 
+From the repo root, after `bun install` there (it also installs the git hooks):
+
+| Command | Does |
+|---|---|
+| `bun run check` | Everything CI checks: format, lint, type-check and build, both projects |
+| `bun run format` | Format the whole repo with Prettier |
+| `bun run lint` | ESLint in both projects |
+
+Inside each project:
+
 | Where | Command | Does |
 |---|---|---|
 | `backend/` | `bun run dev` | API with reload on change |
@@ -102,6 +118,15 @@ Never commit `.env` files.
 | `client/` | `bun run lint` | ESLint |
 
 Some backend tests currently fail because of two known, long-standing issues: the auth middleware returns 500 instead of 401 for a missing or bad token, and some attendance test mocks no longer match the controller.
+
+## Git hooks
+
+Running `bun install` at the repo root installs [Husky](https://typicode.github.io/husky) hooks:
+
+- **Before each commit:** staged files are linted (ESLint, zero warnings) and formatted (Prettier), and the project they belong to is type-checked. A failing check stops the commit and tells you why.
+- **Before each push:** whichever project changed is built.
+
+CI runs the same checks on every pull request. To skip a hook once, use `--no-verify`; use it sparingly.
 
 ## Deployment
 

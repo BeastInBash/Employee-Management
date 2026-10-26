@@ -49,7 +49,7 @@ export function useLiveTasks(userId: string | undefined) {
         loading.current = false;
       }
     },
-    [userId]
+    [userId],
   );
 
   useEffect(() => {

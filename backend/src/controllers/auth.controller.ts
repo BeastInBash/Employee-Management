@@ -10,6 +10,7 @@ import {
 } from "../validation/authValidation";
 import { hashPassword, comparePassword, DEFAULT_PASSWORD } from "../utils/password";
 import { generateToken } from "../utils/jwt";
+import type { UserPayload } from "../config";
 import { sendPasswordResetEmail, sendPasswordSetupEmail, sendVerificationEmail } from "../utils/email";
 import { hashToken, issueVerificationToken, verificationCooldownLeft } from "../utils/verification";
 import { INVITE_TOKEN_TTL_MS, RESET_TOKEN_TTL_MS, issuePasswordToken, sentRecently } from "../utils/passwordToken";
@@ -20,16 +21,17 @@ const prisma = new PrismaClient();
 export function setAuthCookie(res: Response, token: string): void {
     res.cookie("token", token, {
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        httpOnly: process.env.NODE_ENV === 'production',
+        httpOnly: process.env.NODE_ENV === "production",
         secure: process.env.NODE_ENV === "production",
-        sameSite: 'lax',
-    })
+        sameSite: "lax",
+    });
 }
 
 declare global {
     namespace Express {
         interface Request {
-            user?: any;
+            /** The verified JWT payload, set by `authenticate`. */
+            user?: UserPayload;
         }
     }
 }
@@ -51,16 +53,13 @@ export async function login(req: Request, res: Response): Promise<void> {
         if (!user.password) {
             res.status(401).json({
                 message: user.isPasswordReset
-                    ? "You haven't chosen a password yet. Use the link in your invite email, or \"Forgot password\" to get a new one. You can also continue with Google."
-                    : "This account signs in with Google. Use \"Continue with Google\" or reset your password.",
+                    ? 'You haven\'t chosen a password yet. Use the link in your invite email, or "Forgot password" to get a new one. You can also continue with Google.'
+                    : 'This account signs in with Google. Use "Continue with Google" or reset your password.',
             });
             return;
         }
 
-        const isPasswordValid = await comparePassword(
-            validatedData.password,
-            user.password
-        );
+        const isPasswordValid = await comparePassword(validatedData.password, user.password);
 
         if (!isPasswordValid) {
             res.status(401).json({ message: "Invalid email or password" });
@@ -89,7 +88,14 @@ export async function login(req: Request, res: Response): Promise<void> {
         });
 
         // Never send credentials or token hashes to the client.
-        const { password, resetToken, resetTokenExpiry, emailVerificationToken, emailVerificationExpiry, ...userWithoutPassword } = user;
+        const {
+            password,
+            resetToken,
+            resetTokenExpiry,
+            emailVerificationToken,
+            emailVerificationExpiry,
+            ...userWithoutPassword
+        } = user;
 
         setAuthCookie(res, token);
         res.json({
@@ -97,7 +103,7 @@ export async function login(req: Request, res: Response): Promise<void> {
             user: userWithoutPassword,
             requiresPasswordChange: user.isPasswordReset,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Login error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
@@ -143,14 +149,21 @@ export async function signup(req: Request, res: Response): Promise<void> {
         const verificationToken = await issueVerificationToken(user.id);
         const verificationSent = await sendVerificationEmail(user.email, user.name, verificationToken);
 
-        const { password, emailVerificationToken, emailVerificationExpiry, resetToken, resetTokenExpiry, ...userWithoutPassword } = user;
+        const {
+            password,
+            emailVerificationToken,
+            emailVerificationExpiry,
+            resetToken,
+            resetTokenExpiry,
+            ...userWithoutPassword
+        } = user;
 
         res.status(201).json({
             token,
             user: userWithoutPassword,
             verificationSent,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Signup error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
@@ -160,10 +173,7 @@ export async function signup(req: Request, res: Response): Promise<void> {
     }
 }
 
-export async function changePassword(
-    req: Request,
-    res: Response
-): Promise<void> {
+export async function changePassword(req: Request, res: Response): Promise<void> {
     try {
         if (!req.user) {
             res.status(401).json({ message: "Authentication required" });
@@ -183,15 +193,12 @@ export async function changePassword(
 
         if (!user.password) {
             res.status(400).json({
-                message: "Your account signs in with Google. Use \"Forgot password\" to set a password.",
+                message: 'Your account signs in with Google. Use "Forgot password" to set a password.',
             });
             return;
         }
 
-        const isOldPasswordValid = await comparePassword(
-            validatedData.oldPassword,
-            user.password
-        );
+        const isOldPasswordValid = await comparePassword(validatedData.oldPassword, user.password);
 
         if (!isOldPasswordValid) {
             res.status(400).json({ message: "Current password is incorrect" });
@@ -216,7 +223,7 @@ export async function changePassword(
         });
 
         res.json({ message: "Password changed successfully" });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Change password error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
@@ -226,10 +233,7 @@ export async function changePassword(
     }
 }
 
-export async function forgotPassword(
-    req: Request,
-    res: Response
-): Promise<void> {
+export async function forgotPassword(req: Request, res: Response): Promise<void> {
     try {
         const validatedData = forgotPasswordSchema.parse(req.body);
 
@@ -252,10 +256,9 @@ export async function forgotPassword(
         }
 
         res.json({
-            message:
-                "If an account exists for that email, a password reset link has been sent.",
+            message: "If an account exists for that email, a password reset link has been sent.",
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Forgot password error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
@@ -265,10 +268,7 @@ export async function forgotPassword(
     }
 }
 
-export async function resetPassword(
-    req: Request,
-    res: Response
-): Promise<void> {
+export async function resetPassword(req: Request, res: Response): Promise<void> {
     try {
         const validatedData = resetPasswordSchema.parse(req.body);
 
@@ -304,7 +304,7 @@ export async function resetPassword(
         });
 
         res.json({ message: "Password reset successfully" });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Reset password error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
@@ -316,6 +316,10 @@ export async function resetPassword(
 
 /** GET /api/auth/me — the signed-in user (used after Google sign-in to load the profile). */
 export async function getMe(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+        res.status(401).json({ message: "Authentication required" });
+        return;
+    }
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.userId },
@@ -350,7 +354,9 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
     try {
         const token = typeof req.body?.token === "string" ? req.body.token : "";
         if (!/^[a-f0-9]{64}$/.test(token)) {
-            res.status(400).json({ message: "This confirmation link is incomplete. Open the newest email and try again." });
+            res.status(400).json({
+                message: "This confirmation link is incomplete. Open the newest email and try again.",
+            });
             return;
         }
 
@@ -378,6 +384,10 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
 
 /** POST /api/auth/resend-verification (auth) — at most one email a minute. */
 export async function resendVerification(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+        res.status(401).json({ message: "Authentication required" });
+        return;
+    }
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.userId },
@@ -394,7 +404,10 @@ export async function resendVerification(req: Request, res: Response): Promise<v
 
         const wait = verificationCooldownLeft(user.emailVerificationExpiry);
         if (wait > 0) {
-            res.status(429).json({ message: `We just sent one. You can ask again in ${wait} seconds.`, retryAfter: wait });
+            res.status(429).json({
+                message: `We just sent one. You can ask again in ${wait} seconds.`,
+                retryAfter: wait,
+            });
             return;
         }
 

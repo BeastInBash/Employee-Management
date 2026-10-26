@@ -39,7 +39,7 @@ function standAs(standing: Standing) {
   } as any);
   prismaMock.orgMembership.findUnique.mockResolvedValue(null);
   prismaMock.member.findFirst.mockResolvedValue(
-    standing === "admin" || standing === "outsider" ? null : ({ id: MY_SEAT } as any)
+    standing === "admin" || standing === "outsider" ? null : ({ id: MY_SEAT } as any),
   );
   const seat =
     standing === "lead" ? { role: ScopeRole.lead } : standing === "member" ? { role: ScopeRole.member } : null;
@@ -131,7 +131,10 @@ describe("POST /api/projects", () => {
       teams: [],
     } as any);
 
-    await request(app).post("/api/projects").set("Authorization", as("admin")).send({ workspaceId: WS, name: "Solo", leadIds: [MY_SEAT] });
+    await request(app)
+      .post("/api/projects")
+      .set("Authorization", as("admin"))
+      .send({ workspaceId: WS, name: "Solo", leadIds: [MY_SEAT] });
     expect(noticesMock).not.toHaveBeenCalled();
   });
 });
@@ -207,7 +210,7 @@ describe("project seats", () => {
     standAs("admin");
     prismaMock.member.count.mockResolvedValue(1);
     prismaMock.projectMember.create.mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "6" })
+      new Prisma.PrismaClientKnownRequestError("dup", { code: "P2002", clientVersion: "6" }),
     );
     const res = await request(app)
       .post(`/api/projects/${PROJECT}/members`)
@@ -238,13 +241,19 @@ describe("project seats", () => {
 
     // First call: the seat was a member → promotion → one email.
     prismaMock.projectMember.findUnique.mockResolvedValueOnce({ role: ScopeRole.member } as any);
-    await request(app).patch(`/api/projects/${PROJECT}/members/${OTHER_SEAT}`).set("Authorization", as("admin")).send({ role: "lead" });
+    await request(app)
+      .patch(`/api/projects/${PROJECT}/members/${OTHER_SEAT}`)
+      .set("Authorization", as("admin"))
+      .send({ role: "lead" });
     expect(noticesMock).toHaveBeenCalledTimes(1);
     expect(noticesMock.mock.calls[0]![0][0]).toEqual(expect.objectContaining({ event: "promoted", role: "lead" }));
 
     // Second call: already a lead → nothing new to say.
     prismaMock.projectMember.findUnique.mockResolvedValueOnce({ role: ScopeRole.lead } as any);
-    await request(app).patch(`/api/projects/${PROJECT}/members/${OTHER_SEAT}`).set("Authorization", as("admin")).send({ role: "lead" });
+    await request(app)
+      .patch(`/api/projects/${PROJECT}/members/${OTHER_SEAT}`)
+      .set("Authorization", as("admin"))
+      .send({ role: "lead" });
     expect(noticesMock).toHaveBeenCalledTimes(1);
   });
 
@@ -321,10 +330,7 @@ describe("POST /api/projects/:projectId/tasks", () => {
       taskWindowEnd: (start + 1) % 1440,
     } as any);
 
-    const res = await request(app)
-      .post(`/api/projects/${PROJECT}/tasks`)
-      .set("Authorization", as("member"))
-      .send(task);
+    const res = await request(app).post(`/api/projects/${PROJECT}/tasks`).set("Authorization", as("member")).send(task);
 
     expect(res.status).toBe(403);
     expect(res.body.taskWindow).toEqual(expect.objectContaining({ enabled: true, open: false }));

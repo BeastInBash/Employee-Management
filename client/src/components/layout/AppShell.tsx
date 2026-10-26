@@ -42,10 +42,22 @@ function useNavItems(): NavItem[] {
   const isAdmin = user.role === "admin";
   return [
     ...(isAdmin
-      ? [{ to: "/dashboard", label: "Members", icon: LayoutGrid, match: (p: string) => p === "/dashboard" || p.startsWith("/member/") || p.startsWith("/dashboard/") }]
+      ? [
+          {
+            to: "/dashboard",
+            label: "Members",
+            icon: LayoutGrid,
+            match: (p: string) => p === "/dashboard" || p.startsWith("/member/") || p.startsWith("/dashboard/"),
+          },
+        ]
       : [
           { to: "/home", label: "Home", icon: House, match: (p: string) => p === "/home" },
-          { to: `/todos/${user.id}`, label: "My tasks", icon: ListChecks, match: (p: string) => p.startsWith("/todos/") },
+          {
+            to: `/todos/${user.id}`,
+            label: "My tasks",
+            icon: ListChecks,
+            match: (p: string) => p.startsWith("/todos/"),
+          },
         ]),
     { to: "/projects", label: "Projects", icon: FolderKanban, match: (p) => p.startsWith("/projects") },
     { to: "/teams", label: "Teams", icon: UsersRound, match: (p) => p.startsWith("/teams") },
@@ -78,7 +90,9 @@ const WorkspaceSwitcher = () => {
           {initials(activeWorkspace?.name ?? activeOrg?.name ?? "?")}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-white/95">{activeWorkspace?.name ?? "Choose a workspace"}</span>
+          <span className="block truncate text-sm font-medium text-white/95">
+            {activeWorkspace?.name ?? "Choose a workspace"}
+          </span>
           <span className="block truncate text-xs text-sidebar-foreground/60">{activeOrg?.name}</span>
         </span>
         <ChevronsUpDown className="h-4 w-4 shrink-0 text-sidebar-foreground/50" />
@@ -88,7 +102,9 @@ const WorkspaceSwitcher = () => {
           <div key={org.id}>
             {i > 0 && <DropdownMenuSeparator />}
             <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{org.name}</DropdownMenuLabel>
-            {org.workspaces.length === 0 && <div className="px-2 pb-2 text-xs text-muted-foreground">No workspaces yet</div>}
+            {org.workspaces.length === 0 && (
+              <div className="px-2 pb-2 text-xs text-muted-foreground">No workspaces yet</div>
+            )}
             {org.workspaces.map((ws) => (
               <DropdownMenuItem
                 key={ws.id}
@@ -124,7 +140,9 @@ const NavList = ({ onNavigate }: { onNavigate?: () => void }) => {
             className={cn(
               "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm outline-none transition-colors duration-150",
               "focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-              active ? "text-sidebar-primary-foreground" : "text-sidebar-foreground/75 hover:text-white hover:bg-sidebar-accent"
+              active
+                ? "text-sidebar-primary-foreground"
+                : "text-sidebar-foreground/75 hover:text-white hover:bg-sidebar-accent",
             )}
           >
             {/* The signature motion: one indicator glides between items. */}
@@ -160,7 +178,9 @@ const AccountMenu = () => {
           </span>
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-medium text-white/95">{user.name}</span>
-            <span className="block truncate text-xs text-sidebar-foreground/60">{user.role === "admin" ? "Admin" : "Member"}</span>
+            <span className="block truncate text-xs text-sidebar-foreground/60">
+              {user.role === "admin" ? "Admin" : "Member"}
+            </span>
           </span>
           <ChevronsUpDown className="h-4 w-4 shrink-0 text-sidebar-foreground/50" />
         </DropdownMenuTrigger>
@@ -274,7 +294,11 @@ export const AppShell = () => {
           <motion.div
             key={pageKey}
             initial={{ opacity: 0, transform: "translateY(6px)" }}
-            animate={{ opacity: 1, transform: "translateY(0px)", transition: { duration: 0.22, ease: [0.23, 1, 0.32, 1] } }}
+            animate={{
+              opacity: 1,
+              transform: "translateY(0px)",
+              transition: { duration: 0.22, ease: [0.23, 1, 0.32, 1] },
+            }}
             exit={{ opacity: 0, transition: { duration: 0.1, ease: "easeOut" } }}
           >
             <FrozenOutlet />

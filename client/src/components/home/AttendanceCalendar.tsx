@@ -79,7 +79,7 @@ export const AttendanceCalendar = ({ days, today }: { days: ReportDay[]; today: 
               className={cn(
                 "flex aspect-square items-center justify-center rounded-md text-xs tabular",
                 quiet ? "text-muted-foreground/50" : cellTone[status],
-                date === today && "ring-2 ring-primary ring-offset-1 ring-offset-card"
+                date === today && "ring-2 ring-primary ring-offset-1 ring-offset-card",
               )}
             >
               {day}

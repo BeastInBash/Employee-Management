@@ -14,8 +14,21 @@ const cell: Variants = {
 };
 const once = { initial: "hidden", whileInView: "show", viewport: { once: true, amount: 0.5 } } as const;
 
-const Cell = ({ title, body, children, className }: { title: string; body: string; children?: ReactNode; className?: string }) => (
-  <motion.article variants={cell} className={cn("flex flex-col rounded-[28px] border border-border/80 bg-card p-6 sm:p-7", className)}>
+const Cell = ({
+  title,
+  body,
+  children,
+  className,
+}: {
+  title: string;
+  body: string;
+  children?: ReactNode;
+  className?: string;
+}) => (
+  <motion.article
+    variants={cell}
+    className={cn("flex flex-col rounded-[28px] border border-border/80 bg-card p-6 sm:p-7", className)}
+  >
     {children && <div className="mb-6 flex flex-1 items-center">{children}</div>}
     <h3 className="text-lg">{title}</h3>
     <p className="mt-1.5 max-w-[46ch] text-[15px] leading-relaxed text-muted-foreground">{body}</p>
@@ -25,7 +38,14 @@ const Cell = ({ title, body, children, className }: { title: string; body: strin
 // ─── illustrations ──────────────────────────────────────────────────────────
 
 const Avatar = ({ text, className }: { text: string; className?: string }) => (
-  <span className={cn("flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ring-2 ring-card", className)}>{text}</span>
+  <span
+    className={cn(
+      "flex h-9 w-9 items-center justify-center rounded-full text-xs font-semibold ring-2 ring-card",
+      className,
+    )}
+  >
+    {text}
+  </span>
 );
 
 const ProjectArt = () => (
@@ -42,9 +62,15 @@ const ProjectArt = () => (
         {["AR", "SK", "LO", "TR"].map((a, i) => (
           <motion.span
             key={a}
-            variants={{ hidden: { opacity: 0, transform: "translateX(-6px)" }, show: { opacity: 1, transform: "translateX(0px)", transition: { delay: 0.2 + i * 0.08 } } }}
+            variants={{
+              hidden: { opacity: 0, transform: "translateX(-6px)" },
+              show: { opacity: 1, transform: "translateX(0px)", transition: { delay: 0.2 + i * 0.08 } },
+            }}
           >
-            <Avatar text={a} className={i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"} />
+            <Avatar
+              text={a}
+              className={i === 0 ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}
+            />
           </motion.span>
         ))}
       </div>
@@ -52,7 +78,10 @@ const ProjectArt = () => (
     </div>
     <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted">
       <motion.div
-        variants={{ hidden: { width: "0%" }, show: { width: "58%", transition: { duration: 1, ease: EASE, delay: 0.4 } } }}
+        variants={{
+          hidden: { width: "0%" },
+          show: { width: "58%", transition: { duration: 1, ease: EASE, delay: 0.4 } },
+        }}
         className="h-full rounded-full bg-honey"
       />
     </div>
@@ -65,7 +94,10 @@ const ReportArt = () => (
     {BARS.map((h, i) => (
       <motion.span
         key={i}
-        variants={{ hidden: { transform: "scaleY(0)" }, show: { transform: "scaleY(1)", transition: { duration: 0.6, ease: EASE, delay: 0.15 + i * 0.06 } } }}
+        variants={{
+          hidden: { transform: "scaleY(0)" },
+          show: { transform: "scaleY(1)", transition: { duration: 0.6, ease: EASE, delay: 0.15 + i * 0.06 } },
+        }}
         style={{ height: `${h}%`, transformOrigin: "50% 100%" }}
         className="flex-1 rounded-t-[4px] bg-[var(--viz-present)]"
       />
@@ -78,7 +110,14 @@ const TeamArt = () => (
     {["Kitchen", "Front of house", "Deliveries"].map((t, i) => (
       <motion.span
         key={t}
-        variants={{ hidden: { opacity: 0, transform: "scale(0.9)" }, show: { opacity: 1, transform: "scale(1)", transition: { type: "spring", bounce: 0.3, delay: 0.15 + i * 0.1 } } }}
+        variants={{
+          hidden: { opacity: 0, transform: "scale(0.9)" },
+          show: {
+            opacity: 1,
+            transform: "scale(1)",
+            transition: { type: "spring", bounce: 0.3, delay: 0.15 + i * 0.1 },
+          },
+        }}
         className="rounded-full bg-secondary px-3 py-1.5 text-sm text-secondary-foreground"
       >
         {t}
@@ -90,7 +129,10 @@ const TeamArt = () => (
 const HoursArt = () => (
   <motion.span
     {...once}
-    variants={{ hidden: { opacity: 0, transform: "translateY(6px)" }, show: { opacity: 1, transform: "translateY(0px)", transition: { delay: 0.2 } } }}
+    variants={{
+      hidden: { opacity: 0, transform: "translateY(6px)" },
+      show: { opacity: 1, transform: "translateY(0px)", transition: { delay: 0.2 } },
+    }}
     className="inline-flex items-center gap-2 rounded-full bg-secondary px-3.5 py-2 text-sm text-secondary-foreground"
   >
     <Clock className="h-4 w-4" />
@@ -114,7 +156,10 @@ const AccessArt = () => (
     ].map((r, i) => (
       <motion.li
         key={r.who}
-        variants={{ hidden: { opacity: 0, width: "20%" }, show: { opacity: 1, width: r.w, transition: { duration: 0.7, ease: EASE, delay: 0.15 + i * 0.1 } } }}
+        variants={{
+          hidden: { opacity: 0, width: "20%" },
+          show: { opacity: 1, width: r.w, transition: { duration: 0.7, ease: EASE, delay: 0.15 + i * 0.1 } },
+        }}
         className="flex min-w-fit items-center gap-2 rounded-xl bg-surface px-3 py-2"
       >
         <ShieldCheck className="h-4 w-4 shrink-0 text-sage" />
@@ -128,14 +173,23 @@ const AccessArt = () => (
 const EmailArt = () => (
   <motion.div
     {...once}
-    variants={{ hidden: { opacity: 0, transform: "translateY(10px) rotate(-2deg)" }, show: { opacity: 1, transform: "translateY(0px) rotate(-1deg)", transition: { duration: 0.6, ease: EASE, delay: 0.15 } } }}
+    variants={{
+      hidden: { opacity: 0, transform: "translateY(10px) rotate(-2deg)" },
+      show: {
+        opacity: 1,
+        transform: "translateY(0px) rotate(-1deg)",
+        transition: { duration: 0.6, ease: EASE, delay: 0.15 },
+      },
+    }}
     className="w-full max-w-xs rounded-xl border border-border/80 bg-surface p-4 shadow-[0_10px_24px_-18px_var(--shadow-ink)]"
   >
     <div className="flex items-center gap-2 text-sm font-medium">
       <Mail className="h-4 w-4 text-primary" />
       You've been added to Workzen
     </div>
-    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">Your sign-in details are below. Confirm your email and you're ready for tomorrow's list.</p>
+    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+      Your sign-in details are below. Confirm your email and you're ready for tomorrow's list.
+    </p>
   </motion.div>
 );
 
@@ -160,7 +214,13 @@ export const FeatureBento = () => (
         </motion.p>
       </div>
 
-      <motion.div variants={grid} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.1 }} className="mt-14 grid gap-4 md:grid-cols-6">
+      <motion.div
+        variants={grid}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, amount: 0.1 }}
+        className="mt-14 grid gap-4 md:grid-cols-6"
+      >
         <Cell
           title="Projects with a lead"
           body="Give every project an owner who can assign work and keep it moving, without handing out admin rights."

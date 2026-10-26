@@ -50,8 +50,12 @@ export const Faq = () => (
         <Accordion type="single" collapsible defaultValue="q0" className="border-t border-border/80">
           {QUESTIONS.map((item, i) => (
             <AccordionItem key={item.q} value={`q${i}`} className="border-border/80">
-              <AccordionTrigger className="py-5 text-left text-[17px] font-medium hover:no-underline">{item.q}</AccordionTrigger>
-              <AccordionContent className="pb-5 text-[15px] leading-relaxed text-muted-foreground">{item.a}</AccordionContent>
+              <AccordionTrigger className="py-5 text-left text-[17px] font-medium hover:no-underline">
+                {item.q}
+              </AccordionTrigger>
+              <AccordionContent className="pb-5 text-[15px] leading-relaxed text-muted-foreground">
+                {item.a}
+              </AccordionContent>
             </AccordionItem>
           ))}
         </Accordion>

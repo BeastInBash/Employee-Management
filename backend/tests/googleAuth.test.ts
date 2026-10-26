@@ -36,7 +36,12 @@ describe("resolveGoogleUser", () => {
 
   it("switches off the default password on a member's first Google sign-in", async () => {
     prismaMock.user.findUnique.mockResolvedValue(
-      makeUser({ email: "ada@example.com", password: "hashed:123456", isPasswordReset: true, emailVerified: false }) as any
+      makeUser({
+        email: "ada@example.com",
+        password: "hashed:123456",
+        isPasswordReset: true,
+        emailVerified: false,
+      }) as any,
     );
     prismaMock.user.update.mockImplementation((async (args: any) => makeUser({ ...args.data })) as any);
 
@@ -55,7 +60,12 @@ describe("resolveGoogleUser", () => {
 
   it("leaves an already-verified account's password alone", async () => {
     prismaMock.user.findUnique.mockResolvedValue(
-      makeUser({ email: "ada@example.com", password: "hashed:mine", emailVerified: true, image: "https://img/old.png" }) as any
+      makeUser({
+        email: "ada@example.com",
+        password: "hashed:mine",
+        emailVerified: true,
+        image: "https://img/old.png",
+      }) as any,
     );
 
     const result = await resolveGoogleUser(profile);

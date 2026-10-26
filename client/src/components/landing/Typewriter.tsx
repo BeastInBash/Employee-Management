@@ -63,7 +63,7 @@ export const Typewriter = ({
         <span
           className={cn(
             "ml-[0.04em] inline-block h-[0.9em] w-[0.06em] translate-y-[0.08em] bg-current align-baseline",
-            done ? "animate-[caret_1.1s_steps(1)_infinite]" : "opacity-100"
+            done ? "animate-[caret_1.1s_steps(1)_infinite]" : "opacity-100",
           )}
         />
       </span>

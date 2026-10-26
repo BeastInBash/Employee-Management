@@ -50,8 +50,8 @@ const ResetPassword = () => {
       } else if (data.message === "Invalid or expired reset token") {
         setError(
           welcome
-            ? "This invite link has expired or was already used. Use \"Forgot password\" on the sign-in page to get a new one."
-            : "This link has expired or was already used. Ask for a new one and use the newest email."
+            ? 'This invite link has expired or was already used. Use "Forgot password" on the sign-in page to get a new one.'
+            : "This link has expired or was already used. Ask for a new one and use the newest email.",
         );
       } else {
         setError(data.message || "The password couldn't be saved. The link may have expired.");
@@ -83,7 +83,15 @@ const ResetPassword = () => {
 
   return (
     <AuthLayout
-      title={success ? (welcome ? "Password set" : "Password updated") : welcome ? "Choose your password" : "Choose a new password"}
+      title={
+        success
+          ? welcome
+            ? "Password set"
+            : "Password updated"
+          : welcome
+            ? "Choose your password"
+            : "Choose a new password"
+      }
       description={
         success
           ? "Taking you to sign in…"
@@ -95,7 +103,9 @@ const ResetPassword = () => {
       {success ? (
         <div className="flex items-center gap-3 rounded-xl bg-secondary p-4 text-sm text-secondary-foreground">
           <CheckCircle2 className="h-5 w-5 shrink-0 text-sage" />
-          {welcome ? "You're all set. Sign in with your email and new password." : "All set. Sign in with your new password."}
+          {welcome
+            ? "You're all set. Sign in with your email and new password."
+            : "All set. Sign in with your new password."}
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">

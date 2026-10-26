@@ -65,10 +65,12 @@ const Reports = () => {
     }
     if (!isAdmin) out.push({ value: "me", label: "My productivity", group: "You" });
     for (const p of projects) {
-      if (p.myRole === "admin" || p.myRole === "lead") out.push({ value: `project:${p.id}`, label: p.name, group: "Projects" });
+      if (p.myRole === "admin" || p.myRole === "lead")
+        out.push({ value: `project:${p.id}`, label: p.name, group: "Projects" });
     }
     for (const t of teams) {
-      if (t.myRole === "admin" || t.myRole === "lead") out.push({ value: `team:${t.id}`, label: t.name, group: "Teams" });
+      if (t.myRole === "admin" || t.myRole === "lead")
+        out.push({ value: `team:${t.id}`, label: t.name, group: "Teams" });
     }
     return out;
   }, [isAdmin, activeWorkspace, projects, teams]);
@@ -139,134 +141,149 @@ const Reports = () => {
         }
       />
 
-        {/* Filters: one row, date range first, scoping everything below. */}
-        <div className="mb-8 flex flex-wrap items-end gap-3 rounded-xl border border-border/80 bg-card p-4">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Period</Label>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              value={preset}
-              onValueChange={(v) => v && update({ range: v, from: null, to: null })}
-              className="flex-wrap"
-            >
-              {RANGE_PRESETS.map((p) => (
-                <ToggleGroupItem key={p.value} value={p.value} className="px-3 text-xs">
-                  {p.label}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </div>
-          <div className="flex items-end gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="report-from" className="text-xs text-muted-foreground">
-                From
-              </Label>
-              <Input
-                id="report-from"
-                type="date"
-                value={range.from}
-                max={range.to}
-                onChange={(e) => e.target.value && update({ range: "custom", from: e.target.value, to: range.to })}
-                className="w-38"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="report-to" className="text-xs text-muted-foreground">
-                To
-              </Label>
-              <Input
-                id="report-to"
-                type="date"
-                value={range.to}
-                min={range.from}
-                onChange={(e) => e.target.value && update({ range: "custom", from: range.from, to: e.target.value })}
-                className="w-38"
-              />
-            </div>
-          </div>
-          <div className="space-y-1 min-w-48 flex-1 sm:flex-none">
-            <Label className="text-xs text-muted-foreground">Report on</Label>
-            <Select value={scopeValue ?? ""} onValueChange={(v) => update({ scope: v })} disabled={!options.length}>
-              <SelectTrigger className="w-full sm:w-60">
-                <SelectValue placeholder="Nothing to report on" />
-              </SelectTrigger>
-              <SelectContent>
-                {(["Workspace", "You", "Projects", "Teams"] as const).map((group) => {
-                  const items = options.filter((o) => o.group === group);
-                  if (!items.length) return null;
-                  return (
-                    <SelectGroup key={group}>
-                      <SelectLabel>{group}</SelectLabel>
-                      {items.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground h-9 sm:ml-auto">
-            <Switch
-              checked={excludeWeekends}
-              onCheckedChange={(c) => update({ weekends: c ? null : "include" })}
-              aria-label="Exclude weekends from attendance"
-            />
-            Skip weekends in attendance
-          </label>
+      {/* Filters: one row, date range first, scoping everything below. */}
+      <div className="mb-8 flex flex-wrap items-end gap-3 rounded-xl border border-border/80 bg-card p-4">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Period</Label>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            value={preset}
+            onValueChange={(v) => v && update({ range: v, from: null, to: null })}
+            className="flex-wrap"
+          >
+            {RANGE_PRESETS.map((p) => (
+              <ToggleGroupItem key={p.value} value={p.value} className="px-3 text-xs">
+                {p.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
-
-        {waitingForScopes || (isLoading && !report) ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <div className="flex items-end gap-2">
+          <div className="space-y-1">
+            <Label htmlFor="report-from" className="text-xs text-muted-foreground">
+              From
+            </Label>
+            <Input
+              id="report-from"
+              type="date"
+              value={range.from}
+              max={range.to}
+              onChange={(e) => e.target.value && update({ range: "custom", from: e.target.value, to: range.to })}
+              className="w-38"
+            />
           </div>
-        ) : !scopeValue ? (
-          <EmptyState
-            title="Nothing to report on yet"
-            body={
-              isAdmin
-                ? "Pick or create a workspace on the Members page to see its reports."
-                : "Reports cover your own work, plus any project or team you lead."
-            }
+          <div className="space-y-1">
+            <Label htmlFor="report-to" className="text-xs text-muted-foreground">
+              To
+            </Label>
+            <Input
+              id="report-to"
+              type="date"
+              value={range.to}
+              min={range.from}
+              onChange={(e) => e.target.value && update({ range: "custom", from: range.from, to: e.target.value })}
+              className="w-38"
+            />
+          </div>
+        </div>
+        <div className="space-y-1 min-w-48 flex-1 sm:flex-none">
+          <Label className="text-xs text-muted-foreground">Report on</Label>
+          <Select value={scopeValue ?? ""} onValueChange={(v) => update({ scope: v })} disabled={!options.length}>
+            <SelectTrigger className="w-full sm:w-60">
+              <SelectValue placeholder="Nothing to report on" />
+            </SelectTrigger>
+            <SelectContent>
+              {(["Workspace", "You", "Projects", "Teams"] as const).map((group) => {
+                const items = options.filter((o) => o.group === group);
+                if (!items.length) return null;
+                return (
+                  <SelectGroup key={group}>
+                    <SelectLabel>{group}</SelectLabel>
+                    {items.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground h-9 sm:ml-auto">
+          <Switch
+            checked={excludeWeekends}
+            onCheckedChange={(c) => update({ weekends: c ? null : "include" })}
+            aria-label="Exclude weekends from attendance"
           />
-        ) : error && !report ? (
-          <EmptyState title="This report couldn't be loaded" body={error} />
-        ) : report ? (
-          // Refetch keeps the frame: previous numbers stay, dimmed, while loading.
-          <div className={cn("space-y-6 transition-opacity duration-200", isLoading && "opacity-50")} aria-busy={isLoading}>
-            <p className="text-sm text-muted-foreground">
-              {formatDay(report.range.from, true)} to {formatDay(report.range.to, true)}, {report.range.days} days,{" "}
-              {report.summary.people} {report.summary.people === 1 ? "person" : "people"}
-            </p>
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-              <StatTile label="Tasks completed" value={report.summary.tasksCompleted.toLocaleString()} hint={`${report.summary.tasksCreated} created`} />
-              <StatTile label="Completion rate" value={formatPct(report.summary.completionRate)} hint="of tasks created" />
-              <StatTile label="On-time rate" value={formatPct(report.summary.onTimeRate)} hint="done by the due date" />
-              <StatTile
-                label="Overdue now"
-                value={report.summary.overdueOpen}
-                hint="open past due date"
-                {...(report.summary.overdueOpen > 0 && { tone: "warn" as const })}
-              />
-              <StatTile label="Avg. cycle time" value={formatHours(report.summary.avgCycleHours)} hint="created → completed" />
-              <StatTile
-                label="Attendance"
-                value={formatPct(report.summary.attendanceRate)}
-                hint={`${report.summary.presentDays} present, ${report.summary.partialDays} partial`}
-              />
-            </div>
+          Skip weekends in attendance
+        </label>
+      </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <ThroughputChart days={report.trend} />
-              <AttendanceChart days={report.trend} excludeWeekends={report.range.excludeWeekends} />
-            </div>
-
-            <MembersTable members={report.members} />
+      {waitingForScopes || (isLoading && !report) ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : !scopeValue ? (
+        <EmptyState
+          title="Nothing to report on yet"
+          body={
+            isAdmin
+              ? "Pick or create a workspace on the Members page to see its reports."
+              : "Reports cover your own work, plus any project or team you lead."
+          }
+        />
+      ) : error && !report ? (
+        <EmptyState title="This report couldn't be loaded" body={error} />
+      ) : report ? (
+        // Refetch keeps the frame: previous numbers stay, dimmed, while loading.
+        <div
+          className={cn("space-y-6 transition-opacity duration-200", isLoading && "opacity-50")}
+          aria-busy={isLoading}
+        >
+          <p className="text-sm text-muted-foreground">
+            {formatDay(report.range.from, true)} to {formatDay(report.range.to, true)}, {report.range.days} days,{" "}
+            {report.summary.people} {report.summary.people === 1 ? "person" : "people"}
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            <StatTile
+              label="Tasks completed"
+              value={report.summary.tasksCompleted.toLocaleString()}
+              hint={`${report.summary.tasksCreated} created`}
+            />
+            <StatTile
+              label="Completion rate"
+              value={formatPct(report.summary.completionRate)}
+              hint="of tasks created"
+            />
+            <StatTile label="On-time rate" value={formatPct(report.summary.onTimeRate)} hint="done by the due date" />
+            <StatTile
+              label="Overdue now"
+              value={report.summary.overdueOpen}
+              hint="open past due date"
+              {...(report.summary.overdueOpen > 0 && { tone: "warn" as const })}
+            />
+            <StatTile
+              label="Avg. cycle time"
+              value={formatHours(report.summary.avgCycleHours)}
+              hint="created → completed"
+            />
+            <StatTile
+              label="Attendance"
+              value={formatPct(report.summary.attendanceRate)}
+              hint={`${report.summary.presentDays} present, ${report.summary.partialDays} partial`}
+            />
           </div>
-        ) : null}
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <ThroughputChart days={report.trend} />
+            <AttendanceChart days={report.trend} excludeWeekends={report.range.excludeWeekends} />
+          </div>
+
+          <MembersTable members={report.members} />
+        </div>
+      ) : null}
     </>
   );
 };
@@ -302,7 +319,9 @@ const MembersTable = ({ members }: { members: ReportMember[] }) => {
   }, [members, sort]);
 
   const toggle = (key: SortKey) =>
-    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "name" ? "asc" : "desc" }));
+    setSort((s) =>
+      s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "name" ? "asc" : "desc" },
+    );
 
   if (members.length === 0) {
     return <EmptyState title="No one in this scope" body="Add people to see their numbers here." />;
@@ -317,12 +336,18 @@ const MembersTable = ({ members }: { members: ReportMember[] }) => {
               {COLUMNS.map((c) => (
                 <th
                   key={c.key}
-                  className={cn("whitespace-nowrap px-4 py-2.5 font-medium", c.align === "right" ? "text-right" : "text-left")}
+                  className={cn(
+                    "whitespace-nowrap px-4 py-2.5 font-medium",
+                    c.align === "right" ? "text-right" : "text-left",
+                  )}
                   aria-sort={sort.key === c.key ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
                 >
                   <button
                     onClick={() => toggle(c.key)}
-                    className={cn("inline-flex items-center gap-1 hover:text-foreground", sort.key === c.key && "text-foreground")}
+                    className={cn(
+                      "inline-flex items-center gap-1 hover:text-foreground",
+                      sort.key === c.key && "text-foreground",
+                    )}
                   >
                     {c.label}
                     {sort.key === c.key &&

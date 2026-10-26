@@ -53,7 +53,9 @@ export const AddPeopleDialog = ({
 
   const submit = async () => {
     setIsSaving(true);
-    const results = await Promise.allSettled(ids.map((memberId) => api(base, { method: "POST", body: { memberId, role } })));
+    const results = await Promise.allSettled(
+      ids.map((memberId) => api(base, { method: "POST", body: { memberId, role } })),
+    );
     const failed = results.filter((r) => r.status === "rejected") as PromiseRejectedResult[];
     if (failed.length) toast.error(errorMessage(failed[0]!.reason));
     const added = results.length - failed.length;

@@ -202,10 +202,15 @@ export const ProjectFormDialog = ({
               {teams.length > 0 && (
                 <div className="space-y-2">
                   <Label>Teams</Label>
-                  <p className="text-xs text-muted-foreground">Everyone on an assigned team can see and work on the project.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Everyone on an assigned team can see and work on the project.
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {teams.map((t) => (
-                      <label key={t.id} className="flex items-center gap-2 border border-border px-3 py-2 text-sm cursor-pointer">
+                      <label
+                        key={t.id}
+                        className="flex items-center gap-2 border border-border px-3 py-2 text-sm cursor-pointer"
+                      >
                         <Checkbox
                           checked={teamIds.includes(t.id)}
                           onCheckedChange={(c) =>
