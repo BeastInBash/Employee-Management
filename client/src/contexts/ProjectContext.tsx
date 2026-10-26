@@ -1,10 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "@/components/ui/sonner";
 import { api, errorMessage } from "@/lib/api";
 import { useAuth } from "./AuthContext";
 import { useOrg } from "./OrgContext";
 import type { TaskPriority, TaskStatus } from "./TaskContext";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 // ─── domain types (mirror backend projects/teams controllers) ────────────────
 
@@ -160,11 +161,16 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 export const ProjectProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
   const { activeWorkspace } = useOrg();
-  const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [teams, setTeams] = useState<TeamSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
   const scopeWorkspaceId = user?.role === "admin" ? activeWorkspace?.id : undefined;
+
+  // Cached per user and workspace, so project and team lists show at once after a refresh.
+  const cacheKey = user ? `${user.id}:${scopeWorkspaceId ?? "mine"}` : null;
+  const [projects, setProjects] = usePersistentState<ProjectSummary[]>(cacheKey && `${cacheKey}:projects`, []);
+  const [teams, setTeams] = usePersistentState<TeamSummary[]>(cacheKey && `${cacheKey}:teams`, []);
+  const [isLoading, setIsLoading] = useState(false);
+  // Read inside refresh without making it change (and refetch) whenever the lists do.
+  const hasData = useRef(false);
+  hasData.current = projects.length > 0 || teams.length > 0;
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -174,7 +180,8 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
       setTeams([]);
       return;
     }
-    setIsLoading(true);
+    // Only "loading" when there's nothing to show; a cached list stays on screen.
+    if (!hasData.current) setIsLoading(true);
     try {
       const query = { workspaceId: scopeWorkspaceId };
       const [p, t] = await Promise.all([
@@ -188,7 +195,7 @@ export const ProjectProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, scopeWorkspaceId]);
+  }, [user, scopeWorkspaceId, setProjects, setTeams]);
 
   useEffect(() => {
     refresh();

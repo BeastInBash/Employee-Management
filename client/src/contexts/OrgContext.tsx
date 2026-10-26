@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { toast } from "@/components/ui/sonner";
 import { useAuth } from "./AuthContext";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -116,10 +117,16 @@ const normalizeOrg = (o: RawOrg): Organization => ({
 
 export const OrgProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  // Cached per user, so a refresh shows the org/workspace switcher at once.
+  const [organizations, setOrganizations] = usePersistentState<Organization[]>(
+    user ? `${user.id}:orgs` : null,
+    [],
+    (cached) => (cached as RawOrg[]).map(normalizeOrg),
+  );
   // Start in the loading state when a token is present so the dashboard's
   // onboarding gates don't flash before the first fetch resolves.
-  const [isLoading, setIsLoading] = useState(() => !!getAuthToken());
+  // "Nothing to show yet": cached orgs count as loaded, refreshing them doesn't.
+  const [isLoading, setIsLoading] = useState(() => !!getAuthToken() && organizations.length === 0);
   const [activeOrgId, setActiveOrgIdState] = useState<string | null>(() => localStorage.getItem(ACTIVE_ORG_KEY));
   const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(() =>
     localStorage.getItem(ACTIVE_WORKSPACE_KEY),
@@ -142,7 +149,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
     const token = getAuthToken();
     if (!token) return;
     try {
-      setIsLoading(true);
+      if (organizations.length === 0) setIsLoading(true);
       const response = await fetch(`${API_BASE_URL}/org/getMyOrgs?workspace=true`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -157,9 +164,12 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Load once per signed-in user. fetchOrgs is rebuilt every render (it reads the
+  // current list to decide whether to show a loading state), so it isn't a dependency.
   useEffect(() => {
     if (user) fetchOrgs();
     else setOrganizations([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Keep the active org valid: fall back to the first org when the stored id is
