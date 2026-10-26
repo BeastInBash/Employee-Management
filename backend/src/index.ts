@@ -13,6 +13,7 @@ import workspaceRouter from "./routes/workspace.router";
 import projectsRouter from "./routes/projects.router";
 import teamsRouter from "./routes/teams.router";
 import reportsRouter from "./routes/reports.router";
+import internalRouter from "./routes/internal.router";
 import googleRouter from "./routes/google.router";
 import { betterAuthHandler } from "./utils/betterAuth";
 
@@ -46,6 +47,7 @@ app.use('/api/workspace',workspaceRouter)
 app.use('/api/projects', projectsRouter)
 app.use('/api/teams', teamsRouter)
 app.use('/api/reports', reportsRouter)
+app.use('/api/internal', internalRouter)
 // Health check
 app.get("/health", (req, res) => {
     console.log("Working Fine ....")

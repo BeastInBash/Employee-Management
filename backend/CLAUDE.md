@@ -30,7 +30,9 @@ end of day; the system marks them present / partial / absent automatically (see
 - **zod** for request validation.
 - **Resend** for transactional email (`utils/email.ts`), branded **WorkZen** and sent
   from `EMAIL_FROM` (a verified Resend domain, `no-reply@workzen.besaif.in`). See "Email".
-- **node-cron** for two scheduled jobs (EOD attendance + keep-alive ping).
+- **node-cron** for the EOD attendance job on always-on hosts (skipped when `VERCEL` is set;
+  on Vercel, **Vercel Cron** calls `GET /api/internal/cron/eod` instead) and a keep-alive
+  ping (disabled).
 - Deployed on **Vercel** (`vercel.json`, `@vercel/node`). Prod URL pinged by the
   keep-alive cron: `https://todo-app-fz58.onrender.com` (also references Render).
 
@@ -73,6 +75,7 @@ src/
     teams.router.ts        # /api/teams     (authenticate + handleError)
     reports.router.ts      # /api/reports   (authenticate + handleError)
     google.router.ts       # /api/auth/providers, /api/auth/google, /api/auth/google/complete
+    internal.router.ts     # /api/internal/cron/eod — scheduler-only, Bearer CRON_SECRET
   controllers/
     auth.controller.ts        # login, signup, changePassword, forgot/resetPassword
     members.controller.ts     # createMember, getMembers, getMember, deleteMember
@@ -387,7 +390,9 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
   `createTask` via `toTaskWindow` + `isWithinTaskWindow`. A blocked request returns
   **403** with the message *and* the serialized `taskWindow` so the client can correct a
   stale copy. Admin-created tasks are never constrained. Submitting creates/keeps a
-  `DailyAttendance` row (default `absent`, `taskSubmittedAt` set).
+  `DailyAttendance` row as **`partial`** (planned, not finished yet — what the day settles to
+  if it stays that way) with `taskSubmittedAt` set. The cron's remaining unique job is the
+  **absent** row for members who planned nothing (there's no event to react to).
   `isWithinTaskSubmissionWindow()` (the old fixed 9–11 AM helper) survives only for the
   legacy `submissionWindowOpen` field on the admin "today" overview.
 - **Completion → present:** when a member completes a task (`PATCH` status→`completed`),
@@ -398,9 +403,19 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
   the IST day. Tasks created 00:00–05:30 IST count toward the previous day. The cron also
   writes an `absent` row for every member on weekends, which is why reports default to
   `excludeWeekends`.
-- **EOD finalization (cron):** `attendancecron.ts` runs at **3:30 PM UTC = 9:00 PM IST**.
-  For each member: no tasks today → `absent`; some-but-not-all complete → `partial`;
-  all complete → `present`. Already-`present` rows are skipped.
+- **EOD finalization (cron):** `processEODAttendance()` in `attendancecron.ts`, at
+  **3:30 PM UTC = 9:00 PM IST**. For each member: no tasks today → `absent`;
+  some-but-not-all complete → `partial`; all complete → `present`. Already-`present` rows are
+  skipped, so a re-run is safe. It reads members, today's tasks and today's rows in three
+  queries and writes upserts in transactions of 100, then returns a summary
+  (`{ date, members, present, partial, absent, alreadyPresent }`) and **throws on failure**.
+  - **Who triggers it:** on **Vercel** (production — `.env.prod`'s `BACKEND_URL`), serverless
+    functions aren't running at 9 PM, so `vercel.json` `crons` calls
+    `GET /api/internal/cron/eod`; Vercel sends `Authorization: Bearer $CRON_SECRET`. On an
+    always-on host (Render, local) `startAttendanceCronJobs()` schedules it with node-cron.
+    `POST` to the same path (same header) re-runs a day by hand. No `CRON_SECRET` → 503.
+  - Vercel **Hobby** runs cron jobs at most once a day and only *within the scheduled
+    hour* (so 9:00–9:59 PM IST); Pro runs them on the minute.
 - "Today" is computed as UTC-midnight of the current IST calendar day
   (`getTodayISTDate`) so it lines up with Prisma's `@db.Date`.
 
@@ -450,6 +465,10 @@ Google sign-in (optional — the button hides itself when unset):
 - `BETTER_AUTH_SECRET` — signs Better Auth cookies; falls back to `JWT_SECRET` if unset.
   Set a separate one in production.
 - `CLIENT_URL` (above) is also where Google sign-in lands and is Better Auth's trusted origin.
+
+Scheduling: `CRON_SECRET` — **required in production** for end-of-day attendance; set it
+in the Vercel project's environment (Vercel Cron sends it automatically) or send it as
+`Authorization: Bearer …` from any other scheduler.
 
 Optional: `PORT` (defaults **3000** in `index.ts`, but `config.ts` exports **3001** —
 inconsistent), `JWT_EXPIRES_IN` (default `"7d"`, though `generateToken` hardcodes `"7d"`

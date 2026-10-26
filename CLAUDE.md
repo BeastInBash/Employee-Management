@@ -136,8 +136,10 @@ client to a new domain, add it there or requests will be blocked.
 
 ## Deployment
 
-Both packages deploy to **Vercel** (each has its own `vercel.json`). The backend also has
-Render/keep-alive references (a cron pings the prod URL to stay warm) — see
+Both packages deploy to **Vercel** (each has its own `vercel.json`). The backend's
+end-of-day attendance runs from **Vercel Cron** (`crons` in `backend/vercel.json` →
+`GET /api/internal/cron/eod`, guarded by the `CRON_SECRET` env var, which must be set on the
+Vercel project). The backend also has Render/keep-alive references — see
 `backend/CLAUDE.md`. The client `vercel.json` rewrites all paths to `/index.html` for SPA
 routing.
 
