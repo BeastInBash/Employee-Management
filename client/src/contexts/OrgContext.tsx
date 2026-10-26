@@ -105,15 +105,19 @@ const normalizeTaskWindow = (source: TaskWindowSource): TaskWindow => {
   };
 };
 
+// An org as GET /org/getMyOrgs sends it: dates as strings, the task window as raw columns.
+type RawWorkspace = { id: string; name: string; orgId: string; createdAt: string } & NonNullable<TaskWindowSource>;
+type RawOrg = { id: string; name: string; ownerId: string; createdAt: string; workspaces?: RawWorkspace[] };
+
 // Normalizes the API org shape into our typed model (Date coercion + safe defaults).
-const normalizeOrg = (o: any): Organization => ({
+const normalizeOrg = (o: RawOrg): Organization => ({
   id: o.id,
   name: o.name,
   ownerId: o.ownerId,
   createdAt: new Date(o.createdAt),
   workspaces: Array.isArray(o.workspaces)
     ? o.workspaces.map(
-        (w: any): Workspace => ({
+        (w: RawWorkspace): Workspace => ({
           id: w.id,
           name: w.name,
           orgId: w.orgId,
@@ -173,7 +177,6 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (user) fetchOrgs();
     else setOrganizations([]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Keep the active org valid: fall back to the first org when the stored id is
@@ -194,7 +197,7 @@ export const OrgProvider = ({ children }: { children: ReactNode }) => {
     [organizations, activeOrgId]
   );
 
-  const workspaces = activeOrg?.workspaces ?? [];
+  const workspaces = useMemo(() => activeOrg?.workspaces ?? [], [activeOrg]);
 
   // Keep the active workspace valid within the active org.
   useEffect(() => {

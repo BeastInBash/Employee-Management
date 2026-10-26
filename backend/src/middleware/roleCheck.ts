@@ -68,6 +68,7 @@ export async function canManageTask(
 
     next();
   } catch (error) {
+    console.error("canManageTask failed:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 }
@@ -115,6 +116,7 @@ export async function canViewMemberTasks(
 
     next();
   } catch (error) {
+    console.error("canViewMemberTasks failed:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 }

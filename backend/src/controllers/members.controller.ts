@@ -134,7 +134,7 @@ export async function createMember(req: Request, res: Response): Promise<void> {
                   ? `Member added. We emailed ${email} a link to choose their password.`
                   : `Member added, but the invite email couldn't be sent. Ask them to use "Forgot password" on the sign-in page.`,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Create member error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });

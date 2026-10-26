@@ -85,7 +85,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
       if (response.ok) {
         const data = await response.json();
         setMembers(
-          data && data?.members?.map((m: any) => ({
+          data && data?.members?.map((m: Omit<Member, "createdAt"> & { createdAt: string }): Member => ({
             ...m,
             createdAt: new Date(m.createdAt),
           }))

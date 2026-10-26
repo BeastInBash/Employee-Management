@@ -9,7 +9,7 @@ const createOrgSchema = z.object({ name: z.string().trim().min(2, "Name is Requi
 export const createOrganization = async (req: Request, res: Response) => {
     // Create Organization for the current loggedin user and make it owner
     const { name } = createOrgSchema.parse(req.body)
-    const { userId } = req?.user!
+    const { userId } = req.user! // set by `authenticate` on this router
     const result = await prisma.$transaction(async (tx) => {
         const organization = await tx.organization.create({
             data: {

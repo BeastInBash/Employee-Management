@@ -12,12 +12,15 @@
     "start": "bun run build && node ./dist/index.js",
     "test": "jest --runInBand",
     "test:watch": "jest --watch",
-    "postinstall": "bunx prisma generate"
+    "postinstall": "bunx prisma generate",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit -p ."
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/bcrypt": "^6.0.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
@@ -25,6 +28,8 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.9.1",
     "@types/supertest": "^6.0.3",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
     "jest": "^29.7.0",
     "jest-mock-extended": "^3.0.7",
     "nodemon": "^3.1.10",
@@ -32,7 +37,8 @@
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
     "tsx": "^4.22.4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.0"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",

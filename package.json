@@ -1,0 +1,19 @@
+{
+  "name": "workzen-tooling",
+  "private": true,
+  "description": "Repo-wide git hooks and formatting. Not a workspace: client/ and backend/ keep their own dependencies.",
+  "scripts": {
+    "prepare": "husky",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "bun run --cwd client lint && bun run --cwd backend lint",
+    "typecheck": "bun run --cwd client typecheck && bun run --cwd backend typecheck",
+    "build": "bun run --cwd client build && bun run --cwd backend build",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run build"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "prettier": "^3.9.10"
+  }
+}

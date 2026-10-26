@@ -10,6 +10,7 @@ import {
 } from "../validation/authValidation";
 import { hashPassword, comparePassword, DEFAULT_PASSWORD } from "../utils/password";
 import { generateToken } from "../utils/jwt";
+import type { UserPayload } from "../config";
 import { sendPasswordResetEmail, sendPasswordSetupEmail, sendVerificationEmail } from "../utils/email";
 import { hashToken, issueVerificationToken, verificationCooldownLeft } from "../utils/verification";
 import { INVITE_TOKEN_TTL_MS, RESET_TOKEN_TTL_MS, issuePasswordToken, sentRecently } from "../utils/passwordToken";
@@ -29,7 +30,8 @@ export function setAuthCookie(res: Response, token: string): void {
 declare global {
     namespace Express {
         interface Request {
-            user?: any;
+            /** The verified JWT payload, set by `authenticate`. */
+            user?: UserPayload;
         }
     }
 }
@@ -97,7 +99,7 @@ export async function login(req: Request, res: Response): Promise<void> {
             user: userWithoutPassword,
             requiresPasswordChange: user.isPasswordReset,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Login error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
@@ -150,7 +152,7 @@ export async function signup(req: Request, res: Response): Promise<void> {
             user: userWithoutPassword,
             verificationSent,
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Signup error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
@@ -216,7 +218,7 @@ export async function changePassword(
         });
 
         res.json({ message: "Password changed successfully" });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Change password error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
@@ -255,7 +257,7 @@ export async function forgotPassword(
             message:
                 "If an account exists for that email, a password reset link has been sent.",
         });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Forgot password error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
@@ -304,7 +306,7 @@ export async function resetPassword(
         });
 
         res.json({ message: "Password reset successfully" });
-    } catch (error: any) {
+    } catch (error) {
         console.error("Reset password error:", error);
         if (error instanceof ZodError) {
             res.status(400).json({ message: "Invalid input", errors: error.issues });
@@ -316,6 +318,10 @@ export async function resetPassword(
 
 /** GET /api/auth/me — the signed-in user (used after Google sign-in to load the profile). */
 export async function getMe(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+        res.status(401).json({ message: "Authentication required" });
+        return;
+    }
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.userId },
@@ -378,6 +384,10 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
 
 /** POST /api/auth/resend-verification (auth) — at most one email a minute. */
 export async function resendVerification(req: Request, res: Response): Promise<void> {
+    if (!req.user) {
+        res.status(401).json({ message: "Authentication required" });
+        return;
+    }
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user.userId },

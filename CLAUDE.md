@@ -36,6 +36,8 @@ todo-app/
 
 It is **not** a workspace-managed monorepo — the two packages are independent Bun
 projects with their own dependencies, build, and deploy. Install and run each separately.
+The root `package.json` holds **repo tooling only** (Husky, lint-staged, Prettier) — no
+workspaces, no app code; run `bun install` at the root once so the git hooks install.
 
 > **Both packages use Bun** (`bun.lock` in each; there is no `package-lock.json`). Don't
 > introduce npm/yarn lockfiles. CI (`.github/workflows/lint.yml`) runs `bun install` +
@@ -65,7 +67,34 @@ cd backend && bunx jest -t "task window"         # by test name
 
 # Client checks (no client test suite)
 cd client && bun run lint && bun run build
+
+# Everything CI checks, from the root
+bun run check            # format:check + lint + typecheck + build, both packages
+bun run format           # Prettier, whole repo
 ```
+
+**Git hooks (Husky, installed by `bun install` at the root):**
+- **pre-commit** — `lint-staged` runs on staged files only, using the closest config
+  (`client/.lintstagedrc.mjs`, `backend/.lintstagedrc.mjs`, root `.lintstagedrc.mjs`):
+  `eslint --fix --max-warnings=0` + `prettier --write` on TS, then a whole-package
+  type-check (`tsc -b` / `tsc --noEmit`) once per package touched.
+- **pre-push** — builds whichever package changed since the upstream (both when there's
+  no upstream). Skip a hook once with `--no-verify`, sparingly.
+- **CI** (`.github/workflows/lint.yml`) runs format check, lint (zero warnings), build for
+  both packages and backend tests on every PR; tests are non-blocking until the ~13
+  known failures are fixed.
+
+**Formatting:** Prettier from the root `.prettierrc.json` — 120 columns, double quotes,
+semicolons, trailing commas; 2-space indent, **4-space in `backend/src`**. Markdown is
+excluded (`.prettierignore`). The one-time whole-repo format commit is listed in
+`.git-blame-ignore-revs`; run `git config blame.ignoreRevsFile .git-blame-ignore-revs`
+once so local `git blame` skips it (GitHub does automatically).
+
+**Lint:** both packages have ESLint flat configs with zero errors and warnings — keep it
+that way (the hooks and CI enforce it). Client: `react-refresh/only-export-components` is
+off for `components/ui`, `contexts` and `theme-provider` (they pair components/providers
+with variants/hooks on purpose). Backend: `no-explicit-any` is off only in `tests/`;
+unused vars allow rest-sibling omission and `_`-prefixed names.
 
 ## The frontend ↔ backend contract
 
