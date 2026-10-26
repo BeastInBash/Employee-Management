@@ -177,7 +177,7 @@ const Dashboard = () => {
                     title="No members yet"
                     body={
                         isAdmin
-                            ? "Add your first teammate. They'll get an email with a temporary password, or can sign in with Google."
+                            ? "Add your first teammate. They'll get an email with a link to choose their password, or can sign in with Google."
                             : "There's no one to show here yet."
                     }
                     action={
@@ -397,8 +397,8 @@ const AddMemberDialog = ({
                     <DialogHeader>
                         <DialogTitle>Add a member</DialogTitle>
                         <DialogDescription>
-                            We'll email them a temporary password (123456) to change on first sign-in. They can also sign in with
-                            Google using this email.
+                            We'll email them a link to choose their own password. They can also sign in with Google using this
+                            email.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">

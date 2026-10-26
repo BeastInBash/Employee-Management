@@ -9,17 +9,25 @@ import {
   ADMIN,
   MEMBER,
 } from "./helpers";
-import { sendMemberCredentials } from "../src/utils/email";
+import { sendMemberInvite } from "../src/utils/email";
 
 const app = createTestApp();
-const credsMock = sendMemberCredentials as jest.Mock;
+const inviteMock = sendMemberInvite as jest.Mock;
+
+const WORKSPACE_ID = "3f0b1c2d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 
 describe("POST /api/members", () => {
   const validBody = {
     name: "New Person",
     email: "new@example.com",
     role: "Designer",
+    workspaceId: WORKSPACE_ID,
   };
+
+  // The admin owns the org the workspace belongs to.
+  const ownWorkspace = () =>
+    prismaMock.workspace.findUnique.mockResolvedValue({ id: WORKSPACE_ID, org: { id: "org-1", ownerId: ADMIN.userId } } as any);
+  beforeEach(ownWorkspace);
 
   it("rejects unauthenticated requests", async () => {
     const res = await request(app).post("/api/members").send(validBody);
@@ -36,7 +44,7 @@ describe("POST /api/members", () => {
     expect(res.body.message).toBe("Admin access required");
   });
 
-  it("creates a brand-new member, hashes default pw, and emails credentials", async () => {
+  it("creates a brand-new member with no password and emails an invite link", async () => {
     prismaMock.user.findUnique
       .mockResolvedValueOnce(null) // existingUser lookup
       .mockResolvedValueOnce({ name: "Admin", email: ADMIN.email } as any); // admin lookup
@@ -53,18 +61,42 @@ describe("POST /api/members", () => {
       .send(validBody);
 
     expect(res.status).toBe(201);
-    expect(res.body.message).toMatch(/credentials were emailed/i);
+    expect(res.body.message).toMatch(/link to choose their password/i);
     expect(res.body.memberData.name).toBe("New Person");
+    // No password at all: there is nothing anyone could guess.
     expect(prismaMock.user.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         email: "new@example.com",
-        password: "hashed:123456",
+        password: null,
         role: UserRole.member,
         isPasswordReset: true,
       }),
-      include: { members: { select: { id: true } } },
+      include: { members: { select: { id: true, workspaceId: true } } },
     });
-    expect(credsMock).toHaveBeenCalledTimes(1);
+    // An invite token is stored hashed, and the raw one goes in the email.
+    const tokenUpdate = prismaMock.user.update.mock.calls[0]![0] as any;
+    expect(tokenUpdate.where).toEqual({ id: "new-user" });
+    expect(tokenUpdate.data.resetToken).toMatch(/^[a-f0-9]{64}$/);
+    expect(inviteMock).toHaveBeenCalledTimes(1);
+    const [to, , rawToken, days] = inviteMock.mock.calls[0]!;
+    expect(to).toBe("new@example.com");
+    expect(rawToken).toMatch(/^[a-f0-9]{64}$/);
+    expect(rawToken).not.toBe(tokenUpdate.data.resetToken);
+    expect(days).toBe(7);
+  });
+
+  it("still adds the member when the invite email can't be sent", async () => {
+    prismaMock.user.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ name: "Admin", email: ADMIN.email } as any);
+    prismaMock.user.create.mockResolvedValue(makeUser({ id: "new-user", email: "new@example.com", name: "New Person" }) as any);
+    prismaMock.member.create.mockResolvedValue(makeMember({ id: "m-new", userId: "new-user" }) as any);
+    inviteMock.mockResolvedValueOnce(false);
+
+    const res = await request(app).post("/api/members").set("Authorization", authHeader(ADMIN)).send(validBody);
+
+    expect(res.status).toBe(201);
+    expect(res.body.message).toMatch(/Forgot password/);
   });
 
   it("reuses an existing member-role user (no new user, no email)", async () => {
@@ -84,7 +116,7 @@ describe("POST /api/members", () => {
     expect(res.status).toBe(201);
     expect(res.body.message).toBe("Member added successfully.");
     expect(prismaMock.user.create).not.toHaveBeenCalled();
-    expect(credsMock).not.toHaveBeenCalled();
+    expect(inviteMock).not.toHaveBeenCalled();
   });
 
   it("rejects adding an admin account as a member with 409", async () => {
@@ -106,7 +138,7 @@ describe("POST /api/members", () => {
   it("rejects when the person is already a member with 409", async () => {
     prismaMock.user.findUnique.mockResolvedValueOnce({
       ...makeUser({ role: UserRole.member }),
-      members: [{ id: "already" }],
+      members: [{ id: "already", workspaceId: WORKSPACE_ID }],
     } as any);
 
     const res = await request(app)
@@ -115,7 +147,7 @@ describe("POST /api/members", () => {
       .send(validBody);
 
     expect(res.status).toBe(409);
-    expect(res.body.message).toBe("This person is already a member");
+    expect(res.body.message).toBe("This person is already a member of this workspace");
   });
 
   it("maps a P2002 unique-constraint race to 409", async () => {

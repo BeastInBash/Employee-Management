@@ -25,7 +25,8 @@ jest.mock("resend", () => ({
 jest.mock("../src/utils/email", () => ({
   __esModule: true,
   clientUrl: (path: string) => `http://localhost:5173${path}`,
-  sendMemberCredentials: jest.fn().mockResolvedValue(true),
+  sendMemberInvite: jest.fn().mockResolvedValue(true),
+  sendPasswordSetupEmail: jest.fn().mockResolvedValue(true),
   sendPasswordResetEmail: jest.fn().mockResolvedValue(true),
   sendVerificationEmail: jest.fn().mockResolvedValue(true),
   sendScopeNotice: jest.fn().mockResolvedValue(true),

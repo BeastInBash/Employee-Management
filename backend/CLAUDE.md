@@ -8,7 +8,7 @@ Guidance for working in this repository (the **backend** of the Task Tracker app
 that the React client (`../client`) talks to. Two roles:
 
 - **Admin** — signs up, creates team members, assigns/views tasks, and reviews attendance.
-- **Member** — created by an admin (emailed a default password `123456`), submits and
+- **Member** — created by an admin (emailed an invite link to choose a password), submits and
   updates their own daily tasks, and views their own attendance.
 
 The core domain idea: **attendance is derived from task activity**. A member submits their
@@ -94,7 +94,8 @@ src/
     pingcron.ts            # every 5 min health ping (keep dyno warm)
   utils/
     jwt.ts                 # generate/verify token (7d expiry)
-    password.ts            # bcrypt hash/compare + DEFAULT_PASSWORD = "123456"
+    password.ts            # bcrypt hash/compare + legacy DEFAULT_PASSWORD (only to refuse it)
+    passwordToken.ts       # one-time set-password tokens for resets and invites (TTLs, cooldown)
     hash.ts                # bcryptjs hash/compare (duplicate of password.ts, unused-ish)
     email.ts               # Resend client, the WorkZen template, every email we send
     verification.ts        # email-verification tokens (hash, TTL, resend cooldown)
@@ -203,12 +204,19 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
   reset token (valid 4 days, `RESET_TOKEN_TTL_MS`) and emails a reset link. Always returns a generic 200 (no user
   enumeration).
 - `POST /reset-password` — resets pw via `token` + newPassword. The raw token from the
-  email is SHA-256 hashed and matched against the stored hash + expiry.
+  email is SHA-256 hashed and matched against the stored hash + expiry. Success also sets
+  `emailVerified` (the link only reached that inbox). The same endpoint takes invite tokens.
+- `POST /login` refuses the legacy shared password `123456` for any account that never
+  chose its own (`isPasswordReset`): 403 `{ code: "password_setup_required" }` plus a
+  set-password email. An invited member with no password yet gets a 401 pointing at their
+  invite.
 
 **`/api/members`** (all `authenticate`)
 - `POST /` *(admin)* — create member; body now **requires `workspaceId`** (the controller
   verifies the workspace exists and the admin owns / is owner-admin of its org); creates
-  the User w/ DEFAULT_PASSWORD if new and emails credentials; sets `isPasswordReset: true`.
+  the User **with no password** if new (`isPasswordReset: true` = hasn't chosen one yet),
+  stores a 7-day invite token and emails `sendMemberInvite`. Re-adding an existing user to
+  another workspace sends nothing.
   The "already a member" check is **per workspace** (a user can be a member of several).
 - `GET /` — admin: members they created; member: their own member row(s)
 - `GET /:memberId` *(admin)* — single member by Member id
@@ -311,7 +319,8 @@ they log and return `false` — so an email outage can't fail the request that t
 
 | Trigger | Function | Notes |
 |---|---|---|
-| Admin creates a new member | `sendMemberCredentials` | temp password + a "Confirm email and sign in" link (verification included); `Reply-To` = the admin |
+| Admin creates a new member | `sendMemberInvite` | a "Choose your password" link (7 days; using it also verifies the email); `Reply-To` = the admin |
+| Login with the legacy `123456` | `sendPasswordSetupEmail` | the same kind of link; at most one a minute per account |
 | Sign-up | `sendVerificationEmail` | soft verification — the account works immediately |
 | Resend from the app banner | `sendVerificationEmail` | max one a minute |
 | Forgot password | `sendPasswordResetEmail` | states the real link lifetime |
@@ -346,7 +355,7 @@ Better Auth only runs the OAuth handshake; the app's own JWT stays the session.
 - **Matching** (`utils/googleAuth.ts`) — by the Google-verified email (unverified Google
   emails are refused). Unknown email → new **admin** with no password. Existing account
   whose `emailVerified` is still false → mark verified and **null the password** (kills
-  the default `123456`, and stops anyone who pre-registered someone else's address from
+  any legacy default password, and stops anyone who pre-registered someone else's address from
   keeping a password into it). Better Auth's own implicit account linking isn't used
   because it requires `emailVerified` on the local row, which legacy users don't have.
 - **Mounting** — `app.all("/api/better-auth/*splat", betterAuthHandler)` must stay
@@ -406,8 +415,9 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
 - The **login cookie `maxAge` is 7d** (`auth.controller.ts`), matching the JWT lifetime —
   they were previously mismatched (cookie 4d), which expired the session early. The client
   authenticates via the localStorage Bearer token anyway, but keep the two in sync.
-- Passwords hashed with bcrypt, **cost 10**. New members get `DEFAULT_PASSWORD`
-  (`"123456"`) and `isPasswordReset: true`; the client should force a change.
+- Passwords hashed with bcrypt, **cost 10**. **No account is ever created with a known
+  password**: new members get none and choose one from their invite link. Don't
+  reintroduce a default password; `DEFAULT_PASSWORD` exists only so login can refuse it.
 - Project/team access lives in `utils/access.ts` (`getProjectAccess` / `getTeamAccess` →
   `admin | lead | member | null`, `canManage()`), keyed off Member seats in the resource's
   workspace — not off `User.role`. Use it for new scoped routes instead of ad-hoc checks.

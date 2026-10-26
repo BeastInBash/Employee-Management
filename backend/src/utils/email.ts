@@ -128,40 +128,51 @@ async function send(to: string, subject: string, content: EmailContent, replyTo?
 // ─── account emails ─────────────────────────────────────────────────────────
 
 /**
- * A new member's sign-in details. When a verification token is given, the
- * button both confirms the address and leads to sign-in, so new members get
- * one email instead of two.
+ * A new member's invite. There is no password to send: the button opens a
+ * one-time link where they choose their own (which also confirms the address).
  */
-export function sendMemberCredentials(
+export function sendMemberInvite(
     email: string,
     name: string,
-    password: string,
+    inviteToken: string,
+    validForDays: number,
     adminEmail: string,
-    adminName?: string,
-    verificationToken?: string
+    adminName?: string
 ): Promise<boolean> {
     const inviter = adminName ?? "Your admin";
     return send(
         email,
         `${inviter} added you to ${BRAND}`,
         {
-            preview: `Your ${BRAND} sign-in details are inside.`,
+            preview: `Choose a password to get started with ${BRAND}.`,
             heading: `Welcome to ${BRAND}, ${name.split(" ")[0]}`,
             paragraphs: [
                 `${inviter} added you to their team on ${BRAND}, where you'll plan your day as tasks and track your work.`,
-                "Sign in with the details below and choose a new password straight away. You can also sign in with Google using this email address.",
+                "Choose a password to get started. You can also sign in with Google using this email address.",
             ],
-            details: [
-                ["Email", email],
-                ["Password", password],
-            ],
-            button: verificationToken
-                ? { label: "Confirm email and sign in", url: clientUrl(`/verify-email?token=${verificationToken}&next=login`) }
-                : { label: "Sign in", url: clientUrl("/login") },
-            footnote: `Questions? Reply to this email to reach ${inviter}.`,
+            details: [["Email", email]],
+            button: { label: "Choose your password", url: clientUrl(`/reset-password?token=${inviteToken}&welcome=1`) },
+            footnote: `This link works for ${validForDays} days. If it runs out, use "Forgot password" on the sign-in page to get a new one. Questions? Reply to this email to reach ${inviter}.`,
         },
         adminEmail
     );
+}
+
+/**
+ * Sent when someone signs in with the old shared temporary password: it no
+ * longer works, so the account's owner gets a link to choose their own.
+ */
+export function sendPasswordSetupEmail(email: string, name: string, token: string, validForDays: number): Promise<boolean> {
+    return send(email, `Choose your ${BRAND} password`, {
+        preview: "Temporary passwords no longer work. Choose your own in one step.",
+        heading: "Choose your password",
+        paragraphs: [
+            `Hi ${name.split(" ")[0]}, someone just tried to sign in to your ${BRAND} account with the temporary password you were given when you were added.`,
+            "For your security, temporary passwords no longer work. Use the button below to choose your own.",
+        ],
+        button: { label: "Choose your password", url: clientUrl(`/reset-password?token=${token}&welcome=1`) },
+        footnote: `This link works for ${validForDays} days. If this wasn't you, you can still use it: it only works from this inbox.`,
+    });
 }
 
 export function sendVerificationEmail(email: string, name: string, token: string): Promise<boolean> {
