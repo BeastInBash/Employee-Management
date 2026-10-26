@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTasks } from "@/contexts/TaskContext";
 import type { Task } from "@/contexts/TaskContext";
+import { useLiveTasks } from "@/hooks/use-live-tasks";
 import { useProjects } from "@/contexts/ProjectContext";
 import { PageHeader } from "@/components/layout/Page";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
@@ -29,10 +30,11 @@ const WEEK_MS = 7 * 86_400_000;
 const Home = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { getTasks, addTask, updateTask, taskWindow, refreshTaskWindow } = useTasks();
+    const { addTask, updateTask, taskWindow, refreshTaskWindow } = useTasks();
     const { projects } = useProjects();
 
-    const [tasks, setTasks] = useState<Task[] | null>(null);
+    // Stays current on its own: tasks an admin or lead assigns show up without a refresh.
+    const { tasks, setTasks } = useLiveTasks(user?.id);
     const [report, setReport] = useState<Report | null>(null);
     const [reportFailed, setReportFailed] = useState(false);
     const [pending, setPending] = useState<Set<string>>(new Set());
@@ -47,9 +49,6 @@ const Home = () => {
 
     useEffect(() => {
         if (!user) return;
-        getTasks(user.id)
-            .then((result) => setTasks(result || []))
-            .catch(() => setTasks([]));
         // Eight full weeks for the weekly chart; this month and the last 30 days fall inside it.
         fetchReport({ scope: "me", from: shiftDays(monday, -49), to: today, excludeWeekends: true })
             .then(setReport)
@@ -98,7 +97,7 @@ const Home = () => {
     const toggle = async (task: Task) => {
         setPending((p) => new Set(p).add(task.id));
         const updated = await updateTask(task.id, { status: task.status === "completed" ? "todo" : "completed" });
-        if (updated) setTasks((prev) => (prev ?? []).map((t) => (t.id === task.id ? updated : t)));
+        if (updated) setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
         setPending((p) => {
             const next = new Set(p);
             next.delete(task.id);
@@ -275,7 +274,7 @@ const Home = () => {
                 description={taskWindow?.enabled ? `Submissions for your workspace are open ${taskWindow.label}.` : undefined}
                 onSubmit={async (values) => {
                     const created = await addTask({ ...values, memberId: user.id });
-                    if (created) setTasks((prev) => [...(prev ?? []), created]);
+                    if (created) setTasks((prev) => [...prev, created]);
                     return !!created;
                 }}
             />

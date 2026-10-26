@@ -5,6 +5,7 @@ import { toast } from "@/components/ui/sonner";
 const API_BASE_URL = import.meta.env.VITE_API_URL; 
 
 import { useAuth } from "./AuthContext";
+import { parseTask } from "@/lib/tasks";
 
 
 const getAuthToken = () => localStorage.getItem("authToken");
@@ -265,18 +266,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       
       const  data = await res.json();
 
-      const parsed: Task[] = (data.tasks || []).map((d: any) => ({
-        id: String(d.id),
-        title: d.title,
-        description: d.description,
-        status: d.status,
-        priority: d.priority,
-        dueDate: d.dueDate ? new Date(d.dueDate) : new Date(),
-        memberId: d.memberId || d.member_id || "",
-        createdAt: d.createdAt ? new Date(d.createdAt) : new Date(),
-        completedAt: d.completedAt ? new Date(d.completedAt) : null,
-        project: d.project ?? null,
-      }));
+      const parsed: Task[] = (data.tasks || []).map(parseTask);
 
       setTasks(parsed);
       return parsed;

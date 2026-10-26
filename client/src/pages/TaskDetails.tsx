@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTasks } from "@/contexts/TaskContext";
 import type { Task } from "@/contexts/TaskContext";
+import { useLiveTasks } from "@/hooks/use-live-tasks";
 import { PageHeader } from "@/components/layout/Page";
 import { TaskBoard } from "@/components/tasks/TaskBoard";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
@@ -17,23 +18,17 @@ const TaskDetails = () => {
     const { memberId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { getTasks, addTask, updateTask, taskWindow, refreshTaskWindow } = useTasks();
+    const { addTask, updateTask, taskWindow, refreshTaskWindow } = useTasks();
 
-    const [tasks, setTasks] = useState<Task[]>([]);
+    // Stays current on its own: tasks an admin or lead assigns show up without a refresh.
+    const { tasks: liveTasks, setTasks } = useLiveTasks(memberId);
+    const tasks = liveTasks ?? [];
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editing, setEditing] = useState<Task | null>(null);
 
     useEffect(() => {
         if (user && user.role !== "member") navigate("/dashboard", { replace: true });
     }, [user, navigate]);
-
-    useEffect(() => {
-        if (!memberId) return;
-        getTasks(memberId)
-            .then((result) => setTasks(result || []))
-            .catch(() => setTasks([]));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [memberId]);
 
     if (!user) return null;
 
