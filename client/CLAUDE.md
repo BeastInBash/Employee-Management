@@ -102,7 +102,8 @@ src/
     theme-provider.tsx      # ThemeProvider, useTheme, ThemeToggle
     ui/                     # shadcn components
   hooks/                    # use-workspace-people.ts loads Member seats for pickers
-  lib/                      # utils.ts (cn), api.ts (fetch helper), projectMeta.ts (labels/colours/dates,
+  lib/                      # utils.ts (cn), api.ts (fetch helper), tasks.ts (parseTask: API row → Task),
+                            #   projectMeta.ts (labels/colours/dates,
                             #   greeting), reports.ts (report types, IST date keys/presets, CSV
                             #   export), home.ts (per-person attendance maths), motion.ts (shared
                             #   ease + grid stagger variants)
@@ -306,6 +307,14 @@ you back in the app instead of on the marketing/login page.
   blocking refetch is slow). Always show a per-action loading spinner (`Loader2`) and
   disable the button while a request is in flight; for `AlertDialog` actions, call
   `e.preventDefault()` so the dialog stays open until the request resolves.
+- **A member's own task lists stay current without a refresh.** Home and "My tasks" load
+  through `hooks/use-live-tasks.ts`: it refetches when the member returns to the tab or
+  window (or comes back online) and once a minute while the tab is visible, and toasts
+  tasks that appeared from elsewhere ("New task on your list: …"). Its `setTasks` is for
+  the page's own optimistic updates, and what it sets counts as seen, so the member's own
+  additions are never announced. Background checks fail silently. This is polling, not
+  push: Vercel functions can't hold connections open, so true real-time would need a
+  service like Pusher/Ably. Admin and project boards don't poll yet.
 - **Task status is editable inline.** On `components/tasks/TaskBoard` the status pill is a
   `DropdownMenu` (when `canManage`) — picking a status calls `updateTask({ status })`.
   `MemberDetail` (admin) and `TaskDetails` (member) both use it.
