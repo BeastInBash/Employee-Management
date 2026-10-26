@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { usePersistentState } from "@/hooks/use-persistent-state";
+import { Reveal } from "@/components/layout/Reveal";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 const getAuthToken = () => localStorage.getItem("authToken");
@@ -192,7 +193,7 @@ export const AdminAttendancePanel = () => {
               <Skeleton className="h-64 rounded-xl" />
             </div>
           ) : today && counts ? (
-            <>
+            <Reveal className="space-y-6">
               <section className="rounded-xl border border-border/80 bg-card p-5 sm:p-6">
                 <div className="flex flex-wrap items-end justify-between gap-4">
                   <div>
@@ -273,7 +274,7 @@ export const AdminAttendancePanel = () => {
                   ))}
                 </ul>
               )}
-            </>
+            </Reveal>
           ) : null}
         </TabsContent>
 
@@ -324,20 +325,23 @@ export const AdminAttendancePanel = () => {
                 body="Add members on the Members page to see their month."
               />
             ) : (
-              <div className={cn("space-y-6 transition-opacity", reportLoading && "opacity-50")}>
-                <TeamSummary report={report.report} />
-                <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
-                  {report.report.map((r) => (
-                    <MemberMonthRow
-                      key={r.member.id}
-                      report={r}
-                      month={month}
-                      year={year}
-                      onOpen={() => openMember(r.member.id)}
-                    />
-                  ))}
-                </ul>
-              </div>
+              // Settles in when the month first loads; dims (not blanks) while another month loads.
+              <Reveal key={`${year}-${month}`}>
+                <div className={cn("space-y-6 transition-opacity duration-200", reportLoading && "opacity-50")}>
+                  <TeamSummary report={report.report} />
+                  <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
+                    {report.report.map((r) => (
+                      <MemberMonthRow
+                        key={r.member.id}
+                        report={r}
+                        month={month}
+                        year={year}
+                        onOpen={() => openMember(r.member.id)}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              </Reveal>
             )
           ) : null}
         </TabsContent>

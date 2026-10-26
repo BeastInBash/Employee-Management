@@ -293,7 +293,14 @@ you back in the app instead of on the marketing/login page.
   (`border-border/80`) instead of drop shadows; soft layered shadows only on overlays.
 - **Motion (framer-motion, wrapped in `MotionConfig reducedMotion="user"`):** keep it
   purposeful. The signature moment is the sidebar's sliding active pill (`layoutId=
-  "nav-active"`). Pages fade-and-lift 6px on route change (AppShell). Task cards glide
+  "nav-active"`). Pages **crossfade** on route change (AppShell, `AnimatePresence
+  mode="popLayout"`: in 280 ms with an 8px lift, out 140 ms). The `Suspense` boundary sits
+  *above* that transition and React Router 7 runs navigations as transitions, so the current
+  page stays visible while the next page's code loads, then the two crossfade (don't switch
+  back to `mode="wait"`: it renders the new page only after the exit, outside the
+  transition, which leaves a blank gap). Content that replaces a skeleton is wrapped in
+  `components/layout/Reveal` (fade + 4px lift, mount only; key it when it should replay,
+  e.g. per month), and tab panels fade in (`ui/tabs.tsx`). Task cards glide
   between board columns when their status changes (`layoutId={task.id}`). Expand/collapse
   uses height+opacity. Grids may stagger in once (≤40ms). Buttons press to `scale(0.97)`
   via `index.css`. Use the `--ease-out` curve (`[0.23, 1, 0.32, 1]`), keep UI motion

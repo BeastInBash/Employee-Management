@@ -305,25 +305,35 @@ export const AppShell = () => {
         </SheetContent>
       </Sheet>
 
-      <main className="mx-auto w-full max-w-[1180px] px-4 py-6 sm:px-8 sm:py-10">
+      <main className="relative mx-auto w-full max-w-[1180px] px-4 py-6 sm:px-8 sm:py-10">
         <VerifyEmailBanner />
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={pageKey}
-            initial={{ opacity: 0, transform: "translateY(6px)" }}
-            animate={{
-              opacity: 1,
-              transform: "translateY(0px)",
-              transition: { duration: 0.22, ease: [0.23, 1, 0.32, 1] },
-            }}
-            exit={{ opacity: 0, transition: { duration: 0.1, ease: "easeOut" } }}
-          >
-            {/* A page whose code hasn't arrived yet waits here, inside the shell. */}
-            <Suspense fallback={<PageFallback />}>
+        {/* The boundary sits above the transition on purpose. Navigations run as
+            React transitions (React Router 7), so while the next page's code loads
+            the current page stays fully on screen; once it's ready the two
+            crossfade. "popLayout" renders the new page in that same navigation
+            (with "wait" it rendered only after the exit, outside the transition,
+            leaving a blank gap) and lifts the leaving page out of the flow so the
+            two don't stack. PageFallback only shows on a cold first load. */}
+        <Suspense fallback={<PageFallback />}>
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.div
+              key={pageKey}
+              initial={{ opacity: 0, transform: "translateY(8px)" }}
+              animate={{
+                opacity: 1,
+                transform: "translateY(0px)",
+                transition: { duration: 0.28, ease: [0.23, 1, 0.32, 1] },
+              }}
+              exit={{
+                opacity: 0,
+                transform: "translateY(-4px)",
+                transition: { duration: 0.14, ease: [0.4, 0, 1, 1] },
+              }}
+            >
               <FrozenOutlet />
-            </Suspense>
-          </motion.div>
-        </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>
+        </Suspense>
       </main>
     </div>
   );
