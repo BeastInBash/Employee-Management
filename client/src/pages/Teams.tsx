@@ -102,7 +102,7 @@ const TeamGrid = ({ teams, onOpen }: { teams: TeamSummary[]; onOpen: (id: string
       <button
         key={t.id}
         onClick={() => onOpen(t.id)}
-        className="group flex flex-col rounded-xl border border-border/80 bg-card p-5 text-left transition-[border-color,box-shadow] duration-200 hover:border-primary/30 hover:shadow-[0_8px_24px_-16px_rgb(46_38_20/0.35)] focus-visible:outline-2 focus-visible:outline-ring active:scale-[0.99]"
+        className="group flex flex-col rounded-xl border border-border/80 bg-card p-5 text-left transition-[border-color,box-shadow] duration-200 hover:border-primary/30 hover:shadow-[0_8px_24px_-16px_rgb(78_34_15/0.35)] focus-visible:outline-2 focus-visible:outline-ring active:scale-[0.99]"
       >
         <div className="mb-2 flex items-start justify-between gap-3">
           <span className="flex min-w-0 items-center gap-2.5">

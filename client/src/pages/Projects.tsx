@@ -183,7 +183,7 @@ const ProjectCard = ({ project: p, onOpen }: { project: ProjectSummary; onOpen: 
   return (
     <button
       onClick={onOpen}
-      className="group flex h-full w-full flex-col rounded-xl border border-border/80 bg-card p-5 text-left transition-[border-color,box-shadow] duration-200 hover:border-primary/30 hover:shadow-[0_8px_24px_-16px_rgb(46_38_20/0.35)] focus-visible:outline-2 focus-visible:outline-ring active:scale-[0.99]"
+      className="group flex h-full w-full flex-col rounded-xl border border-border/80 bg-card p-5 text-left transition-[border-color,box-shadow] duration-200 hover:border-primary/30 hover:shadow-[0_8px_24px_-16px_rgb(78_34_15/0.35)] focus-visible:outline-2 focus-visible:outline-ring active:scale-[0.99]"
     >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">

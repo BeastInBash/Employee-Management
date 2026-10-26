@@ -63,16 +63,18 @@ const ChartFrame = ({
   series,
   days,
   children,
+  className,
 }: {
   title: string;
   subtitle: string;
   series: Series[];
   days: ReportDay[];
   children: ReactNode;
+  className?: string;
 }) => {
   const [asTable, setAsTable] = useState(false);
   return (
-    <section className="min-w-0 space-y-3 rounded-xl border border-border/80 bg-card p-5">
+    <section className={cn("min-w-0 space-y-3 rounded-xl border border-border/80 bg-card p-5", className)}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="text-[15px]">{title}</h3>
@@ -143,7 +145,7 @@ const DayTooltip = ({
   if (!active || !payload?.length || !label) return null;
   const values = new Map(payload.map((p) => [p.dataKey, p.value]));
   return (
-    <div className="min-w-36 space-y-1 rounded-lg border border-border/80 bg-popover px-3 py-2 text-xs text-popover-foreground shadow-[0_12px_32px_-12px_rgb(46_38_20/0.25)]">
+    <div className="min-w-36 space-y-1 rounded-lg border border-border/80 bg-popover px-3 py-2 text-xs text-popover-foreground shadow-[0_12px_32px_-12px_rgb(78_34_15/0.25)]">
       <div className="text-muted-foreground">{formatDay(label, true)}</div>
       {series.map((s) => (
         <div key={s.key} className="flex items-center gap-2">
@@ -180,8 +182,8 @@ const THROUGHPUT: Series[] = [
   { key: "created", label: "Created", color: "var(--viz-created)", mark: "line" },
 ];
 
-export const ThroughputChart = ({ days }: { days: ReportDay[] }) => (
-  <ChartFrame title="Task throughput" subtitle="Tasks created and completed per day" series={THROUGHPUT} days={days}>
+export const ThroughputChart = ({ days, className }: { days: ReportDay[]; className?: string }) => (
+  <ChartFrame title="Task throughput" subtitle="Tasks created and completed per day" series={THROUGHPUT} days={days} className={className}>
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={days} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
         <CartesianGrid vertical={false} stroke="var(--border)" />

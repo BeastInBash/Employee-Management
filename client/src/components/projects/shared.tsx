@@ -20,9 +20,9 @@ import type { AttendanceStatus, Person, ProjectStatus, ScopeAccess, ScopeRole } 
 
 const projectStatusStyles: Record<ProjectStatus, { pill: string; dot: string }> = {
   planning: { pill: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/60" },
-  active: { pill: "bg-secondary text-primary", dot: "bg-primary" },
-  on_hold: { pill: "bg-[#f5ead2] text-[#7f5410] dark:bg-[#33291a] dark:text-[#e3b764]", dot: "bg-[#c49a3a]" },
-  completed: { pill: "bg-honey-soft text-honey", dot: "bg-honey" },
+  active: { pill: "bg-honey-soft text-honey", dot: "bg-honey" },
+  on_hold: { pill: "bg-[#e3e8f1] text-[#3e5a86] dark:bg-[#1f2533] dark:text-[#a9bce0]", dot: "bg-[#5a80bd]" },
+  completed: { pill: "bg-sage-soft text-sage", dot: "bg-sage" },
   archived: { pill: "bg-muted text-muted-foreground", dot: "bg-muted-foreground/40" },
 };
 

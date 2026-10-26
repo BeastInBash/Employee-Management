@@ -1,8 +1,8 @@
+import { Feather } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Leaf } from "./Leaf";
 
 const EASE = [0.23, 1, 0.32, 1] as const;
 
@@ -27,8 +27,8 @@ function useCaption() {
 
 const Photo = ({ className }: { className?: string }) => (
   <img
-    src="/images/auth-desk-900.webp"
-    srcSet="/images/auth-desk-900.webp 900w, /images/auth-desk-1600.webp 1600w"
+    src="/images/auth-desk-earth-900.webp"
+    srcSet="/images/auth-desk-earth-900.webp 900w, /images/auth-desk-earth-1600.webp 1600w"
     sizes="(min-width: 1024px) 50vw, 100vw"
     alt=""
     className={className}
@@ -61,15 +61,15 @@ export const AuthLayout = ({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, ease: EASE }}
-        className="relative hidden overflow-hidden bg-[#2b2a22] lg:sticky lg:top-0 lg:block lg:h-screen"
+        className="relative hidden overflow-hidden bg-[rgb(var(--hero-shade))] lg:sticky lg:top-0 lg:block lg:h-screen"
       >
         {/* A slow push-in, like a held camera (disabled for reduced motion in CSS). */}
         <Photo className="absolute inset-0 h-full w-full animate-[kenburns_26s_ease-in-out_infinite_alternate] object-cover motion-reduce:animate-none" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgb(31_28_16/0.45)_0%,rgb(31_28_16/0.05)_30%,rgb(31_28_16/0.15)_55%,rgb(31_28_16/0.88)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgb(var(--hero-shade)/0.45)_0%,rgb(var(--hero-shade)/0.05)_30%,rgb(var(--hero-shade)/0.15)_55%,rgb(var(--hero-shade)/0.88)_100%)]" />
 
         <Link to="/" className="absolute left-10 top-9 flex items-center gap-2 text-lg font-semibold tracking-tight text-white">
-          <Leaf className="h-5 w-5 text-[#e9d9a8]" />
-          Crewly
+          <Feather className="h-5 w-5 text-(--hero-accent)" />
+          Workzen
         </Link>
 
         <div className="absolute inset-x-10 bottom-10">
@@ -122,10 +122,10 @@ export const AuthLayout = ({
         {/* Phones: the photo as a short banner that melts into the page. */}
         <div className="relative h-48 overflow-hidden lg:hidden">
           <Photo className="h-full w-full animate-[kenburns_26s_ease-in-out_infinite_alternate] object-cover object-[50%_62%] motion-reduce:animate-none" />
-          <div className="absolute inset-0 bg-gradient-to-b from-[rgb(31_28_16/0.35)] via-transparent to-background" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[rgb(var(--hero-shade)/0.35)] via-transparent to-background" />
           <Link to="/" className="absolute left-5 top-5 flex items-center gap-2 text-lg font-semibold tracking-tight text-white">
-            <Leaf className="h-5 w-5 text-[#e9d9a8]" />
-            Crewly
+            <Feather className="h-5 w-5 text-(--hero-accent)" />
+            Workzen
           </Link>
         </div>
 

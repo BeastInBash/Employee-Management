@@ -6,7 +6,9 @@ import {
   CalendarCheck,
   Check,
   ChevronsUpDown,
+  Feather,
   FolderKanban,
+  House,
   KeyRound,
   LayoutGrid,
   ListChecks,
@@ -30,7 +32,6 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
-import { Leaf } from "./Leaf";
 import { VerifyEmailBanner } from "./VerifyEmailBanner";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutGrid; match?: (path: string) => boolean };
@@ -40,9 +41,12 @@ function useNavItems(): NavItem[] {
   if (!user) return [];
   const isAdmin = user.role === "admin";
   return [
-    isAdmin
-      ? { to: "/dashboard", label: "Members", icon: LayoutGrid, match: (p) => p === "/dashboard" || p.startsWith("/member/") || p.startsWith("/dashboard/") }
-      : { to: `/todos/${user.id}`, label: "My tasks", icon: ListChecks, match: (p) => p.startsWith("/todos/") },
+    ...(isAdmin
+      ? [{ to: "/dashboard", label: "Members", icon: LayoutGrid, match: (p: string) => p === "/dashboard" || p.startsWith("/member/") || p.startsWith("/dashboard/") }]
+      : [
+          { to: "/home", label: "Home", icon: House, match: (p: string) => p === "/home" },
+          { to: `/todos/${user.id}`, label: "My tasks", icon: ListChecks, match: (p: string) => p.startsWith("/todos/") },
+        ]),
     { to: "/projects", label: "Projects", icon: FolderKanban, match: (p) => p.startsWith("/projects") },
     { to: "/teams", label: "Teams", icon: UsersRound, match: (p) => p.startsWith("/teams") },
     {
@@ -196,8 +200,8 @@ const SidebarBody = ({ onNavigate }: { onNavigate?: () => void }) => {
   return (
     <div className="flex h-full flex-col gap-6 px-3 py-5">
       <div className="flex items-center gap-2 px-2.5">
-        <Leaf className="h-5 w-5 text-sidebar-primary" />
-        <span className="text-[17px] font-semibold tracking-tight text-white">Crewly</span>
+        <Feather className="h-5 w-5 text-sidebar-primary" />
+        <span className="text-[17px] font-semibold tracking-tight text-white">Workzen</span>
       </div>
       {user?.role === "admin" && <WorkspaceSwitcher />}
       <NavList {...(onNavigate && { onNavigate })} />
@@ -249,8 +253,8 @@ export const AppShell = () => {
           <Menu className="h-5 w-5" />
         </button>
         <span className="flex items-center gap-2 font-semibold tracking-tight">
-          <Leaf className="h-4 w-4 text-primary" />
-          Crewly
+          <Feather className="h-4 w-4 text-primary" />
+          Workzen
         </span>
       </header>
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>

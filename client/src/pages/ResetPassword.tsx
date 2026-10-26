@@ -80,7 +80,7 @@ const ResetPassword = () => {
     >
       {success ? (
         <div className="flex items-center gap-3 rounded-xl bg-secondary p-4 text-sm text-secondary-foreground">
-          <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-sage" />
           All set. Sign in with your new password.
         </div>
       ) : (

@@ -74,7 +74,7 @@ const VerifyEmail = () => {
   return (
     <AuthLayout title="Email confirmed" description={`Thanks. ${state.email} is confirmed for your account.`}>
       <div className="mb-5 flex items-center gap-3 rounded-xl bg-secondary p-4 text-sm text-secondary-foreground">
-        <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+        <CheckCircle2 className="h-5 w-5 shrink-0 text-sage" />
         {params.get("next") === "login" && !user
           ? "Now sign in with the password from your welcome email, and choose a new one."
           : "You're all set."}

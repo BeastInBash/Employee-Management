@@ -78,7 +78,16 @@ export const fetchReport = (p: ReportParams) =>
 
 const IST_OFFSET_MS = 330 * 60 * 1000;
 
-export const istToday = () => new Date(Date.now() + IST_OFFSET_MS).toISOString().slice(0, 10);
+/** The IST calendar day (YYYY-MM-DD) a moment falls on. */
+export const istDateKey = (d: Date) => new Date(d.getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
+
+export const istToday = () => istDateKey(new Date());
+
+/** The Monday of the IST week containing a YYYY-MM-DD key. */
+export const mondayOf = (key: string) => {
+  const dow = new Date(`${key}T00:00:00Z`).getUTCDay(); // 0 = Sunday
+  return shiftDays(key, -((dow + 6) % 7));
+};
 
 export const shiftDays = (key: string, days: number) =>
   new Date(Date.parse(`${key}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
