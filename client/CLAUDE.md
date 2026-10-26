@@ -103,6 +103,7 @@ src/
     ui/                     # shadcn components
   hooks/                    # use-workspace-people.ts loads Member seats for pickers
   lib/                      # utils.ts (cn), api.ts (fetch helper), cache.ts (persistent SWR cache),
+                            #   pages.ts + lazy.ts (code-split page registry, preloading),
                             #   tasks.ts (parseTask: API row → Task),
                             #   projectMeta.ts (labels/colours/dates,
                             #   greeting), reports.ts (report types, IST date keys/presets, CSV
@@ -308,6 +309,20 @@ you back in the app instead of on the marketing/login page.
   blocking refetch is slow). Always show a per-action loading spinner (`Loader2`) and
   disable the button while a request is in flight; for `AlertDialog` actions, call
   `e.preventDefault()` so the dialog stays open until the request resolves.
+- **Every page is code-split (`lib/pages.ts`).** Pages are only imported there, through
+  `lazyPage()` (`lib/lazy.ts`), and `App.tsx` renders `pages.X.Component`; a new page goes
+  in that registry, never as a static import (or it lands in the main bundle). Signed-in
+  pages suspend inside AppShell (`PageFallback`, shown after 200 ms; the sidebar stays),
+  public pages on `ScreenFallback`. Sidebar links preload their page on hover/focus/touch
+  (`preloadPath`), and once idle the shell preloads every sidebar page; the landing page
+  preloads Login. Both skip when the visitor saves data. A chunk that fails to load (a tab
+  open across a deploy) triggers one automatic reload per session. Home lazy-loads its two
+  charts so the chart library (~390 KB) never holds up today's list.
+  **Vendor chunks** (`vite.config.ts`): only React and Framer Motion get manual chunks;
+  don't add rules for libraries only some pages use — a manual chunk swallows that
+  library's dependencies, and if one is shared with the shell the whole chunk joins the
+  first download (it happened with recharts). First load: ~570 KB / ~180 KB gzip, down
+  from 1.26 MB / 371 KB.
 - **Data is cached for an instant first paint (stale-while-revalidate).** `lib/cache.ts`
   keeps the last response per key in `localStorage` (prefix `wz-cache:v1:`, entries older
   than 7 days ignored, quota errors degrade to uncached). `hooks/use-persistent-state.ts`

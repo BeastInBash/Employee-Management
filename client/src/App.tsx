@@ -10,28 +10,33 @@ import { ThemeProvider } from "./components/theme-provider";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AppShell } from "./components/layout/AppShell";
 import { MotionConfig } from "framer-motion";
-import Landing from "./pages/Landing";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import MemberDetail from "./pages/MemberDetail";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-// import AdminDashboard from "./pages/AdminDashboard";
-// import Invitations from "./pages/Invitations";
-import NotFound from "./pages/NotFound";
-import TaskDetails from "./pages/TaskDetails";
-import Home from "./pages/Home";
+import { Suspense } from "react";
+import { pages } from "./lib/pages";
+import { ScreenFallback } from "./components/layout/PageFallback";
 import { TaskProvider } from "./contexts/TaskContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
-import Projects from "./pages/Projects";
-import ProjectDetail from "./pages/ProjectDetail";
-import Teams from "./pages/Teams";
-import TeamDetail from "./pages/TeamDetail";
-import Reports from "./pages/Reports";
-import AuthCallback from "./pages/AuthCallback";
-import VerifyEmail from "./pages/VerifyEmail";
-import MemberDashboard from "./pages/MembersDashboard";
-import AdminAttendancePanel from "./pages/AdminPanel";
+
+// Every page is its own chunk (see lib/pages.ts). Public pages wait on the
+// full-screen fallback below; signed-in pages wait inside AppShell, so the
+// sidebar stays on screen.
+const Landing = pages.Landing.Component;
+const Login = pages.Login.Component;
+const ForgotPassword = pages.ForgotPassword.Component;
+const ResetPassword = pages.ResetPassword.Component;
+const AuthCallback = pages.AuthCallback.Component;
+const VerifyEmail = pages.VerifyEmail.Component;
+const NotFound = pages.NotFound.Component;
+const Home = pages.Home.Component;
+const Dashboard = pages.Dashboard.Component;
+const MemberDetail = pages.MemberDetail.Component;
+const TaskDetails = pages.TaskDetails.Component;
+const Attendance = pages.Attendance.Component;
+const AdminAttendance = pages.AdminAttendance.Component;
+const Projects = pages.Projects.Component;
+const ProjectDetail = pages.ProjectDetail.Component;
+const Teams = pages.Teams.Component;
+const TeamDetail = pages.TeamDetail.Component;
+const Reports = pages.Reports.Component;
 
 // const queryClient = new QueryClient();
 
@@ -48,35 +53,37 @@ const App = () => (
                   <Toaster />
                   <Sonner />
                   <BrowserRouter>
-                    <Routes>
-                      <Route path="/" element={<Landing />} />
-                      <Route path="/login" element={<Login />} />
-                      <Route path="/forgot-password" element={<ForgotPassword />} />
-                      <Route path="/reset-password" element={<ResetPassword />} />
-                      <Route path="/auth/callback" element={<AuthCallback />} />
-                      <Route path="/verify-email" element={<VerifyEmail />} />
+                    <Suspense fallback={<ScreenFallback />}>
+                      <Routes>
+                        <Route path="/" element={<Landing />} />
+                        <Route path="/login" element={<Login />} />
+                        <Route path="/forgot-password" element={<ForgotPassword />} />
+                        <Route path="/reset-password" element={<ResetPassword />} />
+                        <Route path="/auth/callback" element={<AuthCallback />} />
+                        <Route path="/verify-email" element={<VerifyEmail />} />
 
-                      <Route element={<ProtectedRoute />}>
-                        <Route element={<AppShell />}>
-                          <Route path="/home" element={<Home />} />
-                          <Route path="/dashboard" element={<Dashboard />} />
-                          <Route path="/attendance" element={<MemberDashboard />} />
+                        <Route element={<ProtectedRoute />}>
+                          <Route element={<AppShell />}>
+                            <Route path="/home" element={<Home />} />
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/attendance" element={<Attendance />} />
 
-                          {/* Admin views a specific member's attendance */}
-                          <Route path="/dashboard/member/:memberId/attendance" element={<MemberDashboard />} />
-                          <Route path="/admin/attendance" element={<AdminAttendancePanel />} />
-                          <Route path="/member/:memberId" element={<MemberDetail />} />
-                          <Route path="/todos/:memberId" element={<TaskDetails />} />
-                          <Route path="/projects" element={<Projects />} />
-                          <Route path="/projects/:projectId" element={<ProjectDetail />} />
-                          <Route path="/teams" element={<Teams />} />
-                          <Route path="/teams/:teamId" element={<TeamDetail />} />
-                          <Route path="/reports" element={<Reports />} />
+                            {/* Admin views a specific member's attendance */}
+                            <Route path="/dashboard/member/:memberId/attendance" element={<Attendance />} />
+                            <Route path="/admin/attendance" element={<AdminAttendance />} />
+                            <Route path="/member/:memberId" element={<MemberDetail />} />
+                            <Route path="/todos/:memberId" element={<TaskDetails />} />
+                            <Route path="/projects" element={<Projects />} />
+                            <Route path="/projects/:projectId" element={<ProjectDetail />} />
+                            <Route path="/teams" element={<Teams />} />
+                            <Route path="/teams/:teamId" element={<TeamDetail />} />
+                            <Route path="/reports" element={<Reports />} />
+                          </Route>
                         </Route>
-                      </Route>
 
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </Suspense>
                   </BrowserRouter>
                 </ProjectProvider>
               </TaskProvider>

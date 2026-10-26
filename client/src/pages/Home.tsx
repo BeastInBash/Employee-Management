@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Plus } from "lucide-react";
@@ -11,11 +11,9 @@ import { PageHeader } from "@/components/layout/Page";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { TaskWindowPill } from "@/components/tasks/TaskWindowPill";
 import { ColorSwatch, ProgressMeter, RoleBadge } from "@/components/projects/shared";
-import { ThroughputChart } from "@/components/reports/ReportCharts";
 import { StatCell, TaskLine, Tile, TileEmpty, TileLink } from "@/components/home/Tile";
 import { TodayTile } from "@/components/home/TodayTile";
 import { AttendanceCalendar, AttendanceLegend } from "@/components/home/AttendanceCalendar";
-import { WeeklyAttendance } from "@/components/home/WeeklyAttendance";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { attendanceSummary, weeklyAttendance } from "@/lib/home";
@@ -24,6 +22,18 @@ import { greeting } from "@/lib/projectMeta";
 import { fetchReport, istDateKey, istToday, mondayOf, shiftDays } from "@/lib/reports";
 import type { Report } from "@/lib/reports";
 import { usePersistentState } from "@/hooks/use-persistent-state";
+
+// The two charts sit at the bottom of the grid and bring in the chart library
+// (about 390 KB), so they load on their own: today's list and the rest of the
+// grid don't wait for them.
+const ThroughputChart = lazy(() =>
+  import("@/components/reports/ReportCharts").then((m) => ({ default: m.ThroughputChart })),
+);
+const WeeklyAttendance = lazy(() =>
+  import("@/components/home/WeeklyAttendance").then((m) => ({ default: m.WeeklyAttendance })),
+);
+const weeklySkeleton = <div className="h-48 animate-pulse rounded-xl bg-muted" aria-hidden />;
+const throughputSkeleton = <div className="h-full min-h-72 animate-pulse rounded-2xl bg-muted" aria-hidden />;
 
 const WEEK_MS = 7 * 86_400_000;
 
@@ -275,9 +285,11 @@ const Home = () => {
           {reportFailed ? (
             <TileEmpty>Attendance couldn't be loaded. Refresh the page to try again.</TileEmpty>
           ) : report ? (
-            <WeeklyAttendance weeks={weeks} />
+            <Suspense fallback={weeklySkeleton}>
+              <WeeklyAttendance weeks={weeks} />
+            </Suspense>
           ) : (
-            <div className="h-48 animate-pulse rounded-xl bg-muted" aria-hidden />
+            weeklySkeleton
           )}
         </Tile>
 
@@ -286,9 +298,11 @@ const Home = () => {
           className="min-w-0 md:col-span-6 lg:col-span-7"
         >
           {report ? (
-            <ThroughputChart days={report.trend.slice(-30)} className="h-full rounded-2xl" />
+            <Suspense fallback={throughputSkeleton}>
+              <ThroughputChart days={report.trend.slice(-30)} className="h-full rounded-2xl" />
+            </Suspense>
           ) : (
-            <div className="h-full min-h-72 animate-pulse rounded-2xl bg-muted" aria-hidden />
+            throughputSkeleton
           )}
         </motion.div>
       </motion.div>
