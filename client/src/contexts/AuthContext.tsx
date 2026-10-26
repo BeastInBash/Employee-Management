@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { toast } from "@/components/ui/sonner";
+import { clearCache } from "@/lib/cache";
 
 export type UserRole = "admin" | "member";
 
@@ -61,6 +62,7 @@ const readValidSession = (): User | null => {
     if (exp !== null && exp * 1000 <= Date.now()) {
       localStorage.removeItem("authToken");
       localStorage.removeItem("user");
+      clearCache();
       return null;
     }
 
@@ -278,9 +280,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // }
     ============================================ */
 
-    // Clear local storage
+    // Clear local storage, including cached data (it belongs to this account)
     localStorage.removeItem("authToken");
     localStorage.removeItem("user");
+    clearCache();
     setUser(null);
     toast.success("Signed out");
   };

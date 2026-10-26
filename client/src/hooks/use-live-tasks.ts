@@ -3,6 +3,7 @@ import type { SetStateAction } from "react";
 import type { Task } from "@/contexts/TaskContext";
 import { toast } from "@/components/ui/sonner";
 import { api } from "@/lib/api";
+import { readCache, writeCache } from "@/lib/cache";
 import { parseTask } from "@/lib/tasks";
 import type { RawTask } from "@/lib/tasks";
 
@@ -20,9 +21,20 @@ const POLL_MS = 60_000;
  * member adds themselves are never announced.
  */
 export function useLiveTasks(userId: string | undefined) {
-  const [tasks, setTasksState] = useState<Task[] | null>(null);
+  // The last list this browser saw, shown at once on load while the network
+  // catches up (dates come back as strings, so they're parsed again).
+  const cacheKey = userId ? `${userId}:tasks` : null;
+  const readCached = useCallback(
+    () => (cacheKey ? (readCache<RawTask[]>(cacheKey)?.map(parseTask) ?? null) : null),
+    [cacheKey],
+  );
+
+  const [tasks, setTasksState] = useState<Task[] | null>(readCached);
   const known = useRef<Set<string> | null>(null);
   const loading = useRef(false);
+  const showingCached = useRef(false);
+  // Set by the page's own updates, so the effect below saves them.
+  const changedLocally = useRef(false);
 
   const load = useCallback(
     async (background: boolean) => {
@@ -38,10 +50,13 @@ export function useLiveTasks(userId: string | undefined) {
         }
         known.current = new Set(next.map((t) => t.id));
         setTasksState(next);
+        showingCached.current = false;
+        if (cacheKey) writeCache(cacheKey, next);
       } catch {
         // Background checks fail quietly (a cold start or a dropped connection
-        // shouldn't nag); only the first load says something.
-        if (!background) {
+        // shouldn't nag). The first load only speaks up when there's nothing
+        // saved to show instead.
+        if (!background && !showingCached.current) {
           toast.error("Your tasks couldn't be loaded. Check your connection and refresh the page.");
           setTasksState((prev) => prev ?? []);
         }
@@ -49,14 +64,23 @@ export function useLiveTasks(userId: string | undefined) {
         loading.current = false;
       }
     },
-    [userId],
+    [userId, cacheKey],
   );
 
   useEffect(() => {
-    known.current = null;
-    setTasksState(null);
+    const cached = readCached();
+    showingCached.current = cached !== null;
+    // Cached tasks count as seen: only work that arrives after this counts as new.
+    known.current = cached ? new Set(cached.map((t) => t.id)) : null;
+    setTasksState(cached);
     load(false);
-  }, [load]);
+  }, [load, readCached]);
+
+  useEffect(() => {
+    if (!changedLocally.current || !cacheKey || !tasks) return;
+    changedLocally.current = false;
+    writeCache(cacheKey, tasks);
+  }, [cacheKey, tasks]);
 
   useEffect(() => {
     const refreshIfVisible = () => {
@@ -75,6 +99,7 @@ export function useLiveTasks(userId: string | undefined) {
   }, [load]);
 
   const setTasks = useCallback((update: SetStateAction<Task[]>) => {
+    changedLocally.current = true;
     setTasksState((prev) => {
       const next = typeof update === "function" ? update(prev ?? []) : update;
       known.current = new Set(next.map((t) => t.id));

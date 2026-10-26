@@ -9,6 +9,7 @@ import { EmptyState, ProgressMeter } from "@/components/projects/shared";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 const getAuthToken = () => localStorage.getItem("authToken");
@@ -65,7 +66,11 @@ export const MemberDashboard = () => {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
-  const [data, setData] = useState<AttendanceResponse | null>(null);
+  // Cached per person and month, so the calendar draws at once after a refresh.
+  const [data, setData] = usePersistentState<AttendanceResponse | null>(
+    user ? `${user.id}:attendance:${isAdminView ? memberId : "me"}:${year}-${month}` : null,
+    null,
+  );
   const [loading, setLoading] = useState(false);
 
   const fetchAttendance = useCallback(async () => {
@@ -88,7 +93,7 @@ export const MemberDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [month, year, isAdminView, memberId]);
+  }, [month, year, isAdminView, memberId, setData]);
 
   useEffect(() => {
     if (!user) return;
@@ -166,7 +171,8 @@ export const MemberDashboard = () => {
             ))}
           </div>
           <div className="grid grid-cols-7 gap-1.5">
-            {loading
+            {/* Only blank out when there's nothing yet; cached data stays visible while it refreshes. */}
+            {loading && !data
               ? Array.from({ length: 35 }).map((_, i) => <Skeleton key={i} className="aspect-square rounded-lg" />)
               : cells.map((day, i) => {
                   if (!day) return <div key={`blank-${i}`} className="aspect-square" />;
@@ -217,7 +223,9 @@ export const MemberDashboard = () => {
         <aside className="space-y-4">
           <div className="rounded-xl border border-border/80 bg-card p-5">
             <p className="text-sm text-muted-foreground">Attendance rate</p>
-            <p className="mt-1 text-[40px] font-semibold leading-none tracking-tight">{loading ? "–" : `${rate}%`}</p>
+            <p className="mt-1 text-[40px] font-semibold leading-none tracking-tight">
+              {loading && !data ? "–" : `${rate}%`}
+            </p>
             <ProgressMeter value={rate} className="mt-4" />
             <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
               {(["present", "partial", "absent"] as AttendanceStatus[]).map((s) => (

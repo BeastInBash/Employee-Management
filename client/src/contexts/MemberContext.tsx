@@ -6,6 +6,7 @@ import { toast } from "@/components/ui/sonner";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 import { useAuth } from "./AuthContext";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 const getAuthToken = () => localStorage.getItem("authToken");
 
@@ -60,7 +61,13 @@ const MemberContext = createContext<MemberContextType | undefined>(undefined);
 
 export const MemberProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
-  const [members, setMembers] = useState<Member[]>([]);
+  // Cached per user, so the Members page lists people at once after a refresh.
+  const [members, setMembers] = usePersistentState<Member[]>(user ? `${user.id}:members` : null, [], (cached) =>
+    (cached as (Omit<Member, "createdAt"> & { createdAt: string })[]).map((m) => ({
+      ...m,
+      createdAt: new Date(m.createdAt),
+    })),
+  );
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -71,7 +78,8 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
     if (!token) return;
 
     try {
-      setIsLoading(true);
+      // Only "loading" when there's nothing to show; a cached list stays on screen.
+      if (members.length === 0) setIsLoading(true);
       const response = await fetch(`${API_BASE_URL}/members`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -80,12 +88,12 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
 
       if (response.ok) {
         const data = await response.json();
+        // Always a list (an unexpected payload must not leave `members` undefined).
         setMembers(
-          data &&
-            data?.members?.map((m: Omit<Member, "createdAt"> & { createdAt: string }): Member => ({
-              ...m,
-              createdAt: new Date(m.createdAt),
-            })),
+          (data?.members ?? []).map((m: Omit<Member, "createdAt"> & { createdAt: string }): Member => ({
+            ...m,
+            createdAt: new Date(m.createdAt),
+          })),
         );
       }
     } catch (error) {
@@ -94,8 +102,11 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
       setIsLoading(false);
     }
   };
+  // Load once per signed-in user. fetchMembers is rebuilt every render (it reads
+  // the current list to decide whether to show a loading state), so it isn't a dependency.
   useEffect(() => {
     if (user) fetchMembers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const addMember = async (member: Omit<Member, "id" | "createdAt">) => {

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 const getAuthToken = () => localStorage.getItem("authToken");
@@ -90,8 +91,15 @@ export const AdminAttendancePanel = () => {
   const [tab, setTab] = useState<"today" | "month">("today");
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
-  const [today, setToday] = useState<TodayOverviewResponse | null>(null);
-  const [report, setReport] = useState<AllMembersReportResponse | null>(null);
+  // Cached, so the team's day and the month draw at once after a refresh.
+  const [today, setToday] = usePersistentState<TodayOverviewResponse | null>(
+    user ? `${user.id}:attendance:today` : null,
+    null,
+  );
+  const [report, setReport] = usePersistentState<AllMembersReportResponse | null>(
+    user ? `${user.id}:attendance:report:${year}-${month}` : null,
+    null,
+  );
   const [todayLoading, setTodayLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
 
@@ -115,7 +123,7 @@ export const AdminAttendancePanel = () => {
     } finally {
       setTodayLoading(false);
     }
-  }, []);
+  }, [setToday]);
 
   const loadReport = useCallback(async () => {
     setReportLoading(true);
@@ -125,7 +133,7 @@ export const AdminAttendancePanel = () => {
     } finally {
       setReportLoading(false);
     }
-  }, [month, year]);
+  }, [month, year, setReport]);
 
   useEffect(() => {
     if (!user) return;

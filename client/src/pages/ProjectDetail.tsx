@@ -84,6 +84,7 @@ import {
 } from "@/lib/projectMeta";
 import { ProjectFormDialog } from "@/components/projects/ProjectFormDialog";
 import { AddPeopleDialog } from "@/components/projects/AddPeopleDialog";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 const COLUMNS: TaskStatus[] = ["todo", "in_progress", "review", "completed"];
 
@@ -95,8 +96,10 @@ const ProjectDetail = () => {
   const { user } = useAuth();
   const { updateProject, deleteProject } = useProjects();
 
-  const [detail, setDetail] = useState<DetailResponse | null>(null);
-  const [tasks, setTasks] = useState<ProjectTask[]>([]);
+  // Cached per project, so reopening one shows its board at once while it refreshes.
+  const cacheKey = user && projectId ? `${user.id}:project:${projectId}` : null;
+  const [detail, setDetail] = usePersistentState<DetailResponse | null>(cacheKey && `${cacheKey}:detail`, null);
+  const [tasks, setTasks] = usePersistentState<ProjectTask[]>(cacheKey && `${cacheKey}:tasks`, []);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -115,7 +118,7 @@ const ProjectDetail = () => {
     } catch (e) {
       setLoadError(errorMessage(e));
     }
-  }, [projectId]);
+  }, [projectId, setDetail, setTasks]);
 
   useEffect(() => {
     load();

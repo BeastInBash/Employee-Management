@@ -23,6 +23,7 @@ import { gridIn } from "@/lib/motion";
 import { greeting } from "@/lib/projectMeta";
 import { fetchReport, istDateKey, istToday, mondayOf, shiftDays } from "@/lib/reports";
 import type { Report } from "@/lib/reports";
+import { usePersistentState } from "@/hooks/use-persistent-state";
 
 const WEEK_MS = 7 * 86_400_000;
 
@@ -35,7 +36,11 @@ const Home = () => {
 
   // Stays current on its own: tasks an admin or lead assigns show up without a refresh.
   const { tasks, setTasks } = useLiveTasks(user?.id);
-  const [report, setReport] = useState<Report | null>(null);
+  // Cached per day, so the charts and calendar draw at once after a refresh.
+  const [report, setReport] = usePersistentState<Report | null>(
+    user ? `${user.id}:report:home:${istToday()}` : null,
+    null,
+  );
   const [reportFailed, setReportFailed] = useState(false);
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [isFormOpen, setIsFormOpen] = useState(false);

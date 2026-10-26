@@ -40,6 +40,7 @@ import {
 } from "@/lib/reports";
 import type { RangePreset, Report, ReportMember, ReportScopeType } from "@/lib/reports";
 import { cn } from "@/lib/utils";
+import { readCache, writeCache } from "@/lib/cache";
 
 type ScopeOption = { value: string; label: string; group: "Workspace" | "Projects" | "Teams" | "You" };
 
@@ -93,19 +94,29 @@ const Reports = () => {
     setParams(next, { replace: true });
   };
 
-  const [report, setReport] = useState<Report | null>(null);
+  // Cached per filter set. Changing filters shows that set's cached report if
+  // there is one, otherwise keeps the current report on screen (dimmed) until
+  // the new one arrives, as before.
+  const reportKey =
+    user && scopeValue ? `${user.id}:report:${scopeValue}:${range.from}:${range.to}:${excludeWeekends}` : null;
+  const [report, setReport] = useState<Report | null>(() =>
+    reportKey ? (readCache<Report>(reportKey) ?? null) : null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!scopeValue) return;
     let cancelled = false;
+    const cached = reportKey ? readCache<Report>(reportKey) : undefined;
+    if (cached) setReport(cached);
     setIsLoading(true);
     fetchReport({ ...parseScope(scopeValue), ...range, excludeWeekends })
       .then((r) => {
         if (cancelled) return;
         setReport(r);
         setError(null);
+        if (reportKey) writeCache(reportKey, r);
       })
       .catch((e) => !cancelled && setError(errorMessage(e)))
       .finally(() => !cancelled && setIsLoading(false));

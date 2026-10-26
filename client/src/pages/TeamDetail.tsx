@@ -41,6 +41,8 @@ import {
 import { formatDate } from "@/lib/projectMeta";
 import { TeamFormDialog } from "@/components/projects/TeamFormDialog";
 import { AddPeopleDialog } from "@/components/projects/AddPeopleDialog";
+import { usePersistentState } from "@/hooks/use-persistent-state";
+import { useAuth } from "@/contexts/AuthContext";
 
 type DetailResponse = { team: TeamDetailData; myRole: ScopeAccess; permissions: Permissions };
 
@@ -48,7 +50,12 @@ const TeamDetail = () => {
   const { teamId } = useParams();
   const navigate = useNavigate();
   const { updateTeam, deleteTeam } = useProjects();
-  const [detail, setDetail] = useState<DetailResponse | null>(null);
+  const { user } = useAuth();
+  // Cached per team, so reopening one shows its roster at once while it refreshes.
+  const [detail, setDetail] = usePersistentState<DetailResponse | null>(
+    user && teamId ? `${user.id}:team:${teamId}` : null,
+    null,
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -64,7 +71,7 @@ const TeamDetail = () => {
     } catch (e) {
       setLoadError(errorMessage(e));
     }
-  }, [teamId]);
+  }, [teamId, setDetail]);
 
   useEffect(() => {
     load();

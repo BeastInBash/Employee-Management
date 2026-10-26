@@ -102,7 +102,8 @@ src/
     theme-provider.tsx      # ThemeProvider, useTheme, ThemeToggle
     ui/                     # shadcn components
   hooks/                    # use-workspace-people.ts loads Member seats for pickers
-  lib/                      # utils.ts (cn), api.ts (fetch helper), tasks.ts (parseTask: API row → Task),
+  lib/                      # utils.ts (cn), api.ts (fetch helper), cache.ts (persistent SWR cache),
+                            #   tasks.ts (parseTask: API row → Task),
                             #   projectMeta.ts (labels/colours/dates,
                             #   greeting), reports.ts (report types, IST date keys/presets, CSV
                             #   export), home.ts (per-person attendance maths), motion.ts (shared
@@ -307,6 +308,19 @@ you back in the app instead of on the marketing/login page.
   blocking refetch is slow). Always show a per-action loading spinner (`Loader2`) and
   disable the button while a request is in flight; for `AlertDialog` actions, call
   `e.preventDefault()` so the dialog stays open until the request resolves.
+- **Data is cached for an instant first paint (stale-while-revalidate).** `lib/cache.ts`
+  keeps the last response per key in `localStorage` (prefix `wz-cache:v1:`, entries older
+  than 7 days ignored, quota errors degrade to uncached). `hooks/use-persistent-state.ts`
+  is a drop-in `useState` that starts from the cached value for its key and saves every
+  change (values read from the cache aren't written back, so they still age out); `revive`
+  rebuilds Dates. Used by OrgContext (orgs), MemberContext (members), ProjectContext
+  (projects/teams per workspace), `useLiveTasks`, Home's report, ProjectDetail,
+  TeamDetail and both attendance pages; Reports reads/writes the cache by hand so changing
+  filters still keeps the previous report on screen. **Rules:** every key starts with the
+  user's id; `logout` and an expired session call `clearCache()`; a context's `isLoading`
+  means "nothing to show yet" (don't set it when cached data is on screen); and when you
+  add a cached value, list its setter in hook dependency arrays (it's stable, but the
+  hooks lint rule can't tell).
 - **A member's own task lists stay current without a refresh.** Home and "My tasks" load
   through `hooks/use-live-tasks.ts`: it refetches when the member returns to the tab or
   window (or comes back online) and once a minute while the tab is visible, and toasts
