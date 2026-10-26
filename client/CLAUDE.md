@@ -293,10 +293,15 @@ you back in the app instead of on the marketing/login page.
   (`border-border/80`) instead of drop shadows; soft layered shadows only on overlays.
 - **Motion (framer-motion, wrapped in `MotionConfig reducedMotion="user"`):** keep it
   purposeful. The signature moment is the sidebar's sliding active pill (`layoutId=
-  "nav-active"`). Pages **crossfade** on route change (AppShell, `AnimatePresence
-  mode="popLayout"`: in 280 ms with an 8px lift, out 140 ms). The `Suspense` boundary sits
+  "nav-active"`). Pages change **in sequence, with a blur** (AppShell `pageTransition`,
+  `AnimatePresence mode="popLayout"`): the old page blurs and fades out in 140 ms, then the
+  new one comes in from `blur(6px)` with an 8px lift over 280 ms (its entrance is delayed by
+  the exit, so the two pages' text never overlaps). Only the content panel animates, never
+  the sidebar; the blur is cleared on settle (`transitionEnd: { filter: "none" }`, since a
+  lingering filter changes how fixed elements inside behave); reduced motion gets a plain
+  fade. The `Suspense` boundary sits
   *above* that transition and React Router 7 runs navigations as transitions, so the current
-  page stays visible while the next page's code loads, then the two crossfade (don't switch
+  page stays visible while the next page's code loads, then the change plays (don't switch
   back to `mode="wait"`: it renders the new page only after the exit, outside the
   transition, which leaves a blank gap). Content that replaces a skeleton is wrapped in
   `components/layout/Reveal` (fade + 4px lift, mount only; key it when it should replay,
