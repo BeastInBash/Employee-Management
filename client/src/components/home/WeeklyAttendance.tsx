@@ -58,22 +58,25 @@ export const WeeklyAttendance = ({ weeks }: { weeks: WeekRate[] }) => (
         </BarChart>
       </ResponsiveContainer>
     </div>
-    <table className="sr-only">
-      <caption>Attendance rate by week</caption>
-      <thead>
-        <tr>
-          <th>Week of</th>
-          <th>Rate</th>
-        </tr>
-      </thead>
-      <tbody>
-        {weeks.map((w) => (
-          <tr key={w.week}>
-            <td>{formatDay(w.week, true)}</td>
-            <td>{w.rate === null ? "No record" : `${w.rate}%`}</td>
+    {/* sr-only goes on a wrapper: tables (and their captions) ignore its 1px box and show through. */}
+    <div className="sr-only">
+      <table>
+        <caption>Attendance rate by week</caption>
+        <thead>
+          <tr>
+            <th>Week of</th>
+            <th>Rate</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {weeks.map((w) => (
+            <tr key={w.week}>
+              <td>{formatDay(w.week, true)}</td>
+              <td>{w.rate === null ? "No record" : `${w.rate}%`}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   </>
 );
