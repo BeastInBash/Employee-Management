@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -31,7 +31,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { shouldSaveData, whenIdle } from "@/lib/lazy";
+import { preloadPath } from "@/lib/pages";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
+import { PageFallback } from "./PageFallback";
 import { VerifyEmailBanner } from "./VerifyEmailBanner";
 
 type NavItem = { to: string; label: string; icon: typeof LayoutGrid; match?: (path: string) => boolean };
@@ -127,6 +130,16 @@ const WorkspaceSwitcher = () => {
 const NavList = ({ onNavigate }: { onNavigate?: () => void }) => {
   const items = useNavItems();
   const { pathname } = useLocation();
+
+  // Once the current page has settled, fetch the code for the other sidebar
+  // pages in the background, so moving between them doesn't wait on the
+  // network. Skipped when the visitor is saving data.
+  const paths = items.map((i) => i.to).join("|");
+  useEffect(() => {
+    if (shouldSaveData()) return;
+    return whenIdle(() => paths.split("|").forEach(preloadPath));
+  }, [paths]);
+
   return (
     <nav className="space-y-0.5" aria-label="Main">
       {items.map(({ to, label, icon: Icon, match }) => {
@@ -136,6 +149,10 @@ const NavList = ({ onNavigate }: { onNavigate?: () => void }) => {
             key={to}
             to={to}
             onClick={onNavigate}
+            // Start loading the page as soon as the pointer or focus arrives.
+            onMouseEnter={() => preloadPath(to)}
+            onFocus={() => preloadPath(to)}
+            onTouchStart={() => preloadPath(to)}
             aria-current={active ? "page" : undefined}
             className={cn(
               "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm outline-none transition-colors duration-150",
@@ -301,7 +318,10 @@ export const AppShell = () => {
             }}
             exit={{ opacity: 0, transition: { duration: 0.1, ease: "easeOut" } }}
           >
-            <FrozenOutlet />
+            {/* A page whose code hasn't arrived yet waits here, inside the shell. */}
+            <Suspense fallback={<PageFallback />}>
+              <FrozenOutlet />
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </main>

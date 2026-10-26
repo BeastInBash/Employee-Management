@@ -17,6 +17,8 @@ import { SetupSteps } from "@/components/landing/SetupSteps";
 import { TeamBoard } from "@/components/landing/TeamBoard";
 import { Typewriter } from "@/components/landing/Typewriter";
 import { EASE } from "@/lib/motion";
+import { shouldSaveData, whenIdle } from "@/lib/lazy";
+import { preloadPath } from "@/lib/pages";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -485,6 +487,12 @@ const Landing = () => {
     if (!user) return;
     navigate(user.role === "admin" ? "/dashboard" : "/home", { replace: true });
   }, [user, navigate]);
+
+  // Most visitors' next step is signing in: fetch that page's code while idle.
+  useEffect(() => {
+    if (user || shouldSaveData()) return;
+    return whenIdle(() => preloadPath("/login"));
+  }, [user]);
 
   return (
     // overflow-x: clip (not hidden) so side-entering panels can't widen the page
