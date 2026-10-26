@@ -261,29 +261,34 @@ const Reports = () => {
             <StatTile
               label="Tasks completed"
               value={report.summary.tasksCompleted.toLocaleString()}
-              hint={`${report.summary.tasksCreated} created`}
+              // Finished in the period (some may have been added earlier), so not "x of y".
+              hint={`${report.summary.tasksCreated} added in this period`}
             />
             <StatTile
-              label="Completion rate"
+              label="Finished so far"
               value={formatPct(report.summary.completionRate)}
-              hint="of tasks created"
+              hint="of the tasks added in this period"
             />
-            <StatTile label="On-time rate" value={formatPct(report.summary.onTimeRate)} hint="done by the due date" />
+            <StatTile
+              label="On-time rate"
+              value={formatPct(report.summary.onTimeRate)}
+              hint="finished by their due date"
+            />
             <StatTile
               label="Overdue now"
               value={report.summary.overdueOpen}
-              hint="open past due date"
+              hint="still open and past their due date"
               {...(report.summary.overdueOpen > 0 && { tone: "warn" as const })}
             />
             <StatTile
-              label="Avg. cycle time"
+              label="Avg. time to finish"
               value={formatHours(report.summary.avgCycleHours)}
-              hint="created → completed"
+              hint="from adding a task to finishing it"
             />
             <StatTile
               label="Attendance"
               value={formatPct(report.summary.attendanceRate)}
-              hint={`${report.summary.presentDays} present, ${report.summary.partialDays} partial`}
+              hint={`${report.summary.presentDays} present, ${report.summary.partialDays} partial (counts as half)`}
             />
           </div>
 
@@ -308,7 +313,7 @@ const COLUMNS: { key: SortKey; label: string; align: "left" | "right" }[] = [
   { key: "completed", label: "Completed", align: "right" },
   { key: "onTimeRate", label: "On time", align: "right" },
   { key: "overdueOpen", label: "Overdue", align: "right" },
-  { key: "avgCycleHours", label: "Avg. cycle", align: "right" },
+  { key: "avgCycleHours", label: "Time to finish", align: "right" },
   { key: "attendanceRate", label: "Attendance", align: "right" },
 ];
 

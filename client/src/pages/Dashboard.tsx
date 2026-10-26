@@ -106,7 +106,7 @@ const Dashboard = () => {
         description={
           isAdmin
             ? activeWorkspace
-              ? `Everyone in ${activeWorkspace.name}. Open someone to see their tasks and attendance.`
+              ? `Everyone in ${activeWorkspace.name}. Select a person to see their tasks, or use the menu on their row for attendance.`
               : "Add the people on your team, then follow their work and attendance."
             : "Your profile and tasks."
         }
@@ -119,13 +119,13 @@ const Dashboard = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline">
                     <Settings2 className="h-4 w-4" />
-                    Workspace
+                    Settings
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64">
                   <DropdownMenuItem disabled={!activeWorkspace} onClick={() => setIsTaskWindowDialogOpen(true)}>
                     <Clock className="h-4 w-4" />
-                    <span className="flex-1">Task submission hours</span>
+                    <span className="flex-1">When members can add tasks</span>
                     <span className="text-xs text-muted-foreground">
                       {taskWindow?.enabled ? `${taskWindow.startTime}–${taskWindow.endTime}` : "Anytime"}
                     </span>
@@ -133,11 +133,11 @@ const Dashboard = () => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setIsWorkspaceDialogOpen(true)}>
                     <Layers className="h-4 w-4" />
-                    New workspace
+                    Add another workspace
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setIsOrgDialogOpen(true)}>
                     <Building2 className="h-4 w-4" />
-                    New organization
+                    Add another organization
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -158,7 +158,7 @@ const Dashboard = () => {
         <EmptyState
           icon={Building2}
           title="Create your organization"
-          body="Your organization holds your workspaces, for example one per office or department. Start by naming it."
+          body="This is your company or business. Inside it you'll create a workspace for your team (one per office or department if you have several). Start by naming it."
           action={
             <Button onClick={() => setIsOrgDialogOpen(true)}>
               <Plus className="h-4 w-4" />
@@ -170,7 +170,7 @@ const Dashboard = () => {
         <EmptyState
           icon={Layers}
           title={`Add a workspace to ${activeOrg?.name ?? "your organization"}`}
-          body="People, projects and teams live inside a workspace. Most small teams need just one."
+          body="A workspace is where your people, projects and teams live. Most small businesses need just one, named after the team or location."
           action={
             <Button onClick={() => setIsWorkspaceDialogOpen(true)}>
               <Plus className="h-4 w-4" />
@@ -204,7 +204,7 @@ const Dashboard = () => {
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by name, email or role"
+                placeholder="Search by name, email or job title"
                 className="bg-card pl-9"
               />
             </div>
@@ -245,7 +245,7 @@ const Dashboard = () => {
                     {member.email}
                   </span>
                   <span className="hidden w-32 shrink-0 text-right text-sm text-muted-foreground lg:block">
-                    Joined {member.createdAt.toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+                    Added {member.createdAt.toLocaleDateString(undefined, { day: "numeric", month: "short" })}
                   </span>
                   {isAdmin && (
                     <DropdownMenu>
@@ -261,10 +261,10 @@ const Dashboard = () => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem onClick={() => navigate(`/member/${member.userId}`)}>
-                          Open tasks
+                          View tasks
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => navigate(`/dashboard/member/${member.userId}/attendance`)}>
-                          Attendance
+                          View attendance
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-destructive" onClick={() => setMemberToDelete(member)}>
@@ -325,7 +325,9 @@ const Dashboard = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {memberToDelete?.user?.name ?? "this member"}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Their tasks and attendance history in this workspace are deleted too. This can't be undone.
+              They'll lose access to {activeWorkspace?.name ?? "this workspace"}, and their tasks and attendance history
+              here are deleted. This can't be undone. Their Workzen account itself stays, so you can add them again
+              later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -406,7 +408,8 @@ const AddMemberDialog = ({
           <DialogHeader>
             <DialogTitle>Add a member</DialogTitle>
             <DialogDescription>
-              We'll email them a link to choose their own password. They can also sign in with Google using this email.
+              They'll appear in your list straight away, and we'll email them a link to choose their password (or they
+              can sign in with Google using this email). After that, they plan their day in Workzen.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -507,10 +510,10 @@ const TaskWindowDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Task submission hours</DialogTitle>
+          <DialogTitle>When members can add tasks</DialogTitle>
           <DialogDescription>
-            By default, people in {workspaceName} can add their own tasks at any time. You can limit that to set hours
-            (IST).
+            By default, people in {workspaceName} can add their own tasks at any time. You can limit that to set hours,
+            for example to make sure plans are in by mid-morning. Times are India time (IST).
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -550,7 +553,15 @@ const TaskWindowDialog = ({
               This runs past midnight: open from {start} until {end} the next day.
             </p>
           )}
-          <p className="text-xs text-muted-foreground">Tasks assigned by admins and leads are never blocked.</p>
+          {enabled && (
+            <p className="rounded-lg bg-honey-soft px-3 py-2 text-xs text-honey">
+              Anyone who hasn't added their tasks by closing time can't add them that day, and a day with nothing
+              planned counts as absent. Tell your team the hours before turning this on.
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Tasks you or a project lead assign to someone are always allowed, whatever the hours.
+          </p>
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

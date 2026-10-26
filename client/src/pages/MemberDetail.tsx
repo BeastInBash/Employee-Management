@@ -80,7 +80,8 @@ const MemberDetail = () => {
             {tasks.length > 0 && (
               <span className="block sm:inline">
                 <span className="hidden sm:inline">. </span>
-                {done} of {tasks.length} tasks done.
+                {/* All of their tasks, not just today's, so say open/done rather than "x of y". */}
+                {tasks.length - done} open, {done} done.
               </span>
             )}
           </>
@@ -89,7 +90,7 @@ const MemberDetail = () => {
           <>
             <Button variant="outline" onClick={() => navigate(`/dashboard/member/${memberId}/attendance`)}>
               <CalendarCheck className="h-4 w-4" />
-              Attendance
+              View attendance
             </Button>
             <Button
               onClick={() => {
@@ -128,7 +129,9 @@ const MemberDetail = () => {
         onOpenChange={setIsFormOpen}
         task={editing}
         description={
-          editing ? undefined : `Assign a task to ${name}. Assigned tasks are never blocked by submission hours.`
+          editing
+            ? undefined
+            : `Assign a task to ${name}. It lands on their list straight away, whatever hours are set for adding tasks.`
         }
         onSubmit={async (values) => {
           if (editing) {
