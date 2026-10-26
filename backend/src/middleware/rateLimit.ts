@@ -23,7 +23,7 @@ const emailKey = (req: Request) => {
 
 function limiter(
     name: string,
-    { windowMs, limit, message, ...rest }: { windowMs: number; limit: number; message: string } & Partial<Options>
+    { windowMs, limit, message, ...rest }: { windowMs: number; limit: number; message: string } & Partial<Options>,
 ) {
     return rateLimit({
         windowMs,

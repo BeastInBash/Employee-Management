@@ -104,7 +104,7 @@ export function parseTimeString(value: string): number | null {
 /** The wire shape every task-window endpoint returns. */
 export function serializeTaskWindow(
     window: TaskWindow,
-    now: Date = new Date()
+    now: Date = new Date(),
 ): {
     enabled: boolean;
     startMinute: number;

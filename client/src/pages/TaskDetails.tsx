@@ -15,108 +15,108 @@ import { greeting } from "@/lib/projectMeta";
 
 /** A member's own board ("/todos/:userId"). Admins are sent to their dashboard. */
 const TaskDetails = () => {
-    const { memberId } = useParams();
-    const navigate = useNavigate();
-    const { user } = useAuth();
-    const { addTask, updateTask, taskWindow, refreshTaskWindow } = useTasks();
+  const { memberId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { addTask, updateTask, taskWindow, refreshTaskWindow } = useTasks();
 
-    // Stays current on its own: tasks an admin or lead assigns show up without a refresh.
-    const { tasks: liveTasks, setTasks } = useLiveTasks(memberId);
-    const tasks = liveTasks ?? [];
-    const [isFormOpen, setIsFormOpen] = useState(false);
-    const [editing, setEditing] = useState<Task | null>(null);
+  // Stays current on its own: tasks an admin or lead assigns show up without a refresh.
+  const { tasks: liveTasks, setTasks } = useLiveTasks(memberId);
+  const tasks = liveTasks ?? [];
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Task | null>(null);
 
-    useEffect(() => {
-        if (user && user.role !== "member") navigate("/dashboard", { replace: true });
-    }, [user, navigate]);
+  useEffect(() => {
+    if (user && user.role !== "member") navigate("/dashboard", { replace: true });
+  }, [user, navigate]);
 
-    if (!user) return null;
+  if (!user) return null;
 
-    // Submissions are open unless the workspace restricts them to set hours.
-    const restricted = !!taskWindow?.enabled;
-    const closed = restricted && !taskWindow.open;
-    const isOwnBoard = String(user.id) === String(memberId);
+  // Submissions are open unless the workspace restricts them to set hours.
+  const restricted = !!taskWindow?.enabled;
+  const closed = restricted && !taskWindow.open;
+  const isOwnBoard = String(user.id) === String(memberId);
 
-    const openAdd = async () => {
-        // Re-check first, so a window that closed while the page sat open
-        // doesn't hand out a form that can only fail.
-        const current = await refreshTaskWindow();
-        if (current?.enabled && !current.open) {
-            toast.error(`Task submissions are closed. They open ${current.label}.`);
-            return;
+  const openAdd = async () => {
+    // Re-check first, so a window that closed while the page sat open
+    // doesn't hand out a form that can only fail.
+    const current = await refreshTaskWindow();
+    if (current?.enabled && !current.open) {
+      toast.error(`Task submissions are closed. They open ${current.label}.`);
+      return;
+    }
+    setEditing(null);
+    setIsFormOpen(true);
+  };
+
+  const open = tasks.filter((t) => t.status !== "completed").length;
+
+  return (
+    <>
+      <PageHeader
+        title={`${greeting()}, ${user.name.split(" ")[0]}`}
+        description={
+          tasks.length === 0
+            ? "Add what you're working on today. Finishing all of today's tasks marks you present."
+            : open === 0
+              ? "Everything is done. Nice work."
+              : `${open} ${open === 1 ? "task" : "tasks"} still open. Finishing all of today's tasks marks you present.`
         }
-        setEditing(null);
-        setIsFormOpen(true);
-    };
+        actions={
+          <>
+            {taskWindow && <TaskWindowPill taskWindow={taskWindow} />}
+            {isOwnBoard && (
+              <Button
+                onClick={openAdd}
+                disabled={closed}
+                title={closed ? `Your admin limited task submissions to ${taskWindow?.label}` : undefined}
+              >
+                <Plus className="h-4 w-4" />
+                Add task
+              </Button>
+            )}
+          </>
+        }
+      />
 
-    const open = tasks.filter((t) => t.status !== "completed").length;
+      <TaskBoard
+        tasks={tasks}
+        canManage={() => isOwnBoard}
+        canDelete={false}
+        onStatusChange={async (task, status) => {
+          const updated = await updateTask(task.id, { status });
+          if (updated) setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+        }}
+        onEdit={(task) => {
+          setEditing(task);
+          setIsFormOpen(true);
+        }}
+        onDelete={() => {}}
+        {...(isOwnBoard && { onAdd: openAdd })}
+        addDisabled={closed}
+      />
 
-    return (
-        <>
-            <PageHeader
-                title={`${greeting()}, ${user.name.split(" ")[0]}`}
-                description={
-                    tasks.length === 0
-                        ? "Add what you're working on today. Finishing all of today's tasks marks you present."
-                        : open === 0
-                          ? "Everything is done. Nice work."
-                          : `${open} ${open === 1 ? "task" : "tasks"} still open. Finishing all of today's tasks marks you present.`
-                }
-                actions={
-                    <>
-                        {taskWindow && <TaskWindowPill taskWindow={taskWindow} />}
-                        {isOwnBoard && (
-                            <Button
-                                onClick={openAdd}
-                                disabled={closed}
-                                title={closed ? `Your admin limited task submissions to ${taskWindow?.label}` : undefined}
-                            >
-                                <Plus className="h-4 w-4" />
-                                Add task
-                            </Button>
-                        )}
-                    </>
-                }
-            />
-
-            <TaskBoard
-                tasks={tasks}
-                canManage={() => isOwnBoard}
-                canDelete={false}
-                onStatusChange={async (task, status) => {
-                    const updated = await updateTask(task.id, { status });
-                    if (updated) setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
-                }}
-                onEdit={(task) => {
-                    setEditing(task);
-                    setIsFormOpen(true);
-                }}
-                onDelete={() => {}}
-                {...(isOwnBoard && { onAdd: openAdd })}
-                addDisabled={closed}
-            />
-
-            <TaskFormDialog
-                open={isFormOpen}
-                onOpenChange={setIsFormOpen}
-                task={editing}
-                description={
-                    editing ? undefined : restricted ? `Submissions for your workspace are open ${taskWindow?.label}.` : undefined
-                }
-                onSubmit={async (values) => {
-                    if (editing) {
-                        const updated = await updateTask(editing.id, values);
-                        if (updated) setTasks((prev) => prev.map((t) => (t.id === editing.id ? updated : t)));
-                        return !!updated;
-                    }
-                    if (!memberId) return false;
-                    const created = await addTask({ ...values, memberId });
-                    if (created) setTasks((prev) => [...prev, created]);
-                    return !!created;
-                }}
-            />
-        </>
-    );
+      <TaskFormDialog
+        open={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        task={editing}
+        description={
+          editing ? undefined : restricted ? `Submissions for your workspace are open ${taskWindow?.label}.` : undefined
+        }
+        onSubmit={async (values) => {
+          if (editing) {
+            const updated = await updateTask(editing.id, values);
+            if (updated) setTasks((prev) => prev.map((t) => (t.id === editing.id ? updated : t)));
+            return !!updated;
+          }
+          if (!memberId) return false;
+          const created = await addTask({ ...values, memberId });
+          if (created) setTasks((prev) => [...prev, created]);
+          return !!created;
+        }}
+      />
+    </>
+  );
 };
 
 export default TaskDetails;

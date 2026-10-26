@@ -266,7 +266,10 @@ export const getProject = async (req: Request, res: Response) => {
     if (!project) throw ApiError.notFound("Project not found");
 
     // Everyone who can be assigned work here, keyed by Member id.
-    const people = new Map<string, ReturnType<typeof serializeMember> & { projectRole: ScopeRole | null; viaTeams: string[] }>();
+    const people = new Map<
+        string,
+        ReturnType<typeof serializeMember> & { projectRole: ScopeRole | null; viaTeams: string[] }
+    >();
     for (const seat of project.members) {
         people.set(seat.member.id, { ...serializeMember(seat.member), projectRole: seat.role, viaTeams: [] });
     }
@@ -400,7 +403,12 @@ export const addProjectMember = async (req: Request, res: Response) => {
 
     const seat = await prisma.projectMember.create({
         data: { projectId, memberId, role },
-        select: { role: true, addedAt: true, member: { select: memberSummarySelect }, project: { select: { name: true } } },
+        select: {
+            role: true,
+            addedAt: true,
+            member: { select: memberSummarySelect },
+            project: { select: { name: true } },
+        },
     });
     await notifySeats({
         actorUserId: req.user!.userId,
@@ -471,8 +479,12 @@ export const assignProjectTeam = async (req: Request, res: Response) => {
     if (!canManage(access.access)) throw ApiError.forbidden("Only admins and project leads can assign teams");
 
     const { teamId } = assignTeamSchema.parse(req.body);
-    const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, name: true, color: true, workspaceId: true } });
-    if (!team || team.workspaceId !== access.workspaceId) throw ApiError.badRequest("Team does not belong to this workspace");
+    const team = await prisma.team.findUnique({
+        where: { id: teamId },
+        select: { id: true, name: true, color: true, workspaceId: true },
+    });
+    if (!team || team.workspaceId !== access.workspaceId)
+        throw ApiError.badRequest("Team does not belong to this workspace");
 
     await prisma.projectTeam.create({ data: { projectId, teamId } });
     res.status(201).json({ team: { id: team.id, name: team.name, color: team.color } });
@@ -579,7 +591,12 @@ export const createProjectTask = async (req: Request, res: Response) => {
             where: { memberId_date: { memberId: assigneeId, date: today } },
             update: {},
             // Planned but not finished yet: partial (see tasks.controller createTask).
-            create: { memberId: assigneeId, date: today, status: AttendanceStatus.partial, taskSubmittedAt: new Date() },
+            create: {
+                memberId: assigneeId,
+                date: today,
+                status: AttendanceStatus.partial,
+                taskSubmittedAt: new Date(),
+            },
         });
     }
 

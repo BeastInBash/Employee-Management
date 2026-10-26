@@ -2,13 +2,7 @@ import request from "supertest";
 import { Prisma, UserRole } from "@prisma/client";
 import { prismaMock } from "./singleton";
 import { createTestApp } from "./testApp";
-import {
-  makeUser,
-  makeMember,
-  authHeader,
-  ADMIN,
-  MEMBER,
-} from "./helpers";
+import { makeUser, makeMember, authHeader, ADMIN, MEMBER } from "./helpers";
 import { sendMemberInvite } from "../src/utils/email";
 
 const app = createTestApp();
@@ -26,7 +20,10 @@ describe("POST /api/members", () => {
 
   // The admin owns the org the workspace belongs to.
   const ownWorkspace = () =>
-    prismaMock.workspace.findUnique.mockResolvedValue({ id: WORKSPACE_ID, org: { id: "org-1", ownerId: ADMIN.userId } } as any);
+    prismaMock.workspace.findUnique.mockResolvedValue({
+      id: WORKSPACE_ID,
+      org: { id: "org-1", ownerId: ADMIN.userId },
+    } as any);
   beforeEach(ownWorkspace);
 
   it("rejects unauthenticated requests", async () => {
@@ -35,10 +32,7 @@ describe("POST /api/members", () => {
   });
 
   it("rejects non-admin (member) callers with 403", async () => {
-    const res = await request(app)
-      .post("/api/members")
-      .set("Authorization", authHeader(MEMBER))
-      .send(validBody);
+    const res = await request(app).post("/api/members").set("Authorization", authHeader(MEMBER)).send(validBody);
 
     expect(res.status).toBe(403);
     expect(res.body.message).toBe("Admin access required");
@@ -49,16 +43,13 @@ describe("POST /api/members", () => {
       .mockResolvedValueOnce(null) // existingUser lookup
       .mockResolvedValueOnce({ name: "Admin", email: ADMIN.email } as any); // admin lookup
     prismaMock.user.create.mockResolvedValue(
-      makeUser({ id: "new-user", email: "new@example.com", name: "New Person" }) as any
+      makeUser({ id: "new-user", email: "new@example.com", name: "New Person" }) as any,
     );
     prismaMock.member.create.mockResolvedValue(
-      makeMember({ id: "m-new", userId: "new-user", email: "new@example.com" }) as any
+      makeMember({ id: "m-new", userId: "new-user", email: "new@example.com" }) as any,
     );
 
-    const res = await request(app)
-      .post("/api/members")
-      .set("Authorization", authHeader(ADMIN))
-      .send(validBody);
+    const res = await request(app).post("/api/members").set("Authorization", authHeader(ADMIN)).send(validBody);
 
     expect(res.status).toBe(201);
     expect(res.body.message).toMatch(/link to choose their password/i);
@@ -89,7 +80,9 @@ describe("POST /api/members", () => {
     prismaMock.user.findUnique
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ name: "Admin", email: ADMIN.email } as any);
-    prismaMock.user.create.mockResolvedValue(makeUser({ id: "new-user", email: "new@example.com", name: "New Person" }) as any);
+    prismaMock.user.create.mockResolvedValue(
+      makeUser({ id: "new-user", email: "new@example.com", name: "New Person" }) as any,
+    );
     prismaMock.member.create.mockResolvedValue(makeMember({ id: "m-new", userId: "new-user" }) as any);
     inviteMock.mockResolvedValueOnce(false);
 
@@ -104,14 +97,9 @@ describe("POST /api/members", () => {
       ...makeUser({ id: "existing", role: UserRole.member }),
       members: [],
     } as any);
-    prismaMock.member.create.mockResolvedValue(
-      makeMember({ userId: "existing" }) as any
-    );
+    prismaMock.member.create.mockResolvedValue(makeMember({ userId: "existing" }) as any);
 
-    const res = await request(app)
-      .post("/api/members")
-      .set("Authorization", authHeader(ADMIN))
-      .send(validBody);
+    const res = await request(app).post("/api/members").set("Authorization", authHeader(ADMIN)).send(validBody);
 
     expect(res.status).toBe(201);
     expect(res.body.message).toBe("Member added successfully.");
@@ -125,10 +113,7 @@ describe("POST /api/members", () => {
       members: [],
     } as any);
 
-    const res = await request(app)
-      .post("/api/members")
-      .set("Authorization", authHeader(ADMIN))
-      .send(validBody);
+    const res = await request(app).post("/api/members").set("Authorization", authHeader(ADMIN)).send(validBody);
 
     expect(res.status).toBe(409);
     expect(res.body.message).toMatch(/admin account/i);
@@ -141,10 +126,7 @@ describe("POST /api/members", () => {
       members: [{ id: "already", workspaceId: WORKSPACE_ID }],
     } as any);
 
-    const res = await request(app)
-      .post("/api/members")
-      .set("Authorization", authHeader(ADMIN))
-      .send(validBody);
+    const res = await request(app).post("/api/members").set("Authorization", authHeader(ADMIN)).send(validBody);
 
     expect(res.status).toBe(409);
     expect(res.body.message).toBe("This person is already a member of this workspace");
@@ -159,13 +141,10 @@ describe("POST /api/members", () => {
       new Prisma.PrismaClientKnownRequestError("dup", {
         code: "P2002",
         clientVersion: "6.0.0",
-      })
+      }),
     );
 
-    const res = await request(app)
-      .post("/api/members")
-      .set("Authorization", authHeader(ADMIN))
-      .send(validBody);
+    const res = await request(app).post("/api/members").set("Authorization", authHeader(ADMIN)).send(validBody);
 
     expect(res.status).toBe(409);
     expect(res.body.message).toBe("This person is already a member");
@@ -192,10 +171,7 @@ describe("POST /api/members", () => {
   it("returns 500 on unexpected DB error", async () => {
     prismaMock.user.findUnique.mockRejectedValue(new Error("boom"));
 
-    const res = await request(app)
-      .post("/api/members")
-      .set("Authorization", authHeader(ADMIN))
-      .send(validBody);
+    const res = await request(app).post("/api/members").set("Authorization", authHeader(ADMIN)).send(validBody);
 
     expect(res.status).toBe(500);
   });
@@ -208,41 +184,31 @@ describe("GET /api/members", () => {
   });
 
   it("returns members the admin created", async () => {
-    prismaMock.member.findMany.mockResolvedValue([
-      makeMember({ id: "m1" }),
-    ] as any);
+    prismaMock.member.findMany.mockResolvedValue([makeMember({ id: "m1" })] as any);
 
-    const res = await request(app)
-      .get("/api/members")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/members").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
     expect(res.body.members).toHaveLength(1);
     expect(prismaMock.member.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { createdById: ADMIN.userId } })
+      expect.objectContaining({ where: { createdById: ADMIN.userId } }),
     );
   });
 
   it("returns only the member's own row for a member caller", async () => {
-    prismaMock.member.findMany.mockResolvedValue([
-      makeMember({ userId: MEMBER.userId }),
-    ] as any);
+    prismaMock.member.findMany.mockResolvedValue([makeMember({ userId: MEMBER.userId })] as any);
 
-    const res = await request(app)
-      .get("/api/members")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/members").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(200);
     expect(prismaMock.member.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: MEMBER.userId } })
+      expect.objectContaining({ where: { userId: MEMBER.userId } }),
     );
   });
 
   it("returns 500 on DB error", async () => {
     prismaMock.member.findMany.mockRejectedValue(new Error("boom"));
-    const res = await request(app)
-      .get("/api/members")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/members").set("Authorization", authHeader(ADMIN));
     expect(res.status).toBe(500);
   });
 });
@@ -254,18 +220,14 @@ describe("GET /api/members/:memberId", () => {
       user: { name: "Bob" },
     } as any);
 
-    const res = await request(app)
-      .get("/api/members/m1")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/members/m1").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
     expect(res.body.member.id).toBe("m1");
   });
 
   it("returns 403 for a member caller", async () => {
-    const res = await request(app)
-      .get("/api/members/m1")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/members/m1").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(403);
     expect(res.body.message).toBe("Access denied");
@@ -274,9 +236,7 @@ describe("GET /api/members/:memberId", () => {
   it("returns 404 when the member does not exist", async () => {
     prismaMock.member.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .get("/api/members/missing")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/members/missing").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(404);
   });
@@ -284,9 +244,7 @@ describe("GET /api/members/:memberId", () => {
 
 describe("DELETE /api/members/:memberId", () => {
   it("rejects non-admin with 403", async () => {
-    const res = await request(app)
-      .delete("/api/members/m1")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).delete("/api/members/m1").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(403);
   });
@@ -298,9 +256,7 @@ describe("DELETE /api/members/:memberId", () => {
     } as any);
     prismaMock.user.delete.mockResolvedValue(makeUser() as any);
 
-    const res = await request(app)
-      .delete("/api/members/m1")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).delete("/api/members/m1").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
     expect(res.body.memberId).toBe("m1");
@@ -317,9 +273,7 @@ describe("DELETE /api/members/:memberId", () => {
     } as any);
     prismaMock.member.delete.mockResolvedValue(makeMember() as any);
 
-    const res = await request(app)
-      .delete("/api/members/m1")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).delete("/api/members/m1").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
     expect(prismaMock.member.delete).toHaveBeenCalledWith({
@@ -331,9 +285,7 @@ describe("DELETE /api/members/:memberId", () => {
   it("returns 404 when the member does not exist", async () => {
     prismaMock.member.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .delete("/api/members/missing")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).delete("/api/members/missing").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(404);
   });
@@ -344,9 +296,7 @@ describe("DELETE /api/members/:memberId", () => {
       user: { id: "u", role: UserRole.member },
     } as any);
 
-    const res = await request(app)
-      .delete("/api/members/m1")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).delete("/api/members/m1").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(403);
     expect(res.body.message).toBe("You can only delete members you created");
@@ -355,9 +305,7 @@ describe("DELETE /api/members/:memberId", () => {
 
   it("returns 500 on DB error", async () => {
     prismaMock.member.findUnique.mockRejectedValue(new Error("boom"));
-    const res = await request(app)
-      .delete("/api/members/m1")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).delete("/api/members/m1").set("Authorization", authHeader(ADMIN));
     expect(res.status).toBe(500);
   });
 });

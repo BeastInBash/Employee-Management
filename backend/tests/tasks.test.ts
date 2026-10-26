@@ -38,9 +38,7 @@ describe("POST /api/tasks (member)", () => {
       id: "member-1",
       workspace,
     } as any);
-    jest
-      .spyOn(attendance, "getTodayISTDate")
-      .mockReturnValue(new Date("2026-06-21T00:00:00.000Z"));
+    jest.spyOn(attendance, "getTodayISTDate").mockReturnValue(new Date("2026-06-21T00:00:00.000Z"));
   }
 
   it("rejects unauthenticated requests", async () => {
@@ -53,10 +51,7 @@ describe("POST /api/tasks (member)", () => {
     prismaMock.task.create.mockResolvedValue(makeTask() as any);
     prismaMock.dailyAttendance.upsert.mockResolvedValue({} as any);
 
-    const res = await request(app)
-      .post("/api/tasks")
-      .set("Authorization", authHeader(MEMBER))
-      .send(validTask);
+    const res = await request(app).post("/api/tasks").set("Authorization", authHeader(MEMBER)).send(validTask);
 
     expect(res.status).toBe(201);
     expect(prismaMock.task.create).toHaveBeenCalledTimes(1);
@@ -72,7 +67,7 @@ describe("POST /api/tasks (member)", () => {
         create: expect.objectContaining({
           status: AttendanceStatus.partial,
         }),
-      })
+      }),
     );
   });
 
@@ -80,15 +75,12 @@ describe("POST /api/tasks (member)", () => {
     openWindow(RESTRICTED_WORKSPACE);
     jest.spyOn(attendance, "isWithinTaskWindow").mockReturnValue(false);
 
-    const res = await request(app)
-      .post("/api/tasks")
-      .set("Authorization", authHeader(MEMBER))
-      .send(validTask);
+    const res = await request(app).post("/api/tasks").set("Authorization", authHeader(MEMBER)).send(validTask);
 
     expect(res.status).toBe(403);
     expect(res.body.message).toMatch(/9:00 AM and 11:00 AM IST/);
     expect(res.body.taskWindow).toEqual(
-      expect.objectContaining({ enabled: true, startTime: "09:00", endTime: "11:00" })
+      expect.objectContaining({ enabled: true, startTime: "09:00", endTime: "11:00" }),
     );
     expect(prismaMock.task.create).not.toHaveBeenCalled();
   });
@@ -99,10 +91,7 @@ describe("POST /api/tasks (member)", () => {
     prismaMock.task.create.mockResolvedValue(makeTask() as any);
     prismaMock.dailyAttendance.upsert.mockResolvedValue({} as any);
 
-    const res = await request(app)
-      .post("/api/tasks")
-      .set("Authorization", authHeader(MEMBER))
-      .send(validTask);
+    const res = await request(app).post("/api/tasks").set("Authorization", authHeader(MEMBER)).send(validTask);
 
     expect(res.status).toBe(201);
   });
@@ -111,10 +100,7 @@ describe("POST /api/tasks (member)", () => {
     openWindow();
     prismaMock.member.findFirst.mockResolvedValue(null);
 
-    const res = await request(app)
-      .post("/api/tasks")
-      .set("Authorization", authHeader(MEMBER))
-      .send(validTask);
+    const res = await request(app).post("/api/tasks").set("Authorization", authHeader(MEMBER)).send(validTask);
 
     expect(res.status).toBe(404);
     expect(res.body.message).toBe("Member not found");
@@ -125,15 +111,12 @@ describe("POST /api/tasks (member)", () => {
     prismaMock.task.create.mockResolvedValue(makeTask() as any);
     prismaMock.dailyAttendance.upsert.mockResolvedValue({} as any);
 
-    await request(app)
-      .post("/api/tasks")
-      .set("Authorization", authHeader(MEMBER))
-      .send(validTask);
+    await request(app).post("/api/tasks").set("Authorization", authHeader(MEMBER)).send(validTask);
 
     expect(prismaMock.task.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: TaskStatus.todo }),
-      })
+      }),
     );
   });
 
@@ -196,10 +179,7 @@ describe("POST /api/tasks (admin)", () => {
   });
 
   it("returns 400 when userId is missing for an admin-created task", async () => {
-    const res = await request(app)
-      .post("/api/tasks")
-      .set("Authorization", authHeader(ADMIN))
-      .send(validTask);
+    const res = await request(app).post("/api/tasks").set("Authorization", authHeader(ADMIN)).send(validTask);
 
     expect(res.status).toBe(400);
     expect(res.body.message).toBe("userId is required for admin created tasks");
@@ -224,9 +204,7 @@ describe("GET /api/tasks/task-window", () => {
       workspace: RESTRICTED_WORKSPACE,
     } as any);
 
-    const res = await request(app)
-      .get("/api/tasks/task-window")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/tasks/task-window").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(200);
     expect(res.body.workspaceId).toBe("ws-1");
@@ -236,7 +214,7 @@ describe("GET /api/tasks/task-window", () => {
         startTime: "09:00",
         endTime: "11:00",
         label: "9:00 AM – 11:00 AM IST",
-      })
+      }),
     );
   });
 
@@ -246,20 +224,14 @@ describe("GET /api/tasks/task-window", () => {
       workspace: UNRESTRICTED_WORKSPACE,
     } as any);
 
-    const res = await request(app)
-      .get("/api/tasks/task-window")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/tasks/task-window").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(200);
-    expect(res.body.taskWindow).toEqual(
-      expect.objectContaining({ enabled: false, open: true, label: "Anytime" })
-    );
+    expect(res.body.taskWindow).toEqual(expect.objectContaining({ enabled: false, open: true, label: "Anytime" }));
   });
 
   it("never constrains an admin", async () => {
-    const res = await request(app)
-      .get("/api/tasks/task-window")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/tasks/task-window").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
     expect(res.body.taskWindow.open).toBe(true);
@@ -272,9 +244,7 @@ describe("GET /api/tasks/:userId and /member/:userId", () => {
     prismaMock.member.findFirst.mockResolvedValue({ id: "member-1" } as any);
     prismaMock.task.findMany.mockResolvedValue([makeTask()] as any);
 
-    const res = await request(app)
-      .get("/api/tasks/member-user-id")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/tasks/member-user-id").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
     expect(res.body.tasks).toHaveLength(1);
@@ -283,9 +253,7 @@ describe("GET /api/tasks/:userId and /member/:userId", () => {
   it("returns 404 when no member maps to that userId", async () => {
     prismaMock.member.findFirst.mockResolvedValue(null);
 
-    const res = await request(app)
-      .get("/api/tasks/ghost")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/tasks/ghost").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(404);
   });
@@ -295,23 +263,17 @@ describe("GET /api/tasks/:userId and /member/:userId", () => {
     prismaMock.member.findFirst.mockResolvedValue({ id: "member-1" } as any);
     prismaMock.task.findMany.mockResolvedValue([] as any);
 
-    const res = await request(app)
-      .get("/api/tasks/member/member-user-id")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/tasks/member/member-user-id").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
   });
 
   it("lets a member view their own tasks via /member/:userId", async () => {
     // canViewMemberTasks resolves the member by the userId param and matches userId.
-    prismaMock.member.findFirst.mockResolvedValue(
-      makeMember({ id: "member-1", userId: MEMBER.userId }) as any
-    );
+    prismaMock.member.findFirst.mockResolvedValue(makeMember({ id: "member-1", userId: MEMBER.userId }) as any);
     prismaMock.task.findMany.mockResolvedValue([] as any);
 
-    const res = await request(app)
-      .get("/api/tasks/member/member-user-id")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/tasks/member/member-user-id").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(200);
     expect(prismaMock.member.findFirst).toHaveBeenCalledWith({
@@ -321,13 +283,9 @@ describe("GET /api/tasks/:userId and /member/:userId", () => {
   });
 
   it("blocks a member from viewing another member's tasks (403)", async () => {
-    prismaMock.member.findFirst.mockResolvedValue(
-      makeMember({ id: "member-1", userId: "other-user-id" }) as any
-    );
+    prismaMock.member.findFirst.mockResolvedValue(makeMember({ id: "member-1", userId: "other-user-id" }) as any);
 
-    const res = await request(app)
-      .get("/api/tasks/member/other-user-id")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/tasks/member/other-user-id").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(403);
     expect(res.body.message).toBe("You can only view your own tasks");
@@ -336,9 +294,7 @@ describe("GET /api/tasks/:userId and /member/:userId", () => {
   it("returns 404 from canViewMemberTasks when no member maps to that userId", async () => {
     prismaMock.member.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .get("/api/tasks/member/ghost")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/tasks/member/ghost").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(404);
     expect(res.body.message).toBe("Member not found");
@@ -352,9 +308,7 @@ describe("PATCH /api/tasks/:taskId", () => {
       memberId: "member-1",
       member: { id: "member-1", email: "owner@example.com" },
     } as any);
-    prismaMock.task.update.mockResolvedValue(
-      makeTask({ title: "Updated" }) as any
-    );
+    prismaMock.task.update.mockResolvedValue(makeTask({ title: "Updated" }) as any);
 
     const res = await request(app)
       .patch("/api/tasks/task-1")
@@ -366,21 +320,15 @@ describe("PATCH /api/tasks/:taskId", () => {
   });
 
   it("flips attendance to present when the last open task is completed", async () => {
-    jest
-      .spyOn(attendance, "getTodayISTDate")
-      .mockReturnValue(new Date("2026-06-21T00:00:00.000Z"));
+    jest.spyOn(attendance, "getTodayISTDate").mockReturnValue(new Date("2026-06-21T00:00:00.000Z"));
     prismaMock.task.findUnique.mockResolvedValue({
       status: TaskStatus.in_progress,
       memberId: "member-1",
       member: { id: "member-1", userId: MEMBER.userId },
     } as any);
-    prismaMock.task.update.mockResolvedValue(
-      makeTask({ status: TaskStatus.completed }) as any
-    );
+    prismaMock.task.update.mockResolvedValue(makeTask({ status: TaskStatus.completed }) as any);
     // checkAndMarkPresent: all today's tasks completed.
-    prismaMock.task.findMany.mockResolvedValue([
-      { status: TaskStatus.completed, createdAt: new Date() },
-    ] as any);
+    prismaMock.task.findMany.mockResolvedValue([{ status: TaskStatus.completed, createdAt: new Date() }] as any);
     prismaMock.dailyAttendance.upsert.mockResolvedValue({
       status: AttendanceStatus.present,
       date: new Date(),
@@ -395,22 +343,18 @@ describe("PATCH /api/tasks/:taskId", () => {
     expect(prismaMock.dailyAttendance.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({ status: AttendanceStatus.present }),
-      })
+      }),
     );
   });
 
   it("does NOT mark present when other tasks are still open", async () => {
-    jest
-      .spyOn(attendance, "getTodayISTDate")
-      .mockReturnValue(new Date("2026-06-21T00:00:00.000Z"));
+    jest.spyOn(attendance, "getTodayISTDate").mockReturnValue(new Date("2026-06-21T00:00:00.000Z"));
     prismaMock.task.findUnique.mockResolvedValue({
       status: TaskStatus.todo,
       memberId: "member-1",
       member: { id: "member-1", userId: MEMBER.userId },
     } as any);
-    prismaMock.task.update.mockResolvedValue(
-      makeTask({ status: TaskStatus.completed }) as any
-    );
+    prismaMock.task.update.mockResolvedValue(makeTask({ status: TaskStatus.completed }) as any);
     prismaMock.task.findMany.mockResolvedValue([
       { status: TaskStatus.completed, createdAt: new Date() },
       { status: TaskStatus.todo, createdAt: new Date() },
@@ -484,9 +428,7 @@ describe("DELETE /api/tasks/:taskId", () => {
     prismaMock.task.findUnique.mockResolvedValue({ id: "task-1" } as any);
     prismaMock.task.delete.mockResolvedValue(makeTask() as any);
 
-    const res = await request(app)
-      .delete("/api/tasks/task-1")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).delete("/api/tasks/task-1").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
     expect(res.body.message).toBe("Task deleted successfully");
@@ -495,9 +437,7 @@ describe("DELETE /api/tasks/:taskId", () => {
   it("returns 404 when the task does not exist (admin)", async () => {
     prismaMock.task.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .delete("/api/tasks/missing")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).delete("/api/tasks/missing").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(404);
   });
@@ -509,9 +449,7 @@ describe("DELETE /api/tasks/:taskId", () => {
       member: makeMember({ email: MEMBER.email }),
     } as any);
 
-    const res = await request(app)
-      .delete("/api/tasks/task-1")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).delete("/api/tasks/task-1").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(403);
     expect(res.body.message).toBe("Only admins and project leads can delete tasks");

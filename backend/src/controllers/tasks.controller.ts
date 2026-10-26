@@ -257,8 +257,7 @@ export async function updateTask(req: Request, res: Response): Promise<void> {
         }
 
         const isBeingCompleted =
-            validatedData.status === TaskStatus.completed &&
-            existingTask.status !== TaskStatus.completed;
+            validatedData.status === TaskStatus.completed && existingTask.status !== TaskStatus.completed;
 
         const task = await prisma.task.update({
             where: { id: taskId },
@@ -317,10 +316,7 @@ export async function deleteTask(req: Request, res: Response): Promise<void> {
         }
 
         // Admins can delete anything; project leads can delete their project's tasks.
-        if (
-            req.user.role !== UserRole.admin &&
-            !(await canLeadTaskProject(req.user.userId, task.projectId))
-        ) {
+        if (req.user.role !== UserRole.admin && !(await canLeadTaskProject(req.user.userId, task.projectId))) {
             res.status(403).json({ message: "Only admins and project leads can delete tasks" });
             return;
         }
@@ -379,9 +375,5 @@ interface ZodError {
 }
 
 function isZodError(error: unknown): error is ZodError {
-    return (
-        typeof error === "object" &&
-        error !== null &&
-        (error as ZodError).name === "ZodError"
-    );
+    return typeof error === "object" && error !== null && (error as ZodError).name === "ZodError";
 }

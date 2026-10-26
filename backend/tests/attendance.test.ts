@@ -23,9 +23,7 @@ describe("GET /api/attendance/me", () => {
       makeAttendance({ id: "a3", status: AttendanceStatus.partial }),
     ] as any);
 
-    const res = await request(app)
-      .get("/api/attendance/me")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/attendance/me").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(200);
     expect(res.body.summary).toEqual({
@@ -39,9 +37,7 @@ describe("GET /api/attendance/me", () => {
   it("returns 404 when the caller has no member row", async () => {
     prismaMock.member.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .get("/api/attendance/me")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/attendance/me").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(404);
   });
@@ -50,9 +46,7 @@ describe("GET /api/attendance/me", () => {
     prismaMock.member.findUnique.mockResolvedValue(makeMember() as any);
     prismaMock.dailyAttendance.findMany.mockResolvedValue([] as any);
 
-    await request(app)
-      .get("/api/attendance/me?month=3&year=2025")
-      .set("Authorization", authHeader(MEMBER));
+    await request(app).get("/api/attendance/me?month=3&year=2025").set("Authorization", authHeader(MEMBER));
 
     const arg = prismaMock.dailyAttendance.findMany.mock.calls[0]![0] as any;
     // month=3 → March (index 2): gte = 2025-03-01.
@@ -64,9 +58,7 @@ describe("GET /api/attendance/me", () => {
     prismaMock.member.findUnique.mockResolvedValue(makeMember() as any);
     prismaMock.dailyAttendance.findMany.mockResolvedValue([] as any);
 
-    const res = await request(app)
-      .get("/api/attendance/me")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/attendance/me").set("Authorization", authHeader(MEMBER));
 
     expect(res.body.summary).toEqual({
       present: 0,
@@ -79,9 +71,7 @@ describe("GET /api/attendance/me", () => {
 
 describe("GET /api/attendance/today", () => {
   it("rejects non-admin callers with 403", async () => {
-    const res = await request(app)
-      .get("/api/attendance/today")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/attendance/today").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(403);
   });
@@ -102,9 +92,7 @@ describe("GET /api/attendance/today", () => {
       },
     ] as any);
 
-    const res = await request(app)
-      .get("/api/attendance/today")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/attendance/today").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
     expect(res.body.submissionWindowOpen).toBe(true);
@@ -118,9 +106,7 @@ describe("GET /api/attendance/today", () => {
 
 describe("GET /api/attendance/report", () => {
   it("rejects non-admin callers with 403", async () => {
-    const res = await request(app)
-      .get("/api/attendance/report")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/attendance/report").set("Authorization", authHeader(MEMBER));
     expect(res.status).toBe(403);
   });
 
@@ -138,9 +124,7 @@ describe("GET /api/attendance/report", () => {
       },
     ] as any);
 
-    const res = await request(app)
-      .get("/api/attendance/report")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/attendance/report").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
     const summary = res.body.report[0].summary;
@@ -169,9 +153,7 @@ describe("GET /api/attendance/report", () => {
 
 describe("GET /api/attendance/report/:memberId", () => {
   it("rejects non-admin callers with 403", async () => {
-    const res = await request(app)
-      .get("/api/attendance/report/m1")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/attendance/report/m1").set("Authorization", authHeader(MEMBER));
     expect(res.status).toBe(403);
   });
 
@@ -182,9 +164,7 @@ describe("GET /api/attendance/report/:memberId", () => {
     } as any);
     prismaMock.dailyAttendance.findMany.mockResolvedValue([] as any);
 
-    const res = await request(app)
-      .get("/api/attendance/report/m1")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/attendance/report/m1").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(200);
     expect(res.body.summary.attendancePercentage).toBe(0);
@@ -195,18 +175,14 @@ describe("GET /api/attendance/report/:memberId", () => {
   it("returns 404 when no member matches the id", async () => {
     prismaMock.member.findFirst.mockResolvedValue(null);
 
-    const res = await request(app)
-      .get("/api/attendance/report/ghost")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/attendance/report/ghost").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(404);
   });
 
   it("returns 500 on DB error", async () => {
     prismaMock.member.findFirst.mockRejectedValue(new Error("boom"));
-    const res = await request(app)
-      .get("/api/attendance/report/m1")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/attendance/report/m1").set("Authorization", authHeader(ADMIN));
     expect(res.status).toBe(500);
   });
 });

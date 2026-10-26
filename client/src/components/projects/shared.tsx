@@ -4,14 +4,7 @@ import { Check, ChevronsUpDown, FolderKanban, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 import { COLOR_CHOICES, projectStatusLabels } from "@/lib/projectMeta";
 import type { AttendanceStatus, Person, ProjectStatus, ScopeAccess, ScopeRole } from "@/contexts/ProjectContext";
@@ -67,7 +60,7 @@ export const PersonAvatar = ({ person, className }: { person: Pick<Person, "name
   <span
     className={cn(
       "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-[11px] font-semibold text-secondary-foreground",
-      className
+      className,
     )}
     title={person.name}
   >
@@ -122,7 +115,7 @@ export const ColorPicker = ({ value, onChange }: { value: string | undefined; on
         aria-pressed={value === c}
         className={cn(
           "h-7 w-7 rounded-full ring-offset-2 ring-offset-card transition-shadow",
-          value === c ? "ring-2 ring-foreground/70" : "hover:ring-2 hover:ring-border"
+          value === c ? "ring-2 ring-foreground/70" : "hover:ring-2 hover:ring-border",
         )}
         style={{ backgroundColor: c }}
       />
@@ -167,11 +160,7 @@ export const PeoplePicker = ({
         <PopoverTrigger asChild>
           <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
             <span className={cn("truncate", selected.length === 0 && "text-muted-foreground")}>
-              {selected.length === 0
-                ? placeholder
-                : single
-                  ? selected[0]!.name
-                  : `${selected.length} selected`}
+              {selected.length === 0 ? placeholder : single ? selected[0]!.name : `${selected.length} selected`}
             </span>
             <ChevronsUpDown className="h-4 w-4 opacity-50" />
           </Button>
@@ -209,7 +198,6 @@ export const PeoplePicker = ({
     </div>
   );
 };
-
 
 export const EmptyState = ({
   title,

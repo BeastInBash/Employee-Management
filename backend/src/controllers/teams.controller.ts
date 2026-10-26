@@ -248,7 +248,12 @@ export const addTeamMember = async (req: Request, res: Response) => {
 
     const seat = await prisma.teamMember.create({
         data: { teamId, memberId, role },
-        select: { role: true, joinedAt: true, member: { select: memberSummarySelect }, team: { select: { name: true } } },
+        select: {
+            role: true,
+            joinedAt: true,
+            member: { select: memberSummarySelect },
+            team: { select: { name: true } },
+        },
     });
     await notifySeats({
         actorUserId: req.user!.userId,
@@ -276,7 +281,12 @@ export const updateTeamMember = async (req: Request, res: Response) => {
     const seat = await prisma.teamMember.update({
         where: { teamId_memberId: { teamId, memberId } },
         data: { role },
-        select: { role: true, joinedAt: true, member: { select: memberSummarySelect }, team: { select: { name: true } } },
+        select: {
+            role: true,
+            joinedAt: true,
+            member: { select: memberSummarySelect },
+            team: { select: { name: true } },
+        },
     });
     // Only a real promotion is news; demotions and no-op saves stay quiet.
     if (seat.role === ScopeRole.lead && before?.role !== ScopeRole.lead) {

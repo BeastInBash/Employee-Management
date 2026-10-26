@@ -1,7 +1,13 @@
 import { AttendanceStatus, Prisma, PrismaClient, TaskStatus } from "@prisma/client";
 import type { Request, Response } from "express";
 import ApiError from "../utils/errors/ApiError";
-import { canManage, getProjectAccess, getProjectParticipantIds, getTeamAccess, getWorkspaceAccess } from "../utils/access";
+import {
+    canManage,
+    getProjectAccess,
+    getProjectParticipantIds,
+    getTeamAccess,
+    getWorkspaceAccess,
+} from "../utils/access";
 import { reportQuerySchema } from "../validation/reportValidation";
 
 const prisma = new PrismaClient();
@@ -57,7 +63,11 @@ interface ResolvedScope {
     projectId?: string;
 }
 
-async function resolveScope(userId: string, type: ResolvedScope["type"], id: string | undefined): Promise<ResolvedScope> {
+async function resolveScope(
+    userId: string,
+    type: ResolvedScope["type"],
+    id: string | undefined,
+): Promise<ResolvedScope> {
     if (type === "me") {
         const seats = await prisma.member.findMany({ where: { userId }, select: { id: true } });
         if (seats.length === 0) throw ApiError.notFound("You don't have a member seat in any workspace");
@@ -77,7 +87,8 @@ async function resolveScope(userId: string, type: ResolvedScope["type"], id: str
 
     if (type === "project") {
         const access = await getProjectAccess(userId, id);
-        if (!canManage(access.access)) throw ApiError.forbidden("Only admins and project leads can view project reports");
+        if (!canManage(access.access))
+            throw ApiError.forbidden("Only admins and project leads can view project reports");
         const [project, participants] = await Promise.all([
             prisma.project.findUnique({ where: { id }, select: { name: true } }),
             getProjectParticipantIds(id),
@@ -177,10 +188,13 @@ export const getReport = async (req: Request, res: Response) => {
                 partial: 0,
                 absent: 0,
             },
-        ])
+        ]),
     );
     const trend = new Map(
-        days.map((d) => [d, { date: d, weekend: isWeekend(d), created: 0, completed: 0, present: 0, partial: 0, absent: 0 }])
+        days.map((d) => [
+            d,
+            { date: d, weekend: isWeekend(d), created: 0, completed: 0, present: 0, partial: 0, absent: 0 },
+        ]),
     );
 
     let createdNowDone = 0;
@@ -216,7 +230,11 @@ export const getReport = async (req: Request, res: Response) => {
         const row = rows.get(a.memberId);
         const day = trend.get(key);
         const field =
-            a.status === AttendanceStatus.present ? "present" : a.status === AttendanceStatus.partial ? "partial" : "absent";
+            a.status === AttendanceStatus.present
+                ? "present"
+                : a.status === AttendanceStatus.partial
+                  ? "partial"
+                  : "absent";
         if (row) row[field]++;
         if (day) day[field]++;
     }
@@ -250,7 +268,7 @@ export const getReport = async (req: Request, res: Response) => {
             partial: acc.partial + r.partial,
             absent: acc.absent + r.absent,
         }),
-        { onTime: 0, cycle: 0, present: 0, partial: 0, absent: 0 }
+        { onTime: 0, cycle: 0, present: 0, partial: 0, absent: 0 },
     );
     const recorded = totals.present + totals.partial + totals.absent;
 

@@ -35,10 +35,26 @@ export const WeeklyAttendance = ({ weeks }: { weeks: WeekRate[] }) => (
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={weeks} margin={{ top: 8, right: 4, bottom: 0, left: -8 }} barCategoryGap="28%">
           <CartesianGrid vertical={false} stroke="var(--border)" />
-          <XAxis {...axis} dataKey="week" tickFormatter={(d: string) => formatDay(d)} interval="preserveStartEnd" minTickGap={16} />
+          <XAxis
+            {...axis}
+            dataKey="week"
+            tickFormatter={(d: string) => formatDay(d)}
+            interval="preserveStartEnd"
+            minTickGap={16}
+          />
           <YAxis {...axis} domain={[0, 100]} ticks={[0, 50, 100]} tickFormatter={(v: number) => `${v}%`} width={44} />
-          <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<WeekTooltip />} isAnimationActive={false} />
-          <Bar dataKey="rate" fill="var(--viz-present)" maxBarSize={24} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+          <Tooltip
+            cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+            content={<WeekTooltip />}
+            isAnimationActive={false}
+          />
+          <Bar
+            dataKey="rate"
+            fill="var(--viz-present)"
+            maxBarSize={24}
+            radius={[4, 4, 0, 0]}
+            isAnimationActive={false}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

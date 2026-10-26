@@ -30,7 +30,9 @@ const Teams = () => {
       <PageHeader
         title="Teams"
         description={
-          isAdmin ? "Group the people who work together, give each group a lead, and assign whole teams to projects." : "The teams you're part of."
+          isAdmin
+            ? "Group the people who work together, give each group a lead, and assign whole teams to projects."
+            : "The teams you're part of."
         }
         actions={
           isAdmin && (
@@ -42,46 +44,46 @@ const Teams = () => {
         }
       />
 
-        {(isLoading || (isAdmin && orgsLoading)) && teams.length === 0 ? (
-          <div className="flex justify-center py-20">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : noWorkspace ? (
-          <EmptyState
-            title="Choose a workspace first"
-            body="Teams live inside a workspace. Create one on the Members page, or pick one from the switcher in the sidebar."
-            action={<Button onClick={() => navigate("/dashboard")}>Go to Members</Button>}
-          />
-        ) : teams.length === 0 ? (
-          <EmptyState
-            icon={UsersRound}
-            title="No teams yet"
-            body={
-              isAdmin
-                ? "Start with the groups you already have, like Design or Sales, and choose who leads each one."
-                : "Teams you're added to will appear here."
-            }
-            action={
-              isAdmin ? (
-                <Button onClick={() => setIsCreateOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  New team
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : isAdmin ? (
-          <TeamGrid teams={teams} onOpen={(id) => navigate(`/teams/${id}`)} />
-        ) : (
-          <div className="space-y-8">
-            <TeamGrid teams={mine} onOpen={(id) => navigate(`/teams/${id}`)} />
-            {others.length > 0 && (
-              <Section title="Other teams in your workspace">
-                <TeamGrid teams={others} onOpen={(id) => navigate(`/teams/${id}`)} />
-              </Section>
-            )}
-          </div>
-        )}
+      {(isLoading || (isAdmin && orgsLoading)) && teams.length === 0 ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : noWorkspace ? (
+        <EmptyState
+          title="Choose a workspace first"
+          body="Teams live inside a workspace. Create one on the Members page, or pick one from the switcher in the sidebar."
+          action={<Button onClick={() => navigate("/dashboard")}>Go to Members</Button>}
+        />
+      ) : teams.length === 0 ? (
+        <EmptyState
+          icon={UsersRound}
+          title="No teams yet"
+          body={
+            isAdmin
+              ? "Start with the groups you already have, like Design or Sales, and choose who leads each one."
+              : "Teams you're added to will appear here."
+          }
+          action={
+            isAdmin ? (
+              <Button onClick={() => setIsCreateOpen(true)}>
+                <Plus className="h-4 w-4" />
+                New team
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : isAdmin ? (
+        <TeamGrid teams={teams} onOpen={(id) => navigate(`/teams/${id}`)} />
+      ) : (
+        <div className="space-y-8">
+          <TeamGrid teams={mine} onOpen={(id) => navigate(`/teams/${id}`)} />
+          {others.length > 0 && (
+            <Section title="Other teams in your workspace">
+              <TeamGrid teams={others} onOpen={(id) => navigate(`/teams/${id}`)} />
+            </Section>
+          )}
+        </div>
+      )}
 
       <TeamFormDialog
         open={isCreateOpen}
@@ -106,12 +108,17 @@ const TeamGrid = ({ teams, onOpen }: { teams: TeamSummary[]; onOpen: (id: string
       >
         <div className="mb-2 flex items-start justify-between gap-3">
           <span className="flex min-w-0 items-center gap-2.5">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: t.color ?? "var(--primary)" }} />
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: t.color ?? "var(--primary)" }}
+            />
             <h3 className="truncate text-[15px]">{t.name}</h3>
           </span>
           <RoleBadge role={t.myRole === "lead" ? "lead" : null} />
         </div>
-        <p className="mb-5 line-clamp-2 min-h-10 text-sm text-muted-foreground">{t.description || "No description yet."}</p>
+        <p className="mb-5 line-clamp-2 min-h-10 text-sm text-muted-foreground">
+          {t.description || "No description yet."}
+        </p>
         <div className="mt-auto flex items-center justify-between gap-3 border-t border-border/70 pt-4 text-xs text-muted-foreground">
           <AvatarStack people={t.leads} max={3} />
           <span className="flex items-center gap-4">

@@ -104,13 +104,17 @@ export const TodayTile = ({
                   <span
                     className={cn(
                       "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors duration-200",
-                      checked ? "border-sage bg-sage text-sage-foreground" : "border-input bg-card"
+                      checked ? "border-sage bg-sage text-sage-foreground" : "border-input bg-card",
                     )}
                   >
                     {busy ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
-                      <motion.span initial={false} animate={{ opacity: checked ? 1 : 0, scale: checked ? 1 : 0.6 }} transition={{ duration: 0.15 }}>
+                      <motion.span
+                        initial={false}
+                        animate={{ opacity: checked ? 1 : 0, scale: checked ? 1 : 0.6 }}
+                        transition={{ duration: 0.15 }}
+                      >
                         <Check className="h-3 w-3" strokeWidth={3} />
                       </motion.span>
                     )}
@@ -119,7 +123,7 @@ export const TodayTile = ({
                     <span
                       className={cn(
                         "block truncate text-sm transition-colors",
-                        checked && "text-muted-foreground line-through decoration-muted-foreground/40"
+                        checked && "text-muted-foreground line-through decoration-muted-foreground/40",
                       )}
                     >
                       {t.title}

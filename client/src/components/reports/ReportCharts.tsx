@@ -1,16 +1,6 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Table2, LineChart as LineChartIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -32,7 +22,11 @@ export const StatTile = ({
 }) => (
   <div className="min-w-0 rounded-xl border border-border/80 bg-card px-4 py-3.5">
     <div className="text-xs text-muted-foreground truncate">{label}</div>
-    <div className={cn("mt-1 text-2xl font-semibold tracking-tight sm:text-[28px]", tone === "warn" && "text-destructive")}>{value}</div>
+    <div
+      className={cn("mt-1 text-2xl font-semibold tracking-tight sm:text-[28px]", tone === "warn" && "text-destructive")}
+    >
+      {value}
+    </div>
     {hint && <div className="mt-0.5 truncate text-xs text-muted-foreground">{hint}</div>}
   </div>
 );
@@ -183,7 +177,13 @@ const THROUGHPUT: Series[] = [
 ];
 
 export const ThroughputChart = ({ days, className }: { days: ReportDay[]; className?: string }) => (
-  <ChartFrame title="Task throughput" subtitle="Tasks created and completed per day" series={THROUGHPUT} days={days} className={className}>
+  <ChartFrame
+    title="Task throughput"
+    subtitle="Tasks created and completed per day"
+    series={THROUGHPUT}
+    days={days}
+    className={className}
+  >
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={days} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
         <CartesianGrid vertical={false} stroke="var(--border)" />
@@ -237,7 +237,11 @@ export const AttendanceChart = ({ days, excludeWeekends }: { days: ReportDay[]; 
           <CartesianGrid vertical={false} stroke="var(--border)" />
           <XAxis {...xAxisFor(data)} />
           <YAxis {...axisProps} allowDecimals={false} width={40} />
-          <Tooltip cursor={{ fill: "var(--muted)", opacity: 0.5 }} content={<DayTooltip series={ATTENDANCE} />} isAnimationActive={false} />
+          <Tooltip
+            cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+            content={<DayTooltip series={ATTENDANCE} />}
+            isAnimationActive={false}
+          />
           {ATTENDANCE.map((s) => (
             <Bar
               key={s.key}

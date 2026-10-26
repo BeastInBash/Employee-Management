@@ -48,16 +48,32 @@ export const ChangePasswordDialog = ({ open, onOpenChange }: { open: boolean; on
         <form onSubmit={submit} className="space-y-5">
           <DialogHeader>
             <DialogTitle>Change password</DialogTitle>
-            <DialogDescription>Signed in with Google and never set one? Use “Forgot password” on the sign-in page instead.</DialogDescription>
+            <DialogDescription>
+              Signed in with Google and never set one? Use “Forgot password” on the sign-in page instead.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="pw-current">Current password</Label>
-              <Input id="pw-current" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
+              <Input
+                id="pw-current"
+                type="password"
+                autoComplete="current-password"
+                value={current}
+                onChange={(e) => setCurrent(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="pw-new">New password</Label>
-              <Input id="pw-new" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} required />
+              <Input
+                id="pw-new"
+                type="password"
+                autoComplete="new-password"
+                value={next}
+                onChange={(e) => setNext(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="pw-confirm">Confirm new password</Label>

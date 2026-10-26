@@ -36,58 +36,57 @@ import AdminAttendancePanel from "./pages/AdminPanel";
 // const queryClient = new QueryClient();
 
 const App = () => (
-    // <QueryClientProvider client={queryClient}>
-    <MotionConfig reducedMotion="user">
+  // <QueryClientProvider client={queryClient}>
+  <MotionConfig reducedMotion="user">
     <ThemeProvider defaultTheme="light" storageKey="crewly-theme">
-        <TooltipProvider>
-            <AuthProvider>
-                <OrgProvider>
-                    <MemberProvider>
-                        <TaskProvider>
-                          <ProjectProvider>
-                            <Toaster />
-                            <Sonner />
-                            <BrowserRouter>
-                                <Routes>
-                                    <Route path="/" element={<Landing />} />
-                                    <Route path="/login" element={<Login />} />
-                                    <Route path="/forgot-password" element={<ForgotPassword />} />
-                                    <Route path="/reset-password" element={<ResetPassword />} />
-                                    <Route path="/auth/callback" element={<AuthCallback />} />
-                                    <Route path="/verify-email" element={<VerifyEmail />} />
+      <TooltipProvider>
+        <AuthProvider>
+          <OrgProvider>
+            <MemberProvider>
+              <TaskProvider>
+                <ProjectProvider>
+                  <Toaster />
+                  <Sonner />
+                  <BrowserRouter>
+                    <Routes>
+                      <Route path="/" element={<Landing />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/forgot-password" element={<ForgotPassword />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
+                      <Route path="/auth/callback" element={<AuthCallback />} />
+                      <Route path="/verify-email" element={<VerifyEmail />} />
 
-                                    <Route element={<ProtectedRoute />}>
-                                      <Route element={<AppShell />}>
+                      <Route element={<ProtectedRoute />}>
+                        <Route element={<AppShell />}>
+                          <Route path="/home" element={<Home />} />
+                          <Route path="/dashboard" element={<Dashboard />} />
+                          <Route path="/attendance" element={<MemberDashboard />} />
 
-                                        <Route path="/home" element={<Home />} />
-                                        <Route path="/dashboard" element={<Dashboard />} />
-                                        <Route path="/attendance" element={<MemberDashboard />} />
+                          {/* Admin views a specific member's attendance */}
+                          <Route path="/dashboard/member/:memberId/attendance" element={<MemberDashboard />} />
+                          <Route path="/admin/attendance" element={<AdminAttendancePanel />} />
+                          <Route path="/member/:memberId" element={<MemberDetail />} />
+                          <Route path="/todos/:memberId" element={<TaskDetails />} />
+                          <Route path="/projects" element={<Projects />} />
+                          <Route path="/projects/:projectId" element={<ProjectDetail />} />
+                          <Route path="/teams" element={<Teams />} />
+                          <Route path="/teams/:teamId" element={<TeamDetail />} />
+                          <Route path="/reports" element={<Reports />} />
+                        </Route>
+                      </Route>
 
-                                        {/* Admin views a specific member's attendance */}
-                                        <Route path="/dashboard/member/:memberId/attendance" element={<MemberDashboard />} />
-                                        <Route path="/admin/attendance" element={<AdminAttendancePanel />} />
-                                        <Route path="/member/:memberId" element={<MemberDetail />} />
-                                        <Route path="/todos/:memberId" element={<TaskDetails />} />
-                                        <Route path="/projects" element={<Projects />} />
-                                        <Route path="/projects/:projectId" element={<ProjectDetail />} />
-                                        <Route path="/teams" element={<Teams />} />
-                                        <Route path="/teams/:teamId" element={<TeamDetail />} />
-                                        <Route path="/reports" element={<Reports />} />
-                                      </Route>
-                                    </Route>
-
-                                    <Route path="*" element={<NotFound />} />
-                                </Routes>
-                            </BrowserRouter>
-                          </ProjectProvider>
-                        </TaskProvider>
-                    </MemberProvider>
-                </OrgProvider>
-            </AuthProvider>
-        </TooltipProvider>
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </BrowserRouter>
+                </ProjectProvider>
+              </TaskProvider>
+            </MemberProvider>
+          </OrgProvider>
+        </AuthProvider>
+      </TooltipProvider>
     </ThemeProvider>
-    </MotionConfig>
-    // </QueryClientProvider>
+  </MotionConfig>
+  // </QueryClientProvider>
 );
 
 export default App;

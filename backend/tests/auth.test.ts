@@ -20,9 +20,7 @@ describe("POST /api/auth/login", () => {
     prismaMock.user.findUnique.mockResolvedValue(user as any);
     compareMock.mockResolvedValue(true);
 
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "user@example.com", password: "secret" });
+    const res = await request(app).post("/api/auth/login").send({ email: "user@example.com", password: "secret" });
 
     expect(res.status).toBe(200);
     expect(res.body.token).toEqual(expect.any(String));
@@ -36,9 +34,7 @@ describe("POST /api/auth/login", () => {
     prismaMock.user.findUnique.mockResolvedValue(user as any);
     compareMock.mockResolvedValue(true);
 
-    await request(app)
-      .post("/api/auth/login")
-      .send({ email: "USER@Example.com", password: "secret" });
+    await request(app).post("/api/auth/login").send({ email: "USER@Example.com", password: "secret" });
 
     expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
       where: { email: "user@example.com" },
@@ -46,14 +42,10 @@ describe("POST /api/auth/login", () => {
   });
 
   it("flags requiresPasswordChange when isPasswordReset is true", async () => {
-    prismaMock.user.findUnique.mockResolvedValue(
-      makeUser({ isPasswordReset: true }) as any
-    );
+    prismaMock.user.findUnique.mockResolvedValue(makeUser({ isPasswordReset: true }) as any);
     compareMock.mockResolvedValue(true);
 
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "user@example.com", password: "secret" });
+    const res = await request(app).post("/api/auth/login").send({ email: "user@example.com", password: "secret" });
 
     expect(res.body.requiresPasswordChange).toBe(true);
   });
@@ -61,9 +53,7 @@ describe("POST /api/auth/login", () => {
   it("returns 401 when the user does not exist", async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "nobody@example.com", password: "secret" });
+    const res = await request(app).post("/api/auth/login").send({ email: "nobody@example.com", password: "secret" });
 
     expect(res.status).toBe(401);
     expect(res.body.message).toBe("Invalid email or password");
@@ -73,18 +63,14 @@ describe("POST /api/auth/login", () => {
     prismaMock.user.findUnique.mockResolvedValue(makeUser() as any);
     compareMock.mockResolvedValue(false);
 
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "user@example.com", password: "wrong" });
+    const res = await request(app).post("/api/auth/login").send({ email: "user@example.com", password: "wrong" });
 
     expect(res.status).toBe(401);
     expect(res.body.message).toBe("Invalid email or password");
   });
 
   it("returns 400 for an invalid email format", async () => {
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "not-an-email", password: "secret" });
+    const res = await request(app).post("/api/auth/login").send({ email: "not-an-email", password: "secret" });
 
     expect(res.status).toBe(400);
     expect(res.body.message).toBe("Invalid input");
@@ -92,9 +78,7 @@ describe("POST /api/auth/login", () => {
   });
 
   it("returns 400 when the password is missing", async () => {
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "user@example.com" });
+    const res = await request(app).post("/api/auth/login").send({ email: "user@example.com" });
 
     expect(res.status).toBe(400);
   });
@@ -107,9 +91,7 @@ describe("POST /api/auth/login", () => {
   it("returns 500 when the database throws", async () => {
     prismaMock.user.findUnique.mockRejectedValue(new Error("db down"));
 
-    const res = await request(app)
-      .post("/api/auth/login")
-      .send({ email: "user@example.com", password: "secret" });
+    const res = await request(app).post("/api/auth/login").send({ email: "user@example.com", password: "secret" });
 
     expect(res.status).toBe(500);
     expect(res.body.message).toBe("Internal server error");
@@ -120,7 +102,7 @@ describe("POST /api/auth/signup", () => {
   it("creates an admin user and returns a token", async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
     prismaMock.user.create.mockResolvedValue(
-      makeUser({ id: "new-admin", role: UserRole.admin, email: "a@b.com" }) as any
+      makeUser({ id: "new-admin", role: UserRole.admin, email: "a@b.com" }) as any,
     );
 
     const res = await request(app)
@@ -161,17 +143,13 @@ describe("POST /api/auth/signup", () => {
   });
 
   it("returns 400 when the name is shorter than 2 chars", async () => {
-    const res = await request(app)
-      .post("/api/auth/signup")
-      .send({ email: "a@b.com", password: "secret1", name: "A" });
+    const res = await request(app).post("/api/auth/signup").send({ email: "a@b.com", password: "secret1", name: "A" });
 
     expect(res.status).toBe(400);
   });
 
   it("returns 400 for an invalid email", async () => {
-    const res = await request(app)
-      .post("/api/auth/signup")
-      .send({ email: "bad", password: "secret1", name: "Admin" });
+    const res = await request(app).post("/api/auth/signup").send({ email: "bad", password: "secret1", name: "Admin" });
 
     expect(res.status).toBe(400);
   });
@@ -187,9 +165,7 @@ describe("POST /api/auth/change-password", () => {
   });
 
   it("changes the password and clears isPasswordReset", async () => {
-    prismaMock.user.findUnique.mockResolvedValue(
-      makeUser({ id: ADMIN.userId }) as any
-    );
+    prismaMock.user.findUnique.mockResolvedValue(makeUser({ id: ADMIN.userId }) as any);
     compareMock.mockResolvedValue(true);
     prismaMock.user.update.mockResolvedValue(makeUser() as any);
 
@@ -240,9 +216,7 @@ describe("POST /api/auth/change-password", () => {
       .send({ oldPassword: "same123", newPassword: "same123" });
 
     expect(res.status).toBe(400);
-    expect(res.body.message).toBe(
-      "New password must be different from the current password"
-    );
+    expect(res.body.message).toBe("New password must be different from the current password");
     expect(prismaMock.user.update).not.toHaveBeenCalled();
   });
 
@@ -314,9 +288,7 @@ describe("POST /api/auth/forgot-password", () => {
     prismaMock.user.findUnique.mockResolvedValue(user as any);
     prismaMock.user.update.mockResolvedValue(user as any);
 
-    const res = await request(app)
-      .post("/api/auth/forgot-password")
-      .send({ email: "user@example.com" });
+    const res = await request(app).post("/api/auth/forgot-password").send({ email: "user@example.com" });
 
     expect(res.status).toBe(200);
     expect(prismaMock.user.update).toHaveBeenCalledTimes(1);
@@ -330,9 +302,7 @@ describe("POST /api/auth/forgot-password", () => {
   it("returns the same generic 200 when the account does NOT exist (no enumeration)", async () => {
     prismaMock.user.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .post("/api/auth/forgot-password")
-      .send({ email: "ghost@example.com" });
+    const res = await request(app).post("/api/auth/forgot-password").send({ email: "ghost@example.com" });
 
     expect(res.status).toBe(200);
     expect(res.body.message).toMatch(/If an account exists/i);
@@ -345,17 +315,13 @@ describe("POST /api/auth/forgot-password", () => {
     prismaMock.user.update.mockResolvedValue(makeUser() as any);
     resetEmailMock.mockRejectedValueOnce(new Error("smtp down"));
 
-    const res = await request(app)
-      .post("/api/auth/forgot-password")
-      .send({ email: "user@example.com" });
+    const res = await request(app).post("/api/auth/forgot-password").send({ email: "user@example.com" });
 
     expect(res.status).toBe(200);
   });
 
   it("returns 400 for an invalid email", async () => {
-    const res = await request(app)
-      .post("/api/auth/forgot-password")
-      .send({ email: "nope" });
+    const res = await request(app).post("/api/auth/forgot-password").send({ email: "nope" });
 
     expect(res.status).toBe(400);
   });
@@ -368,19 +334,14 @@ describe("POST /api/auth/reset-password", () => {
     prismaMock.user.findFirst.mockResolvedValue(user as any);
     prismaMock.user.update.mockResolvedValue(user as any);
 
-    const res = await request(app)
-      .post("/api/auth/reset-password")
-      .send({ token: rawToken, newPassword: "brandnew1" });
+    const res = await request(app).post("/api/auth/reset-password").send({ token: rawToken, newPassword: "brandnew1" });
 
     expect(res.status).toBe(200);
     expect(res.body.message).toBe("Password reset successfully");
 
     // Lookup must hash the raw token before matching, and check expiry.
     const findArg = prismaMock.user.findFirst.mock.calls[0]![0] as any;
-    const expectedHash = crypto
-      .createHash("sha256")
-      .update(rawToken)
-      .digest("hex");
+    const expectedHash = crypto.createHash("sha256").update(rawToken).digest("hex");
     expect(findArg.where.resetToken).toBe(expectedHash);
     expect(findArg.where.resetTokenExpiry.gte).toBeInstanceOf(Date);
 
@@ -413,17 +374,13 @@ describe("POST /api/auth/reset-password", () => {
   });
 
   it("returns 400 when the token is missing", async () => {
-    const res = await request(app)
-      .post("/api/auth/reset-password")
-      .send({ newPassword: "brandnew1" });
+    const res = await request(app).post("/api/auth/reset-password").send({ newPassword: "brandnew1" });
 
     expect(res.status).toBe(400);
   });
 
   it("returns 400 when the new password is too short", async () => {
-    const res = await request(app)
-      .post("/api/auth/reset-password")
-      .send({ token: "x", newPassword: "123" });
+    const res = await request(app).post("/api/auth/reset-password").send({ token: "x", newPassword: "123" });
 
     expect(res.status).toBe(400);
   });

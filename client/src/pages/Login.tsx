@@ -104,7 +104,7 @@ const Login = () => {
             onClick={() => switchTab(value)}
             className={cn(
               "relative h-9 rounded-full text-sm font-medium transition-colors active:scale-100",
-              tab === value ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+              tab === value ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {tab === value && (
@@ -168,7 +168,11 @@ const Login = () => {
               </form>
               <p className="text-center text-sm text-muted-foreground">
                 New to Workzen?{" "}
-                <button type="button" onClick={() => switchTab("signup")} className="font-medium text-primary hover:underline active:scale-100">
+                <button
+                  type="button"
+                  onClick={() => switchTab("signup")}
+                  className="font-medium text-primary hover:underline active:scale-100"
+                >
                   Create a workspace
                 </button>
               </p>
@@ -218,7 +222,11 @@ const Login = () => {
               </form>
               <p className="text-center text-sm text-muted-foreground">
                 Already have an account?{" "}
-                <button type="button" onClick={() => switchTab("login")} className="font-medium text-primary hover:underline active:scale-100">
+                <button
+                  type="button"
+                  onClick={() => switchTab("login")}
+                  className="font-medium text-primary hover:underline active:scale-100"
+                >
                   Sign in
                 </button>
               </p>

@@ -36,7 +36,7 @@ export async function notifySeats(params: {
                 event: params.event,
                 byName: actor?.name ?? "Your admin",
                 path: `/${params.kind === "team" ? "teams" : "projects"}/${params.scopeId}`,
-            }))
+            })),
         );
     } catch (error) {
         console.error("[notify] Failed to send seat notices:", error);

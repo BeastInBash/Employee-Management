@@ -67,7 +67,10 @@ export const AuthLayout = ({
         <Photo className="absolute inset-0 h-full w-full animate-[kenburns_26s_ease-in-out_infinite_alternate] object-cover motion-reduce:animate-none" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgb(var(--hero-shade)/0.45)_0%,rgb(var(--hero-shade)/0.05)_30%,rgb(var(--hero-shade)/0.15)_55%,rgb(var(--hero-shade)/0.88)_100%)]" />
 
-        <Link to="/" className="absolute left-10 top-9 flex items-center gap-2 text-lg font-semibold tracking-tight text-white">
+        <Link
+          to="/"
+          className="absolute left-10 top-9 flex items-center gap-2 text-lg font-semibold tracking-tight text-white"
+        >
           <Feather className="h-5 w-5 text-(--hero-accent)" />
           Workzen
         </Link>
@@ -79,10 +82,17 @@ export const AuthLayout = ({
                 key={index}
                 initial={{ opacity: 0, transform: "translateY(10px)", filter: "blur(4px)" }}
                 animate={{ opacity: 1, transform: "translateY(0px)", filter: "blur(0px)" }}
-                exit={{ opacity: 0, transform: "translateY(-6px)", filter: "blur(4px)", transition: { duration: 0.25 } }}
+                exit={{
+                  opacity: 0,
+                  transform: "translateY(-6px)",
+                  filter: "blur(4px)",
+                  transition: { duration: 0.25 },
+                }}
                 transition={{ duration: 0.6, ease: EASE }}
               >
-                <p className="max-w-[18ch] text-[34px] font-semibold leading-[1.1] tracking-[-0.025em] text-white">{caption.title}</p>
+                <p className="max-w-[18ch] text-[34px] font-semibold leading-[1.1] tracking-[-0.025em] text-white">
+                  {caption.title}
+                </p>
                 <p className="mt-3 max-w-[40ch] text-[15px] leading-relaxed text-white/75">{caption.body}</p>
               </motion.div>
             </AnimatePresence>
@@ -123,7 +133,10 @@ export const AuthLayout = ({
         <div className="relative h-48 overflow-hidden lg:hidden">
           <Photo className="h-full w-full animate-[kenburns_26s_ease-in-out_infinite_alternate] object-cover object-[50%_62%] motion-reduce:animate-none" />
           <div className="absolute inset-0 bg-gradient-to-b from-[rgb(var(--hero-shade)/0.35)] via-transparent to-background" />
-          <Link to="/" className="absolute left-5 top-5 flex items-center gap-2 text-lg font-semibold tracking-tight text-white">
+          <Link
+            to="/"
+            className="absolute left-5 top-5 flex items-center gap-2 text-lg font-semibold tracking-tight text-white"
+          >
             <Feather className="h-5 w-5 text-(--hero-accent)" />
             Workzen
           </Link>

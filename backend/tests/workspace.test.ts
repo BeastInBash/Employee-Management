@@ -3,12 +3,7 @@ import { OrgRole } from "@prisma/client";
 import { prismaMock } from "./singleton";
 import { createTestApp } from "./testApp";
 import { authHeader, ADMIN, MEMBER } from "./helpers";
-import {
-  isWithinTaskWindow,
-  parseTimeString,
-  toTimeString,
-  formatISTMinute,
-} from "../src/utils/attendance";
+import { isWithinTaskWindow, parseTimeString, toTimeString, formatISTMinute } from "../src/utils/attendance";
 
 const app = createTestApp();
 
@@ -43,14 +38,10 @@ describe("GET /api/workspace/:workspaceId/task-window", () => {
     prismaMock.member.findFirst.mockResolvedValue({ id: "member-1" } as any);
     prismaMock.orgMembership.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .get("/api/workspace/ws-1/task-window")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/workspace/ws-1/task-window").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(200);
-    expect(res.body.taskWindow).toEqual(
-      expect.objectContaining({ enabled: false, open: true, label: "Anytime" })
-    );
+    expect(res.body.taskWindow).toEqual(expect.objectContaining({ enabled: false, open: true, label: "Anytime" }));
   });
 
   it("403s a user with no relationship to the workspace", async () => {
@@ -62,9 +53,7 @@ describe("GET /api/workspace/:workspaceId/task-window", () => {
     prismaMock.member.findFirst.mockResolvedValue(null);
     prismaMock.orgMembership.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .get("/api/workspace/ws-1/task-window")
-      .set("Authorization", authHeader(MEMBER));
+    const res = await request(app).get("/api/workspace/ws-1/task-window").set("Authorization", authHeader(MEMBER));
 
     expect(res.status).toBe(403);
   });
@@ -72,9 +61,7 @@ describe("GET /api/workspace/:workspaceId/task-window", () => {
   it("404s an unknown workspace", async () => {
     prismaMock.workspace.findUnique.mockResolvedValue(null);
 
-    const res = await request(app)
-      .get("/api/workspace/ghost/task-window")
-      .set("Authorization", authHeader(ADMIN));
+    const res = await request(app).get("/api/workspace/ghost/task-window").set("Authorization", authHeader(ADMIN));
 
     expect(res.status).toBe(404);
   });
@@ -111,10 +98,10 @@ describe("PATCH /api/workspace/:workspaceId/task-window", () => {
           taskWindowStart: 600,
           taskWindowEnd: 780,
         },
-      })
+      }),
     );
     expect(res.body.taskWindow).toEqual(
-      expect.objectContaining({ enabled: true, startTime: "10:00", endTime: "13:00" })
+      expect.objectContaining({ enabled: true, startTime: "10:00", endTime: "13:00" }),
     );
   });
 
@@ -137,7 +124,7 @@ describe("PATCH /api/workspace/:workspaceId/task-window", () => {
           taskWindowStart: 540,
           taskWindowEnd: 660,
         }),
-      })
+      }),
     );
   });
 

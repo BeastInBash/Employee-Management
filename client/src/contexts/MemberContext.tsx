@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { toast } from "@/components/ui/sonner";
 
 // const API_BASE_URL = "http://localhost:3000/api"; // Update with your backend URL
-const API_BASE_URL = import.meta.env.VITE_API_URL; 
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 import { useAuth } from "./AuthContext";
 
@@ -43,12 +43,8 @@ export type Member = {
 type MemberContextType = {
   members: Member[];
   tasks: Task[];
-  addMember: (
-    member: Omit<Member, "id" | "createdAt">
-  ) => Promise<Member | void>;
-  addTask: (
-    task: Omit<Task, "id" | "createdAt" | "completedAt">
-  ) => Promise<Task | void>;
+  addMember: (member: Omit<Member, "id" | "createdAt">) => Promise<Member | void>;
+  addTask: (task: Omit<Task, "id" | "createdAt" | "completedAt">) => Promise<Task | void>;
   updateTask: (id: string, updatedTask: Partial<Task>) => Promise<Task | void>;
   deleteTask: (id: string) => Promise<boolean>;
   deleteMember: (id: string) => Promise<boolean>;
@@ -56,8 +52,8 @@ type MemberContextType = {
   getMemberTasks: (memberId: string) => Promise<Task[]>;
   getUserMembers: (userId: string) => Member[];
   canManageTask: (taskId: string) => boolean;
-  refreshMembers: () =>Promise< void>;
-  refreshMemberTask: (memberId:string)=>Promise< void>;
+  refreshMembers: () => Promise<void>;
+  refreshMemberTask: (memberId: string) => Promise<void>;
 };
 
 const MemberContext = createContext<MemberContextType | undefined>(undefined);
@@ -85,10 +81,11 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
       if (response.ok) {
         const data = await response.json();
         setMembers(
-          data && data?.members?.map((m: Omit<Member, "createdAt"> & { createdAt: string }): Member => ({
-            ...m,
-            createdAt: new Date(m.createdAt),
-          }))
+          data &&
+            data?.members?.map((m: Omit<Member, "createdAt"> & { createdAt: string }): Member => ({
+              ...m,
+              createdAt: new Date(m.createdAt),
+            })),
         );
       }
     } catch (error) {
@@ -162,9 +159,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Task functions
-  const addTask = async (
-    task: Omit<Task, "id" | "createdAt" | "completedAt">
-  ) => {
+  const addTask = async (task: Omit<Task, "id" | "createdAt" | "completedAt">) => {
     const token = getAuthToken();
     if (!token) {
       toast.error("You must be logged in");
@@ -325,7 +320,6 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  
   const getMemberTasks = async (memberId: string) => {
     const token = getAuthToken();
     if (!token) {
@@ -372,10 +366,9 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const refreshMemberTask = async (memberId:string)=>{
+  const refreshMemberTask = async (memberId: string) => {
     await getMemberTasks(memberId);
-
-  }
+  };
 
   const getUserMembers = (userId: string) => {
     // Admin can see all members
@@ -406,7 +399,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
         members,
         tasks,
         addMember,
-          deleteMember,
+        deleteMember,
         addTask,
         updateTask,
         deleteTask,

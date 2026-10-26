@@ -52,13 +52,7 @@ const VerifyEmail = () => {
       <AuthLayout
         title="That link didn't work"
         description={state.message}
-        footer={
-          !user && (
-            <span>
-              Signed in somewhere else? Use “Resend email” in the banner at the top of the app.
-            </span>
-          )
-        }
+        footer={!user && <span>Signed in somewhere else? Use “Resend email” in the banner at the top of the app.</span>}
       >
         <div className="mb-5 flex items-center gap-3 rounded-xl bg-muted p-4 text-sm text-muted-foreground">
           <MailX className="h-5 w-5 shrink-0" />

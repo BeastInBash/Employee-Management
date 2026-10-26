@@ -37,7 +37,9 @@ export const VerifyEmailBanner = () => {
   const resend = async () => {
     setIsSending(true);
     try {
-      const res = await api<{ message: string; alreadyVerified?: boolean }>("/auth/resend-verification", { method: "POST" });
+      const res = await api<{ message: string; alreadyVerified?: boolean }>("/auth/resend-verification", {
+        method: "POST",
+      });
       if (res.alreadyVerified) {
         await refreshUser();
         toast.success("Your email is already confirmed");
@@ -75,7 +77,9 @@ export const VerifyEmailBanner = () => {
             <MailCheck className="h-4 w-4 shrink-0 text-honey" />
             <p className="min-w-0 flex-1 text-foreground">
               {sentTo ? (
-                <>A new link is on its way to <span className="font-medium">{sentTo}</span>. It works for 24 hours.</>
+                <>
+                  A new link is on its way to <span className="font-medium">{sentTo}</span>. It works for 24 hours.
+                </>
               ) : (
                 <>
                   Confirm your email address. We sent a link to <span className="font-medium">{user?.email}</span>.
@@ -83,7 +87,13 @@ export const VerifyEmailBanner = () => {
               )}
             </p>
             <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" onClick={resend} disabled={isSending} className="text-honey hover:text-honey">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={resend}
+                disabled={isSending}
+                className="text-honey hover:text-honey"
+              >
                 {isSending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 Resend email
               </Button>

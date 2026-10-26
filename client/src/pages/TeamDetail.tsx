@@ -2,7 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { BarChart3, Loader2, MoreHorizontal, Pencil, Trash2, UserMinus, UserPlus } from "lucide-react";
 import { useProjects } from "@/contexts/ProjectContext";
-import type { Permissions, ScopeAccess, ScopeRole, TeamDetail as TeamDetailData, TeamMemberRow } from "@/contexts/ProjectContext";
+import type {
+  Permissions,
+  ScopeAccess,
+  ScopeRole,
+  TeamDetail as TeamDetailData,
+  TeamMemberRow,
+} from "@/contexts/ProjectContext";
 import { api, errorMessage } from "@/lib/api";
 import { toast } from "@/components/ui/sonner";
 import { PageHeader, Section } from "@/components/layout/Page";
@@ -24,7 +30,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AttendanceDot, ColorSwatch, EmptyState, PersonAvatar, ProjectStatusBadge, RoleBadge } from "@/components/projects/shared";
+import {
+  AttendanceDot,
+  ColorSwatch,
+  EmptyState,
+  PersonAvatar,
+  ProjectStatusBadge,
+  RoleBadge,
+} from "@/components/projects/shared";
 import { formatDate } from "@/lib/projectMeta";
 import { TeamFormDialog } from "@/components/projects/TeamFormDialog";
 import { AddPeopleDialog } from "@/components/projects/AddPeopleDialog";
@@ -85,7 +98,10 @@ const TeamDetail = () => {
     setBusyId(m.id);
     try {
       await api(`/teams/${team.id}/members/${m.id}`, { method: "PATCH", body: { role } });
-      setDetail({ ...detail, team: { ...team, members: team.members.map((x) => (x.id === m.id ? { ...x, teamRole: role } : x)) } });
+      setDetail({
+        ...detail,
+        team: { ...team, members: team.members.map((x) => (x.id === m.id ? { ...x, teamRole: role } : x)) },
+      });
       toast.success(role === "lead" ? `${m.name} now leads ${team.name}` : `${m.name} is no longer a lead`);
     } catch (e) {
       toast.error(errorMessage(e));
@@ -108,7 +124,7 @@ const TeamDetail = () => {
   };
 
   const sorted = [...team.members].sort(
-    (a, b) => (a.teamRole === "lead" ? 0 : 1) - (b.teamRole === "lead" ? 0 : 1) || a.name.localeCompare(b.name)
+    (a, b) => (a.teamRole === "lead" ? 0 : 1) - (b.teamRole === "lead" ? 0 : 1) || a.name.localeCompare(b.name),
   );
 
   return (
@@ -117,155 +133,179 @@ const TeamDetail = () => {
         back={{ to: "/teams", label: "Teams" }}
         title={
           <span className="flex flex-wrap items-center gap-3">
-            <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: team.color ?? "var(--primary)" }} />
+            <span
+              className="h-3 w-3 shrink-0 rounded-full"
+              style={{ backgroundColor: team.color ?? "var(--primary)" }}
+            />
             <span className="break-words">{team.name}</span>
             <RoleBadge role={detail.myRole} />
           </span>
         }
         description={team.description || undefined}
         actions={
-            <>
-              {permissions.canManage && (
-                <Button onClick={() => setIsAddOpen(true)}>
-                  <UserPlus className="h-4 w-4" />
-                  Add people
-                </Button>
-              )}
-              {permissions.canManage && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon" aria-label="Team actions">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
-                      <Pencil className="h-4 w-4" />
-                      Edit details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate(`/reports?scope=team:${team.id}`)}>
-                      <BarChart3 className="h-4 w-4" />
-                      View report
-                    </DropdownMenuItem>
-                    {permissions.canDelete && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive" onClick={() => setIsDeleteOpen(true)}>
-                          <Trash2 className="h-4 w-4" />
-                          Delete team
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </>
+          <>
+            {permissions.canManage && (
+              <Button onClick={() => setIsAddOpen(true)}>
+                <UserPlus className="h-4 w-4" />
+                Add people
+              </Button>
+            )}
+            {permissions.canManage && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" aria-label="Team actions">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
+                    <Pencil className="h-4 w-4" />
+                    Edit details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate(`/reports?scope=team:${team.id}`)}>
+                    <BarChart3 className="h-4 w-4" />
+                    View report
+                  </DropdownMenuItem>
+                  {permissions.canDelete && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive" onClick={() => setIsDeleteOpen(true)}>
+                        <Trash2 className="h-4 w-4" />
+                        Delete team
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </>
         }
       />
 
-        <dl className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="People" value={team.members.length} />
-          <Stat label="Present today" value={partial ? `${present} + ${partial} partial` : present} />
-          <Stat label="Open tasks" value={openTasks} />
-          <Stat label="Overdue" value={overdue} warn={overdue > 0} />
-        </dl>
+      <dl className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="People" value={team.members.length} />
+        <Stat label="Present today" value={partial ? `${present} + ${partial} partial` : present} />
+        <Stat label="Open tasks" value={openTasks} />
+        <Stat label="Overdue" value={overdue} warn={overdue > 0} />
+      </dl>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          <Section title="Roster" className="lg:col-span-2">
-            {sorted.length === 0 ? (
-              <EmptyState icon={UserPlus} title="No one on this team yet" body="Add people from the workspace to get started." />
-            ) : (
-              <div className="overflow-x-auto rounded-xl border border-border/80 bg-card">
-                <table className="w-full text-sm">
-                  <thead className="border-b border-border/70 bg-surface text-xs text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2.5 text-left font-medium">Person</th>
-                      <th className="px-4 py-2.5 text-left font-medium">Today</th>
-                      <th className="px-4 py-2.5 text-left font-medium">Tasks</th>
-                      <th className="px-4 py-2.5" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/70">
-                    {sorted.map((m) => {
-                      const canRemove = permissions.canManage && (m.teamRole !== "lead" || permissions.canAssignLeads);
-                      return (
-                        <tr key={m.id}>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <PersonAvatar person={m} />
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <span className="truncate">{m.name}</span>
-                                  <RoleBadge role={m.teamRole} />
-                                </div>
-                                <div className="text-xs text-muted-foreground truncate">{m.jobTitle}</div>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <Section title="Roster" className="lg:col-span-2">
+          {sorted.length === 0 ? (
+            <EmptyState
+              icon={UserPlus}
+              title="No one on this team yet"
+              body="Add people from the workspace to get started."
+            />
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-border/80 bg-card">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border/70 bg-surface text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left font-medium">Person</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Today</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Tasks</th>
+                    <th className="px-4 py-2.5" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/70">
+                  {sorted.map((m) => {
+                    const canRemove = permissions.canManage && (m.teamRole !== "lead" || permissions.canAssignLeads);
+                    return (
+                      <tr key={m.id}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <PersonAvatar person={m} />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate">{m.name}</span>
+                                <RoleBadge role={m.teamRole} />
                               </div>
+                              <div className="text-xs text-muted-foreground truncate">{m.jobTitle}</div>
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <AttendanceDot status={m.todayAttendance} showLabel />
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className="tabular-nums">
-                              {m.stats.completed} of {m.stats.total}
-                            </span>{" "}
-                            <span className="text-muted-foreground">done</span>
-                            {m.stats.overdue > 0 && <span className="text-destructive">, {m.stats.overdue} overdue</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {(canRemove || permissions.canAssignLeads) && (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" disabled={busyId === m.id} aria-label={`Manage ${m.name}`}>
-                                    {busyId === m.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  {permissions.canAssignLeads && (
-                                    <DropdownMenuItem onClick={() => setRole(m, m.teamRole === "lead" ? "member" : "lead")}>
-                                      {m.teamRole === "lead" ? "Remove lead role" : "Make team lead"}
-                                    </DropdownMenuItem>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <AttendanceDot status={m.todayAttendance} showLabel />
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className="tabular-nums">
+                            {m.stats.completed} of {m.stats.total}
+                          </span>{" "}
+                          <span className="text-muted-foreground">done</span>
+                          {m.stats.overdue > 0 && <span className="text-destructive">, {m.stats.overdue} overdue</span>}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {(canRemove || permissions.canAssignLeads) && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  disabled={busyId === m.id}
+                                  aria-label={`Manage ${m.name}`}
+                                >
+                                  {busyId === m.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <MoreHorizontal className="h-4 w-4" />
                                   )}
-                                  {canRemove && (
-                                    <DropdownMenuItem className="text-destructive" onClick={() => remove(m)}>
-                                      <UserMinus className="h-4 w-4" />
-                                      Remove from team
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Section>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {permissions.canAssignLeads && (
+                                  <DropdownMenuItem
+                                    onClick={() => setRole(m, m.teamRole === "lead" ? "member" : "lead")}
+                                  >
+                                    {m.teamRole === "lead" ? "Remove lead role" : "Make team lead"}
+                                  </DropdownMenuItem>
+                                )}
+                                {canRemove && (
+                                  <DropdownMenuItem className="text-destructive" onClick={() => remove(m)}>
+                                    <UserMinus className="h-4 w-4" />
+                                    Remove from team
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
 
-          <Section title="Projects">
-            {team.projects.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
-                Not on any project yet. Assign this team from a project's Teams tab.
-              </p>
-            ) : (
-              <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
-                {team.projects.map((p) => (
-                  <Link key={p.id} to={`/projects/${p.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/60">
-                    <ColorSwatch color={p.color} />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm">{p.name}</div>
-                      <div className="text-xs text-muted-foreground">{p.dueDate ? `Due ${formatDate(p.dueDate)}` : "No due date"}</div>
+        <Section title="Projects">
+          {team.projects.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
+              Not on any project yet. Assign this team from a project's Teams tab.
+            </p>
+          ) : (
+            <div className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
+              {team.projects.map((p) => (
+                <Link
+                  key={p.id}
+                  to={`/projects/${p.id}`}
+                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/60"
+                >
+                  <ColorSwatch color={p.color} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm">{p.name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {p.dueDate ? `Due ${formatDate(p.dueDate)}` : "No due date"}
                     </div>
-                    <ProjectStatusBadge status={p.status} />
-                  </Link>
-                ))}
-              </div>
-            )}
-          </Section>
-        </div>
+                  </div>
+                  <ProjectStatusBadge status={p.status} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </Section>
+      </div>
 
       <TeamFormDialog
         open={isEditOpen}

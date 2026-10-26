@@ -10,7 +10,7 @@ export const TaskWindowPill = ({ taskWindow }: { taskWindow: TaskWindowInfo }) =
     <span
       className={cn(
         "inline-flex h-9 items-center gap-2 rounded-full px-3.5 text-sm",
-        closed ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground"
+        closed ? "bg-destructive/10 text-destructive" : "bg-secondary text-secondary-foreground",
       )}
     >
       {closed ? <Lock className="h-3.5 w-3.5" /> : <Clock className="h-3.5 w-3.5" />}

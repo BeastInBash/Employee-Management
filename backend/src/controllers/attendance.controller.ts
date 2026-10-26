@@ -69,15 +69,12 @@ export async function getMemberAttendanceReport(req: Request, res: Response): Pr
         }
         const member = await prisma.member.findFirst({
             where: {
-                OR : [
-                    {id: memberId },
-                    {userId: memberId }
-                ]
+                OR: [{ id: memberId }, { userId: memberId }],
             },
             include: { user: { select: { name: true, email: true } } },
         });
 
-        console.log("Memeber", member)
+        console.log("Memeber", member);
         if (!member) {
             res.status(404).json({ message: "Member not found" });
             return;
@@ -100,8 +97,7 @@ export async function getMemberAttendanceReport(req: Request, res: Response): Pr
                 absent: attendance.filter((a) => a.status === AttendanceStatus.absent).length,
                 partial: attendance.filter((a) => a.status === AttendanceStatus.partial).length,
                 total: attendance.length,
-                attendancePercentage:
-                    attendance.length > 0 ? Math.round((presentCount / attendance.length) * 100) : 0,
+                attendancePercentage: attendance.length > 0 ? Math.round((presentCount / attendance.length) * 100) : 0,
             },
         });
     } catch (error) {

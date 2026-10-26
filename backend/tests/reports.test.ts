@@ -25,7 +25,8 @@ function standAs(standing: "admin" | "lead" | "member") {
   } as any);
   prismaMock.orgMembership.findUnique.mockResolvedValue(null);
   prismaMock.member.findFirst.mockResolvedValue(standing === "admin" ? null : ({ id: SEAT_A } as any));
-  const seat = standing === "lead" ? { role: ScopeRole.lead } : standing === "member" ? { role: ScopeRole.member } : null;
+  const seat =
+    standing === "lead" ? { role: ScopeRole.lead } : standing === "member" ? { role: ScopeRole.member } : null;
   prismaMock.projectMember.findUnique.mockResolvedValue(seat as any);
   prismaMock.teamMember.findUnique.mockResolvedValue(seat as any);
   prismaMock.projectTeam.findFirst.mockResolvedValue(null);
@@ -58,14 +59,18 @@ describe("GET /api/reports access", () => {
   it("only lets admins see a workspace report", async () => {
     standAs("lead");
     noData();
-    const res = await request(app).get(`/api/reports?scope=workspace&id=${WS}&${range}`).set("Authorization", authHeader(MEMBER));
+    const res = await request(app)
+      .get(`/api/reports?scope=workspace&id=${WS}&${range}`)
+      .set("Authorization", authHeader(MEMBER));
     expect(res.status).toBe(403);
   });
 
   it("lets a project lead see their project's report", async () => {
     standAs("lead");
     noData();
-    const res = await request(app).get(`/api/reports?scope=project&id=${PROJECT}&${range}`).set("Authorization", authHeader(MEMBER));
+    const res = await request(app)
+      .get(`/api/reports?scope=project&id=${PROJECT}&${range}`)
+      .set("Authorization", authHeader(MEMBER));
     expect(res.status).toBe(200);
     expect(res.body.scope).toEqual({ type: "project", id: PROJECT, name: "Relaunch" });
   });
@@ -73,8 +78,12 @@ describe("GET /api/reports access", () => {
   it("keeps a regular member out of project and team reports", async () => {
     standAs("member");
     noData();
-    const p = await request(app).get(`/api/reports?scope=project&id=${PROJECT}&${range}`).set("Authorization", authHeader(MEMBER));
-    const t = await request(app).get(`/api/reports?scope=team&id=${TEAM}&${range}`).set("Authorization", authHeader(MEMBER));
+    const p = await request(app)
+      .get(`/api/reports?scope=project&id=${PROJECT}&${range}`)
+      .set("Authorization", authHeader(MEMBER));
+    const t = await request(app)
+      .get(`/api/reports?scope=team&id=${TEAM}&${range}`)
+      .set("Authorization", authHeader(MEMBER));
     expect(p.status).toBe(403);
     expect(t.status).toBe(403);
   });
@@ -87,9 +96,15 @@ describe("GET /api/reports access", () => {
   });
 
   it("rejects bad ranges", async () => {
-    const backwards = await request(app).get("/api/reports?scope=me&from=2026-10-25&to=2026-10-01").set("Authorization", authHeader(MEMBER));
-    const tooLong = await request(app).get("/api/reports?scope=me&from=2024-01-01&to=2026-01-01").set("Authorization", authHeader(MEMBER));
-    const badDate = await request(app).get("/api/reports?scope=me&from=yesterday&to=2026-01-01").set("Authorization", authHeader(MEMBER));
+    const backwards = await request(app)
+      .get("/api/reports?scope=me&from=2026-10-25&to=2026-10-01")
+      .set("Authorization", authHeader(MEMBER));
+    const tooLong = await request(app)
+      .get("/api/reports?scope=me&from=2024-01-01&to=2026-01-01")
+      .set("Authorization", authHeader(MEMBER));
+    const badDate = await request(app)
+      .get("/api/reports?scope=me&from=yesterday&to=2026-01-01")
+      .set("Authorization", authHeader(MEMBER));
     expect([backwards.status, tooLong.status, badDate.status]).toEqual([400, 400, 400]);
   });
 });
@@ -144,7 +159,9 @@ describe("GET /api/reports metrics", () => {
   });
 
   it("computes the summary", async () => {
-    const res = await request(app).get(`/api/reports?scope=workspace&id=${WS}&${range}`).set("Authorization", authHeader(ADMIN));
+    const res = await request(app)
+      .get(`/api/reports?scope=workspace&id=${WS}&${range}`)
+      .set("Authorization", authHeader(ADMIN));
     expect(res.status).toBe(200);
     expect(res.body.summary).toEqual({
       people: 2,
@@ -162,14 +179,22 @@ describe("GET /api/reports metrics", () => {
   });
 
   it("breaks results down per member", async () => {
-    const res = await request(app).get(`/api/reports?scope=workspace&id=${WS}&${range}`).set("Authorization", authHeader(ADMIN));
+    const res = await request(app)
+      .get(`/api/reports?scope=workspace&id=${WS}&${range}`)
+      .set("Authorization", authHeader(ADMIN));
     const [ben, ada] = res.body.members; // sorted by tasks completed
-    expect(ben).toEqual(expect.objectContaining({ name: "Ben", completed: 2, onTimeRate: 50, attendanceRate: 50, avgCycleHours: 29 }));
-    expect(ada).toEqual(expect.objectContaining({ name: "Ada", completed: 1, onTimeRate: 100, overdueOpen: 2, attendanceRate: 75 }));
+    expect(ben).toEqual(
+      expect.objectContaining({ name: "Ben", completed: 2, onTimeRate: 50, attendanceRate: 50, avgCycleHours: 29 }),
+    );
+    expect(ada).toEqual(
+      expect.objectContaining({ name: "Ada", completed: 1, onTimeRate: 100, overdueOpen: 2, attendanceRate: 75 }),
+    );
   });
 
   it("buckets the daily trend by IST day and flags weekends", async () => {
-    const res = await request(app).get(`/api/reports?scope=workspace&id=${WS}&${range}`).set("Authorization", authHeader(ADMIN));
+    const res = await request(app)
+      .get(`/api/reports?scope=workspace&id=${WS}&${range}`)
+      .set("Authorization", authHeader(ADMIN));
     const byDate = Object.fromEntries(res.body.trend.map((d: any) => [d.date, d]));
     expect(res.body.trend).toHaveLength(7);
     expect(byDate["2026-10-21"]).toEqual(expect.objectContaining({ created: 1, completed: 0, present: 1, partial: 1 }));

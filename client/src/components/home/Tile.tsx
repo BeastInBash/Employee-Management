@@ -22,7 +22,10 @@ export const Tile = ({
   children: ReactNode;
   className?: string;
 }) => (
-  <motion.section variants={tileIn} className={cn("flex min-w-0 flex-col rounded-2xl border border-border/80 bg-card p-5", className)}>
+  <motion.section
+    variants={tileIn}
+    className={cn("flex min-w-0 flex-col rounded-2xl border border-border/80 bg-card p-5", className)}
+  >
     {(title || action) && (
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -46,11 +49,28 @@ export const TileLink = ({ to, children }: { to: string; children: ReactNode }) 
 );
 
 /** A single number with its label, for the small cells of the grid. */
-export const StatCell = ({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: string; tone?: "warn" }) => (
+export const StatCell = ({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: string;
+  tone?: "warn";
+}) => (
   <Tile className="justify-between">
     <p className="text-sm text-muted-foreground">{label}</p>
     <div>
-      <p className={cn("mt-3 text-[34px] font-semibold leading-none tracking-tight tabular", tone === "warn" && "text-destructive")}>{value}</p>
+      <p
+        className={cn(
+          "mt-3 text-[34px] font-semibold leading-none tracking-tight tabular",
+          tone === "warn" && "text-destructive",
+        )}
+      >
+        {value}
+      </p>
       {hint && <p className="mt-2 text-xs text-muted-foreground">{hint}</p>}
     </div>
   </Tile>
@@ -68,7 +88,15 @@ const shortDue = (due: Date) => {
  * the due date or (`show="status"`) the status, so two lists of the same tasks
  * can each say something different.
  */
-export const TaskLine = ({ task, overdue, show = "due" }: { task: Task; overdue?: boolean; show?: "due" | "status" }) => (
+export const TaskLine = ({
+  task,
+  overdue,
+  show = "due",
+}: {
+  task: Task;
+  overdue?: boolean;
+  show?: "due" | "status";
+}) => (
   <li className="flex items-start gap-3 py-2.5">
     <span
       className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", taskStatusDots[task.status])}
@@ -89,7 +117,12 @@ export const TaskLine = ({ task, overdue, show = "due" }: { task: Task; overdue?
         {taskStatusLabels[task.status]}
       </span>
     ) : (
-      <span className={cn("shrink-0 pt-px text-xs tabular", overdue ? "font-medium text-destructive" : "text-muted-foreground")}>
+      <span
+        className={cn(
+          "shrink-0 pt-px text-xs tabular",
+          overdue ? "font-medium text-destructive" : "text-muted-foreground",
+        )}
+      >
         {overdue ? "Overdue" : shortDue(task.dueDate)}
       </span>
     )}

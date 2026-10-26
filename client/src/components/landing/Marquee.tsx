@@ -14,7 +14,10 @@ const KINDS = [
 ];
 
 const Row = ({ hidden }: { hidden?: boolean }) => (
-  <ul className="flex shrink-0 items-center motion-reduce:shrink motion-reduce:flex-wrap motion-reduce:gap-y-2" aria-hidden={hidden}>
+  <ul
+    className="flex shrink-0 items-center motion-reduce:shrink motion-reduce:flex-wrap motion-reduce:gap-y-2"
+    aria-hidden={hidden}
+  >
     {KINDS.map((k) => (
       <li key={k} className="flex items-center gap-8 pr-8 text-lg text-muted-foreground sm:text-xl">
         {k}
@@ -30,7 +33,9 @@ const Row = ({ hidden }: { hidden?: boolean }) => (
  */
 export const Marquee = () => (
   <section aria-label="Made for" className="border-y border-border/70 bg-card py-6">
-    <div className="mx-auto mb-3 max-w-[1180px] px-5 text-sm text-muted-foreground sm:px-8">Made for small teams of every kind</div>
+    <div className="mx-auto mb-3 max-w-[1180px] px-5 text-sm text-muted-foreground sm:px-8">
+      Made for small teams of every kind
+    </div>
     <div className="group relative overflow-hidden [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)]">
       <div className="flex w-max animate-[marquee_48s_linear_infinite] group-hover:[animation-play-state:paused] motion-reduce:w-auto motion-reduce:animate-none motion-reduce:flex-wrap motion-reduce:px-5">
         <Row />

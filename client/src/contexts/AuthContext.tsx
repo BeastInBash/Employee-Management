@@ -16,16 +16,8 @@ type User = {
 type AuthContextType = {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (
-    email: string,
-    password: string,
-    name: string,
-    role?: UserRole
-  ) => Promise<boolean>;
-  changePassword: (
-    oldPassword: string,
-    newPassword: string
-  ) => Promise<boolean>;
+  signup: (email: string, password: string, name: string, role?: UserRole) => Promise<boolean>;
+  changePassword: (oldPassword: string, newPassword: string) => Promise<boolean>;
   logout: () => void;
   /** Adopt a JWT issued by an external sign-in (Google) and load the user. */
   loginWithToken: (token: string) => Promise<User | null>;
@@ -36,7 +28,7 @@ type AuthContextType = {
 
 // API Configuration
 // const API_BASE_URL = "http://localhost:3000/api"; // Update with your backend URL
-const API_BASE_URL = import.meta.env.VITE_API_URL; 
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -46,9 +38,7 @@ const getTokenExpiry = (token: string): number | null => {
   try {
     const payload = token.split(".")[1];
     if (!payload) return null;
-    const json = JSON.parse(
-      atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
-    );
+    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
     return typeof json.exp === "number" ? json.exp : null;
   } catch {
     return null;
@@ -145,11 +135,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // return false;
   };
 
-  const signup = async (
-    email: string,
-    password: string,
-    name: string
-  ): Promise<boolean> => {
+  const signup = async (email: string, password: string, name: string): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: "POST",
@@ -173,7 +159,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(data.user);
 
       toast.success(
-        data.verificationSent ? `Account created. Check ${data.user.email} for a link to confirm your email.` : "Account created"
+        data.verificationSent
+          ? `Account created. Check ${data.user.email} for a link to confirm your email.`
+          : "Account created",
       );
       return true;
     } catch (error) {
@@ -207,10 +195,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // return true;
   };
 
-  const changePassword = async (
-    oldPassword: string,
-    newPassword: string
-  ): Promise<boolean> => {
+  const changePassword = async (oldPassword: string, newPassword: string): Promise<boolean> => {
     if (!user) {
       toast.error("You must be logged in");
       return false;

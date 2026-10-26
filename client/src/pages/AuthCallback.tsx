@@ -39,9 +39,12 @@ const AuthCallback = () => {
         toast.success("Signed in with Google");
       }
       if (params.get("notice") === "password_disabled") {
-        toast.info("Your account now signs in with Google, so your old password was turned off. Use “Forgot password” if you want one too.", {
-          duration: 10000,
-        });
+        toast.info(
+          "Your account now signs in with Google, so your old password was turned off. Use “Forgot password” if you want one too.",
+          {
+            duration: 10000,
+          },
+        );
       }
       navigate(user.role === "admin" ? "/dashboard" : "/home", { replace: true });
     });

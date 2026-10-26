@@ -68,7 +68,13 @@ export const TaskFormDialog = ({
     if (!titleOk || !detailsOk) return;
     setIsSaving(true);
     try {
-      const ok = await onSubmit({ title: title.trim(), description: details.trim(), status, priority, dueDate: new Date(due) });
+      const ok = await onSubmit({
+        title: title.trim(),
+        description: details.trim(),
+        status,
+        priority,
+        dueDate: new Date(due),
+      });
       if (ok) onOpenChange(false);
     } finally {
       setIsSaving(false);
@@ -86,7 +92,13 @@ export const TaskFormDialog = ({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="task-title">Title</Label>
-              <Input id="task-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Draft the homepage copy" autoFocus />
+              <Input
+                id="task-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Draft the homepage copy"
+                autoFocus
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="task-details">Details</Label>
@@ -97,7 +109,9 @@ export const TaskFormDialog = ({
                 onChange={(e) => setDetails(e.target.value)}
                 placeholder="What does done look like?"
               />
-              {details.length > 0 && !detailsOk && <p className="text-xs text-muted-foreground">A little more detail, at least 10 characters.</p>}
+              {details.length > 0 && !detailsOk && (
+                <p className="text-xs text-muted-foreground">A little more detail, at least 10 characters.</p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
