@@ -28,6 +28,8 @@ end of day; the system marks them present / partial / absent automatically (see
   `require(esm)` (Vercel crashed with `ERR_REQUIRE_ESM`) otherwise takes the whole API down.
   `package.json` also pins `"engines": { "node": "22.x" }`.
 - **zod** for request validation.
+- **helmet** (security headers) and **express-rate-limit** (`middleware/rateLimit.ts`); see
+  "Auth & security conventions".
 - **Resend** for transactional email (`utils/email.ts`), branded **WorkZen** and sent
   from `EMAIL_FROM` (a verified Resend domain, `no-reply@workzen.besaif.in`). See "Email".
 - **node-cron** for the EOD attendance job on always-on hosts (skipped when `VERCEL` is set;
@@ -92,6 +94,7 @@ src/
     auth.middleware.ts     # authenticate(): verifies JWT (cookie, falls back to Bearer) -> req.user
     roleCheck.ts           # requireAdmin, canManageTask, canViewMemberTasks
     error.middleware.ts    # handleError: ApiError-aware error handler (statusCode + message)
+    rateLimit.ts           # per-IP / per-email limiters for auth routes + a wide /api ceiling
   cron/
     attendancecron.ts      # 9:00 PM IST EOD attendance finalization
     pingcron.ts            # every 5 min health ping (keep dyno warm)
@@ -430,6 +433,20 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
 - The **login cookie `maxAge` is 7d** (`auth.controller.ts`), matching the JWT lifetime —
   they were previously mismatched (cookie 4d), which expired the session early. The client
   authenticates via the localStorage Bearer token anyway, but keep the two in sync.
+- **Rate limits** (`middleware/rateLimit.ts`, all answer 429 `{ message, code: "rate_limited",
+  limiter }` + `RateLimit`/`Retry-After` headers; the client toasts `message`):
+  login 20 failures / 15 min per IP and 8 / 15 min per email (successes don't count, so an
+  office behind one IP isn't locked out; change-password shares the IP counter);
+  forgot-password 10 / h per IP and 3 / h per email; signup 5 / h per IP; reset-password
+  and verify-email 20 / 15 min per IP; resend-verification 10 / h per IP (plus its own
+  60s per-account cooldown); everything under `/api` 1500 / 5 min per IP. Counters are
+  **in memory**, so on Vercel each warm instance counts separately (a per-instance ceiling);
+  a shared store such as Redis would make them exact. `app.set("trust proxy", 1)` makes
+  `req.ip` the visitor (Vercel/Render are one hop) — keep it, or every request shares the
+  proxy's IP and one limit blocks everyone. Limiters skip under `NODE_ENV=test`;
+  `tests/rateLimit.test.ts` enables them with `RATE_LIMIT_IN_TESTS`.
+- **helmet** sets security headers on every response, with
+  `crossOriginResourcePolicy: "cross-origin"` because the client is on another origin.
 - Passwords hashed with bcrypt, **cost 10**. **No account is ever created with a known
   password**: new members get none and choose one from their invite link. Don't
   reintroduce a default password; `DEFAULT_PASSWORD` exists only so login can refuse it.
