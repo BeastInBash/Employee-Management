@@ -196,7 +196,7 @@ const EmailArt = () => (
 /** What comes with Workzen, as a bento of real features, each with a small live picture. */
 export const FeatureBento = () => (
   <section id="features" className="scroll-mt-16">
-    <div className="mx-auto max-w-[1180px] px-5 py-24 sm:px-8 sm:py-32">
+    <div className="mx-auto max-w-[1180px] px-5 pt-24 pb-14 sm:px-8 sm:pt-32">
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr] lg:gap-16">
         <LineReveal
           lines={["Everything a small team needs,", "and nothing it doesn't."]}

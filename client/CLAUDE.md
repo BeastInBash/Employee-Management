@@ -258,9 +258,13 @@ you back in the app instead of on the marketing/login page.
 - **Landing page** (`components/landing/`, composed in `pages/Landing.tsx`): one motion idea
   per section, every scroll-linked transform zeroed under `useReducedMotion()`, and copy that
   states real product behaviour (keep it true: the FAQ and the day timeline quote the 9 PM IST
-  cron, the submission window and the invite email). Pieces: hero (photo parallax,
-  `Typewriter` headline, word-by-word subcopy, two floating product cards at different scroll
-  depths), `Marquee` (CSS `marquee` keyframe, pauses on hover, wraps under reduced motion),
+  cron, the submission window and the invite email). Conversion rules: the hero's value and
+  CTA show within the first second (`LineReveal` headline, never gated on a typewriter); one
+  CTA wording everywhere (`CTA` = "Create your workspace") in the nav, hero, an `InlineCta`
+  after the demo and after the features, the closing band, and a phones-only `StickyCta`
+  bar once the hero has scrolled away; hero proof is only promises we can keep (no card,
+  nothing to install). Pieces: hero (photo parallax, line-reveal headline, word-by-word
+  subcopy, two floating product cards at different scroll depths), `Marquee` (CSS `marquee` keyframe, pauses on hover, wraps under reduced motion),
   `BeforeAfter` (panels enter from opposite sides, dotted spines draw with scroll),
   `AttendanceFlow` (the interactive tasks → attendance demo; same rules as
   `attendancecron.ts`), `DayTimeline` (≥lg: a `h-[300vh]` section pins and scroll moves the

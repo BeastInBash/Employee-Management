@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import type { Variants } from "framer-motion";
-import { ArrowDown, Check, Feather, Moon, Sun } from "lucide-react";
+import { ArrowDown, ArrowRight, Check, Feather, Moon, Sun } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -84,7 +84,10 @@ const Nav = () => {
             asChild
             className={cn(!solid && "bg-(--hero-cta) text-(--hero-cta-foreground) hover:bg-(--hero-cta)/90")}
           >
-            <Link to="/login?tab=signup">Get started</Link>
+            <Link to="/login?tab=signup">
+              <span className="sm:hidden">Start</span>
+              <span className="hidden sm:inline">{CTA}</span>
+            </Link>
           </Button>
         </nav>
       </div>
@@ -103,8 +106,12 @@ const Nav = () => {
 
 // ─── hero ───────────────────────────────────────────────────────────────────
 
+const CTA = "Create your workspace";
+
 const SUBCOPY =
-  "Your team plans the day as a short list of tasks. Finish the list and Workzen marks you present. Projects, teams and simple reports come with it, sized for a business of five or fifty.";
+  "No clock-ins, no timesheets. Your team plans the day as a short list of tasks, and finishing it marks them present. Projects, teams and reports included.";
+
+const PROMISES = ["No card needed", "Nothing to install", "Set up in an afternoon"];
 
 const words: Variants = { show: { transition: { staggerChildren: 0.018 } } };
 const word: Variants = {
@@ -174,7 +181,6 @@ const HeroMoments = ({ show }: { show: boolean }) => {
 const Hero = () => {
   const ref = useRef<HTMLElement>(null);
   const reduce = useReducedMotion();
-  const [typed, setTyped] = useState(false);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
 
   // Parallax: the photo drifts down slower than the page; the copy lifts and fades.
@@ -182,7 +188,6 @@ const Hero = () => {
   const imageScale = useTransform(scrollYProgress, [0, 1], [1.06, reduce ? 1.06 : 1.16]);
   const copyY = useTransform(scrollYProgress, [0, 1], ["0%", reduce ? "0%" : "-28%"]);
   const copyOpacity = useTransform(scrollYProgress, [0, 0.7], [1, reduce ? 1 : 0]);
-  const ready = typed || !!reduce;
 
   return (
     <section
@@ -216,19 +221,17 @@ const Hero = () => {
         >
           For startups and small teams who'd rather work than clock in
         </motion.p>
-        <Typewriter
+        {/* The value has to land in the first five seconds, so nothing here waits on a typewriter. */}
+        <LineReveal
           as="h1"
-          text="Attendance that takes care of itself."
-          className="block max-w-[15ch] text-[46px] font-semibold leading-[1.04] tracking-[-0.035em] text-white sm:text-[72px]"
-          speed={48}
-          startDelay={300}
-          onDone={() => setTyped(true)}
+          lines={["Your team does the work.", "Workzen does attendance."]}
+          className="text-[42px] font-semibold leading-[1.04] tracking-[-0.035em] text-white sm:text-[64px]"
         />
-        {/* The paragraph resolves word by word once the headline has typed. */}
         <motion.p
           variants={words}
           initial="hidden"
-          animate={ready ? "show" : "hidden"}
+          animate="show"
+          transition={{ delayChildren: 0.25 }}
           className="mt-6 max-w-[52ch] text-lg leading-relaxed text-white/80"
           aria-label={SUBCOPY}
         >
@@ -240,34 +243,49 @@ const Hero = () => {
         </motion.p>
         <motion.div
           initial={{ opacity: 0, transform: "translateY(10px)" }}
-          animate={ready ? { opacity: 1, transform: "translateY(0px)" } : {}}
-          transition={{ duration: 0.6, ease: EASE, delay: 0.35 }}
+          animate={{ opacity: 1, transform: "translateY(0px)" }}
+          transition={{ duration: 0.6, ease: EASE, delay: 0.45 }}
         >
-          <div className="mt-9 flex flex-wrap gap-3">
-            <Button size="lg" asChild className="bg-(--hero-cta) text-(--hero-cta-foreground) hover:bg-(--hero-cta)/90">
-              <Link to="/login?tab=signup">Create your workspace</Link>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <Button
+              size="lg"
+              asChild
+              className="h-12 px-7 text-base bg-(--hero-cta) text-(--hero-cta-foreground) hover:bg-(--hero-cta)/90"
+            >
+              <Link to="/login?tab=signup">
+                {CTA}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </Button>
             <Button
               size="lg"
               variant="ghost"
               asChild
-              className="text-white ring-1 ring-white/30 hover:bg-white/10 hover:text-white"
+              className="h-12 px-6 text-base text-white ring-1 ring-white/30 hover:bg-white/10 hover:text-white"
             >
-              <a href="#how">See how it works</a>
+              <a href="#how">Try the live demo</a>
             </Button>
           </div>
-          <p className="mt-5 text-sm text-white/60">Runs in the browser on phones and laptops. Nothing to install.</p>
+          {/* Proof we can honestly give before there are customers to quote: what it costs you. */}
+          <ul className="mt-7 flex flex-col gap-2 text-sm text-white/75 sm:flex-row sm:flex-wrap sm:gap-x-6">
+            {PROMISES.map((p) => (
+              <li key={p} className="flex items-center gap-2">
+                <Check className="h-4 w-4 text-(--hero-accent)" />
+                {p}
+              </li>
+            ))}
+          </ul>
         </motion.div>
       </motion.div>
 
-      <HeroMoments show={ready} />
+      <HeroMoments show />
 
       <motion.a
         href="#why"
         aria-label="Scroll to the next section"
         initial={{ opacity: 0 }}
-        animate={{ opacity: ready ? 1 : 0 }}
-        transition={{ duration: 0.6, delay: 0.6 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.6, delay: 1 }}
         className="absolute bottom-7 left-1/2 hidden -translate-x-1/2 rounded-full p-2 text-white/70 hover:text-white sm:block"
       >
         <motion.span
@@ -286,7 +304,7 @@ const Hero = () => {
 
 const HowItWorks = () => (
   <section id="how" className="scroll-mt-16">
-    <div className="mx-auto max-w-[1180px] px-5 py-24 sm:px-8 sm:py-32">
+    <div className="mx-auto max-w-[1180px] px-5 pt-24 pb-14 sm:px-8 sm:pt-32">
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr] lg:gap-16">
         <LineReveal
           lines={["Finish your list.", "That's your attendance."]}
@@ -307,8 +325,59 @@ const HowItWorks = () => (
         <AttendanceFlow />
       </div>
     </div>
+    <div className="pb-24 sm:pb-28">
+      <InlineCta lead="Every day of your team's attendance, worked out like that." />
+    </div>
   </section>
 );
+
+// ─── repeated calls to action ───────────────────────────────────────────────
+
+/** A quiet CTA after a section that has just made the case, so nobody scrolls back up to act. */
+const InlineCta = ({ lead }: { lead: string }) => (
+  <motion.div
+    initial={{ opacity: 0, transform: "translateY(10px)" }}
+    whileInView={{ opacity: 1, transform: "translateY(0px)" }}
+    viewport={{ once: true, amount: 0.8 }}
+    transition={{ duration: 0.5, ease: EASE }}
+    className="mx-auto flex max-w-[1180px] flex-col items-start gap-4 px-5 sm:flex-row sm:items-center sm:justify-between sm:px-8"
+  >
+    <p className="text-lg text-muted-foreground">{lead}</p>
+    <Button size="lg" asChild className="h-12 w-full px-7 text-base sm:w-auto">
+      <Link to="/login?tab=signup">
+        {CTA}
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+    </Button>
+  </motion.div>
+);
+
+/** Phones only: once the hero is gone, the CTA rides along the bottom until the closing band takes over. */
+const StickyCta = () => {
+  const { scrollY, scrollYProgress } = useScroll();
+  const [show, setShow] = useState(false);
+  const update = () => setShow(scrollY.get() > window.innerHeight * 0.9 && scrollYProgress.get() < 0.9);
+  useMotionValueEvent(scrollY, "change", update);
+
+  return (
+    <motion.div
+      aria-hidden={!show}
+      initial={false}
+      animate={show ? { opacity: 1, transform: "translateY(0%)" } : { opacity: 0, transform: "translateY(110%)" }}
+      transition={{ duration: 0.3, ease: EASE }}
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-40 border-t border-border/70 bg-background/90 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:hidden",
+        !show && "pointer-events-none",
+      )}
+    >
+      <Button asChild className="h-12 w-full text-base" tabIndex={show ? 0 : -1}>
+        <Link to="/login?tab=signup" tabIndex={show ? 0 : -1}>
+          {CTA}
+        </Link>
+      </Button>
+    </motion.div>
+  );
+};
 
 // ─── closing band & footer ──────────────────────────────────────────────────
 
@@ -358,7 +427,7 @@ const Closing = () => {
               asChild
               className="bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary/90"
             >
-              <Link to="/login?tab=signup">Create your workspace</Link>
+              <Link to="/login?tab=signup">{CTA}</Link>
             </Button>
             <Button
               size="lg"
@@ -507,11 +576,15 @@ const Landing = () => {
         <DayTimeline />
         <TeamBoard />
         <FeatureBento />
+        <div className="pb-24 sm:pb-28">
+          <InlineCta lead="All of it from day one, for every workspace you create." />
+        </div>
         <SetupSteps />
         <Faq />
         <Closing />
       </main>
       <Footer />
+      <StickyCta />
     </div>
   );
 };
