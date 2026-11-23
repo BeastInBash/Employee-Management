@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   BarChart3,
   CalendarCheck,
@@ -259,12 +259,46 @@ const FrozenOutlet = () => {
   return frozen;
 };
 
+const EXIT_S = 0.14;
+
+/**
+ * The content panel's page change (the sidebar never animates). The old page
+ * blurs and fades out first; the new one waits for that, then comes in from a
+ * blur with a small lift, so the two pages' text never overlaps. The blur is
+ * cleared once a page settles (a leftover `filter` would change how fixed
+ * elements inside the page behave). Reduced motion: a plain fade, no blur or lift.
+ */
+const pageTransition = (reduce: boolean) =>
+  reduce
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1, transition: { duration: 0.2, delay: EXIT_S } },
+        exit: { opacity: 0, transition: { duration: EXIT_S } },
+      }
+    : {
+        initial: { opacity: 0, transform: "translateY(8px)", filter: "blur(6px)" },
+        animate: {
+          opacity: 1,
+          transform: "translateY(0px)",
+          filter: "blur(0px)",
+          transition: { duration: 0.28, ease: [0.23, 1, 0.32, 1] as const, delay: EXIT_S },
+          transitionEnd: { filter: "none" },
+        },
+        exit: {
+          opacity: 0,
+          transform: "translateY(-4px)",
+          filter: "blur(6px)",
+          transition: { duration: EXIT_S, ease: [0.4, 0, 1, 1] as const },
+        },
+      };
+
 /**
  * The signed-in frame: a fixed forest sidebar on desktop, a top bar with a
  * slide-in drawer on smaller screens, and a short fade-and-lift between pages.
  */
 export const AppShell = () => {
   const { pathname } = useLocation();
+  const reduceMotion = useReducedMotion();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Each page starts at the top.
@@ -316,20 +350,7 @@ export const AppShell = () => {
             two don't stack. PageFallback only shows on a cold first load. */}
         <Suspense fallback={<PageFallback />}>
           <AnimatePresence mode="popLayout" initial={false}>
-            <motion.div
-              key={pageKey}
-              initial={{ opacity: 0, transform: "translateY(8px)" }}
-              animate={{
-                opacity: 1,
-                transform: "translateY(0px)",
-                transition: { duration: 0.28, ease: [0.23, 1, 0.32, 1] },
-              }}
-              exit={{
-                opacity: 0,
-                transform: "translateY(-4px)",
-                transition: { duration: 0.14, ease: [0.4, 0, 1, 1] },
-              }}
-            >
+            <motion.div key={pageKey} {...pageTransition(!!reduceMotion)}>
               <FrozenOutlet />
             </motion.div>
           </AnimatePresence>

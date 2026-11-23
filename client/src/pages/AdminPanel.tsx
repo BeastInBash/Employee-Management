@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { format, getDay, getDaysInMonth, startOfMonth } from "date-fns";
 import { ChevronDown, ChevronLeft, ChevronRight, Clock, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOrg } from "@/contexts/OrgContext";
+import { useMembers } from "@/contexts/MemberContext";
 import { toast } from "@/components/ui/sonner";
 import { PageHeader } from "@/components/layout/Page";
 import { EmptyState, PersonAvatar } from "@/components/projects/shared";
@@ -52,6 +53,8 @@ interface TodayOverviewEntry {
 interface TodayOverviewResponse {
   date: string;
   overview: TodayOverviewEntry[];
+  /** True from 9:00 PM IST, when the day is settled; before that statuses are provisional. */
+  completionDeadlinePassed?: boolean;
 }
 
 interface AllMembersReportResponse {
@@ -82,11 +85,63 @@ const STATUS: Record<AttendanceStatus, { label: string; pill: string; dot: strin
 
 const ORDER: AttendanceStatus[] = ["present", "partial", "absent"];
 
+// Today isn't settled until 9:00 PM IST. Before then "partial" only means still
+// working, and "absent" only means nothing planned yet, so they get softer words
+// (and "not planned yet" isn't shown in red).
+const PENDING_LABEL: Record<AttendanceStatus, string> = {
+  present: "Finished",
+  partial: "In progress",
+  absent: "Not planned yet",
+};
+const todayLabel = (s: AttendanceStatus, settled: boolean) => (settled ? STATUS[s].label : PENDING_LABEL[s]);
+const todayPill = (s: AttendanceStatus, settled: boolean) =>
+  !settled && s === "absent" ? "bg-muted text-muted-foreground" : STATUS[s].pill;
+const todayDot = (s: AttendanceStatus, settled: boolean) =>
+  !settled && s === "absent" ? "bg-muted-foreground/40" : STATUS[s].dot;
+
+const isWeekend = (date: string) => {
+  const d = new Date(`${date.slice(0, 10)}T00:00:00Z`).getUTCDay();
+  return d === 0 || d === 6;
+};
+
+/**
+ * Weekday counts and rate, worked out the way Reports and Home do (weekends
+ * skipped, a partial day counts as half), so the same person shows the same
+ * percentage on every page.
+ */
+const weekdaySummary = (records: AttendanceRecord[]) => {
+  const days = records.filter((r) => !isWeekend(r.date));
+  const count = (s: AttendanceStatus) => days.filter((r) => r.status === s).length;
+  const present = count("present");
+  const partial = count("partial");
+  const absent = count("absent");
+  const recorded = present + partial + absent;
+  return {
+    present,
+    partial,
+    absent,
+    recorded,
+    rate: recorded ? Math.round(((present + partial / 2) / recorded) * 100) : null,
+  };
+};
+
 /** The admin's view of everyone's attendance: today, and month by month. */
 export const AdminAttendancePanel = () => {
   const { user } = useAuth();
   const { activeWorkspace } = useOrg();
+  const { members } = useMembers();
   const navigate = useNavigate();
+
+  // The API returns everyone this admin added, in every workspace; show the
+  // active workspace's people, like the rest of the app. (Until the member list
+  // is known, nothing is filtered out.)
+  const workspaceMemberIds = useMemo(
+    () =>
+      activeWorkspace ? new Set(members.filter((m) => m.workspaceId === activeWorkspace.id).map((m) => m.id)) : null,
+    [members, activeWorkspace],
+  );
+  const inWorkspace = (memberId: string) =>
+    !workspaceMemberIds || members.length === 0 || workspaceMemberIds.has(memberId);
 
   const now = new Date();
   const [tab, setTab] = useState<"today" | "month">("today");
@@ -151,9 +206,12 @@ export const AdminAttendancePanel = () => {
 
   if (!user) return null;
 
+  const overview = today ? today.overview.filter((e) => inWorkspace(e.member.id)) : [];
+  const settled = !!today?.completionDeadlinePassed;
   const counts = today
-    ? Object.fromEntries(ORDER.map((s) => [s, today.overview.filter((e) => e.status === s).length]))
+    ? Object.fromEntries(ORDER.map((s) => [s, overview.filter((e) => e.status === s).length]))
     : null;
+  const monthRows = report ? report.report.filter((r) => inWorkspace(r.member.id)) : [];
   const isCurrentMonth = month === now.getMonth() + 1 && year === now.getFullYear();
   const shift = (delta: number) => {
     const d = new Date(year, month - 1 + delta, 1);
@@ -167,14 +225,14 @@ export const AdminAttendancePanel = () => {
     <>
       <PageHeader
         title="Attendance"
-        description="Nobody clocks in: a day counts as present when someone finishes everything they planned, partial when they finish some of it."
+        description={`Worked out from tasks${activeWorkspace ? ` for everyone in ${activeWorkspace.name}` : ""}, so nobody clocks in. Finishing everything planned counts as present, finishing some as partial, and planning nothing as absent. Each day is settled at 9:00 PM (India time).`}
         actions={
           taskWindow && (
             <span className="inline-flex h-9 items-center gap-2 rounded-full bg-card px-3.5 text-sm text-muted-foreground ring-1 ring-border/80">
               <Clock className="h-3.5 w-3.5" />
               {taskWindow.enabled
-                ? `Tasks accepted ${taskWindow.startTime}–${taskWindow.endTime} IST`
-                : "Tasks accepted anytime"}
+                ? `Members can add tasks ${taskWindow.startTime}–${taskWindow.endTime} IST`
+                : "Members can add tasks anytime"}
             </span>
           )
         }
@@ -201,28 +259,30 @@ export const AdminAttendancePanel = () => {
                       {format(new Date(`${today.date}T00:00:00`), "EEEE, d MMMM")}
                     </p>
                     <p className="mt-1 text-[32px] font-semibold leading-none tracking-tight">
-                      {counts.present} of {today.overview.length}{" "}
-                      <span className="text-lg font-medium text-muted-foreground">present so far</span>
+                      {counts.present} of {overview.length}{" "}
+                      <span className="text-lg font-medium text-muted-foreground">
+                        {settled ? "present" : "finished so far"}
+                      </span>
                     </p>
                   </div>
                   <dl className="flex gap-6 text-sm">
                     {ORDER.map((s) => (
                       <div key={s} className="flex items-center gap-2">
-                        <span className={cn("h-2 w-2 rounded-full", STATUS[s].dot)} />
-                        <dt className="text-muted-foreground">{STATUS[s].label}</dt>
+                        <span className={cn("h-2 w-2 rounded-full", todayDot(s, settled))} />
+                        <dt className="text-muted-foreground">{todayLabel(s, settled)}</dt>
                         <dd className="font-semibold tabular-nums">{counts[s]}</dd>
                       </div>
                     ))}
                   </dl>
                 </div>
                 {/* One bar, three parts: the day's split at a glance. */}
-                {today.overview.length > 0 && (
+                {overview.length > 0 && (
                   <div className="mt-5 flex h-2.5 gap-[2px] overflow-hidden rounded-full bg-muted">
                     {ORDER.map((s) =>
                       counts[s]! > 0 ? (
                         <motion.span
                           key={s}
-                          className={STATUS[s].dot}
+                          className={todayDot(s, settled)}
                           initial={{ flexGrow: 0 }}
                           animate={{ flexGrow: counts[s] }}
                           transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
@@ -232,9 +292,14 @@ export const AdminAttendancePanel = () => {
                     )}
                   </div>
                 )}
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {settled
+                    ? "Today is settled. These statuses are final."
+                    : "The day settles at 9:00 PM. Anyone still in progress then counts as partial, and anyone with nothing planned counts as absent."}
+                </p>
               </section>
 
-              {today.overview.length === 0 ? (
+              {overview.length === 0 ? (
                 <EmptyState
                   icon={Users}
                   title="No one to show yet"
@@ -242,7 +307,7 @@ export const AdminAttendancePanel = () => {
                 />
               ) : (
                 <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
-                  {today.overview.map((entry) => (
+                  {overview.map((entry) => (
                     <li key={entry.member.id}>
                       <button
                         onClick={() => openMember(entry.member.id)}
@@ -253,20 +318,22 @@ export const AdminAttendancePanel = () => {
                           <span className="block truncate text-[15px] font-medium">{entry.member.name}</span>
                           <span className="block truncate text-sm text-muted-foreground">
                             {entry.taskSubmittedAt
-                              ? `Tasks in at ${format(new Date(entry.taskSubmittedAt), "h:mm a")}`
-                              : "No tasks yet today"}
+                              ? `Planned at ${format(new Date(entry.taskSubmittedAt), "h:mm a")}`
+                              : settled
+                                ? "Planned nothing today"
+                                : "Hasn't planned anything yet"}
                             {entry.allTasksCompletedAt &&
-                              `, all done at ${format(new Date(entry.allTasksCompletedAt), "h:mm a")}`}
+                              `, finished at ${format(new Date(entry.allTasksCompletedAt), "h:mm a")}`}
                           </span>
                         </span>
                         <span
                           className={cn(
                             "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-                            STATUS[entry.status].pill,
+                            todayPill(entry.status, settled),
                           )}
                         >
-                          <span className={cn("h-1.5 w-1.5 rounded-full", STATUS[entry.status].dot)} />
-                          {STATUS[entry.status].label}
+                          <span className={cn("h-1.5 w-1.5 rounded-full", todayDot(entry.status, settled))} />
+                          {todayLabel(entry.status, settled)}
                         </span>
                         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                       </button>
@@ -318,7 +385,7 @@ export const AdminAttendancePanel = () => {
               ))}
             </div>
           ) : report ? (
-            report.report.length === 0 ? (
+            monthRows.length === 0 ? (
               <EmptyState
                 icon={Users}
                 title="No one to show yet"
@@ -328,9 +395,9 @@ export const AdminAttendancePanel = () => {
               // Settles in when the month first loads; dims (not blanks) while another month loads.
               <Reveal key={`${year}-${month}`}>
                 <div className={cn("space-y-6 transition-opacity duration-200", reportLoading && "opacity-50")}>
-                  <TeamSummary report={report.report} />
+                  <TeamSummary report={monthRows} />
                   <ul className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/80 bg-card">
-                    {report.report.map((r) => (
+                    {monthRows.map((r) => (
                       <MemberMonthRow
                         key={r.member.id}
                         report={r}
@@ -353,32 +420,28 @@ export const AdminAttendancePanel = () => {
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
 const TeamSummary = ({ report }: { report: MemberReport[] }) => {
-  const totals = report.reduce(
-    (acc, r) => ({
-      present: acc.present + r.summary.present,
-      partial: acc.partial + r.summary.partial,
-      absent: acc.absent + r.summary.absent,
-      total: acc.total + r.summary.total,
-    }),
-    { present: 0, partial: 0, absent: 0, total: 0 },
-  );
-  const rate = totals.total > 0 ? Math.round((totals.present / totals.total) * 100) : 0;
+  const totals = weekdaySummary(report.flatMap((r) => r.attendance));
   return (
-    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div className="rounded-xl bg-card px-4 py-3.5 ring-1 ring-border/70">
-        <dd className="text-2xl font-semibold tracking-tight">{rate}%</dd>
-        <dt className="text-xs text-muted-foreground">Team attendance</dt>
-      </div>
-      {ORDER.map((s) => (
-        <div key={s} className="rounded-xl bg-card px-4 py-3.5 ring-1 ring-border/70">
-          <dd className="text-2xl font-semibold tracking-tight tabular-nums">{totals[s]}</dd>
-          <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={cn("h-1.5 w-1.5 rounded-full", STATUS[s].dot)} />
-            {STATUS[s].label} days
-          </dt>
+    <div className="space-y-2">
+      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl bg-card px-4 py-3.5 ring-1 ring-border/70">
+          <dd className="text-2xl font-semibold tracking-tight">{totals.rate === null ? "—" : `${totals.rate}%`}</dd>
+          <dt className="text-xs text-muted-foreground">Team attendance</dt>
         </div>
-      ))}
-    </dl>
+        {ORDER.map((s) => (
+          <div key={s} className="rounded-xl bg-card px-4 py-3.5 ring-1 ring-border/70">
+            <dd className="text-2xl font-semibold tracking-tight tabular-nums">{totals[s]}</dd>
+            <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <span className={cn("h-1.5 w-1.5 rounded-full", STATUS[s].dot)} />
+              {STATUS[s].label} days
+            </dt>
+          </div>
+        ))}
+      </dl>
+      <p className="text-xs text-muted-foreground">
+        Weekdays only. A partial day counts as half, the same as on the Reports page.
+      </p>
+    </div>
   );
 };
 
@@ -394,10 +457,12 @@ const MemberMonthRow = ({
   year: number;
   onOpen: () => void;
 }) => {
-  const { member, summary, attendance } = report;
+  const { member, attendance } = report;
+  const summary = weekdaySummary(attendance);
   const [expanded, setExpanded] = useState(false);
   const records = new Map(attendance.map((r) => [r.date.slice(0, 10), r]));
-  const firstWeekday = getDay(startOfMonth(new Date(year, month - 1)));
+  // Monday-first, like the calendars on Home and the Attendance page.
+  const firstWeekday = (getDay(startOfMonth(new Date(year, month - 1))) + 6) % 7;
   const cells: (number | null)[] = [
     ...Array.from({ length: firstWeekday }, () => null),
     ...Array.from({ length: getDaysInMonth(new Date(year, month - 1)) }, (_, i) => i + 1),
@@ -423,10 +488,12 @@ const MemberMonthRow = ({
           <span className="hidden w-24 overflow-hidden rounded-full bg-muted sm:block">
             <span
               className="block h-1.5 rounded-full bg-honey transition-[width] duration-500"
-              style={{ width: `${summary.attendancePercentage}%` }}
+              style={{ width: `${summary.rate ?? 0}%` }}
             />
           </span>
-          <span className="w-11 text-right text-sm font-semibold tabular-nums">{summary.attendancePercentage}%</span>
+          <span className="w-11 text-right text-sm font-semibold tabular-nums">
+            {summary.rate === null ? "—" : `${summary.rate}%`}
+          </span>
           <ChevronDown
             className={cn(
               "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
@@ -435,7 +502,7 @@ const MemberMonthRow = ({
           />
         </button>
         <Button variant="ghost" size="sm" onClick={onOpen}>
-          Details
+          Calendar
         </Button>
       </div>
       <AnimatePresence initial={false}>
@@ -449,7 +516,7 @@ const MemberMonthRow = ({
           >
             <div className="bg-surface px-5 py-4">
               <div className="mx-auto grid max-w-md grid-cols-7 gap-1">
-                {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
                   <div key={i} className="py-1 text-center text-[11px] text-muted-foreground">
                     {d}
                   </div>

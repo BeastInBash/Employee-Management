@@ -9,6 +9,8 @@ Tracker internally). This is the umbrella context; each package has its own deta
 
 - **`backend/CLAUDE.md`** — the Express + Prisma REST API.
 - **`client/CLAUDE.md`** — the React + Vite single-page app.
+- **`TODO.md`** — the feature roadmap, in priority order (leave and holidays first).
+- **`README.md`** — setup, environment variables, scripts and deployment, for people.
 
 Read the relevant package file before doing focused work there; this file covers the
 cross-cutting picture and the contract between the two.
@@ -171,6 +173,15 @@ end-of-day attendance is triggered by **cron-job.org** once a day at 21:00 Asia/
 be set on the Vercel backend project). Test it any time with `?dryRun=1`, which writes nothing. The backend also has Render/keep-alive references — see
 `backend/CLAUDE.md`. The client `vercel.json` rewrites all paths to `/index.html` for SPA
 routing.
+
+- **Production:** API `https://employee-management-psi-fawn.vercel.app` (function region
+  **Singapore `sin1`**, set in the Vercel dashboard, next to the Neon DB in
+  `ap-southeast-1`); client `https://employee-management-uzdd.vercel.app`.
+  `todo-app-z7g1.vercel.app` (still in the CORS list) serves an old build and is a leftover.
+- **Branches:** work on `development`, open a PR into `main`; production deploys from `main`.
+  Check `git log origin/main..origin/development` before assuming a change is live.
+- **The local `backend/.env` currently points at the production database.** Don't run
+  migrations, seeds, test sign-ups or real cron runs against it; use a Neon dev branch.
 
 ## When making cross-cutting changes
 

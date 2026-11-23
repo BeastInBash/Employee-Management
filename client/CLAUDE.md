@@ -258,9 +258,13 @@ you back in the app instead of on the marketing/login page.
 - **Landing page** (`components/landing/`, composed in `pages/Landing.tsx`): one motion idea
   per section, every scroll-linked transform zeroed under `useReducedMotion()`, and copy that
   states real product behaviour (keep it true: the FAQ and the day timeline quote the 9 PM IST
-  cron, the submission window and the invite email). Pieces: hero (photo parallax,
-  `Typewriter` headline, word-by-word subcopy, two floating product cards at different scroll
-  depths), `Marquee` (CSS `marquee` keyframe, pauses on hover, wraps under reduced motion),
+  cron, the submission window and the invite email). Conversion rules: the hero's value and
+  CTA show within the first second (`LineReveal` headline, never gated on a typewriter); one
+  CTA wording everywhere (`CTA` = "Create your workspace") in the nav, hero, an `InlineCta`
+  after the demo and after the features, the closing band, and a phones-only `StickyCta`
+  bar once the hero has scrolled away; hero proof is only promises we can keep (no card,
+  nothing to install). Pieces: hero (photo parallax, line-reveal headline, word-by-word
+  subcopy, two floating product cards at different scroll depths), `Marquee` (CSS `marquee` keyframe, pauses on hover, wraps under reduced motion),
   `BeforeAfter` (panels enter from opposite sides, dotted spines draw with scroll),
   `AttendanceFlow` (the interactive tasks → attendance demo; same rules as
   `attendancecron.ts`), `DayTimeline` (≥lg: a `h-[300vh]` section pins and scroll moves the
@@ -293,10 +297,15 @@ you back in the app instead of on the marketing/login page.
   (`border-border/80`) instead of drop shadows; soft layered shadows only on overlays.
 - **Motion (framer-motion, wrapped in `MotionConfig reducedMotion="user"`):** keep it
   purposeful. The signature moment is the sidebar's sliding active pill (`layoutId=
-  "nav-active"`). Pages **crossfade** on route change (AppShell, `AnimatePresence
-  mode="popLayout"`: in 280 ms with an 8px lift, out 140 ms). The `Suspense` boundary sits
+  "nav-active"`). Pages change **in sequence, with a blur** (AppShell `pageTransition`,
+  `AnimatePresence mode="popLayout"`): the old page blurs and fades out in 140 ms, then the
+  new one comes in from `blur(6px)` with an 8px lift over 280 ms (its entrance is delayed by
+  the exit, so the two pages' text never overlaps). Only the content panel animates, never
+  the sidebar; the blur is cleared on settle (`transitionEnd: { filter: "none" }`, since a
+  lingering filter changes how fixed elements inside behave); reduced motion gets a plain
+  fade. The `Suspense` boundary sits
   *above* that transition and React Router 7 runs navigations as transitions, so the current
-  page stays visible while the next page's code loads, then the two crossfade (don't switch
+  page stays visible while the next page's code loads, then the change plays (don't switch
   back to `mode="wait"`: it renders the new page only after the exit, outside the
   transition, which leaves a blank gap). Content that replaces a skeleton is wrapped in
   `components/layout/Reveal` (fade + 4px lift, mount only; key it when it should replay,
