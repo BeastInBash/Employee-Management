@@ -14,13 +14,18 @@ type RequestOptions = {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   query?: Record<string, string | undefined>;
+  /** Give up (throw a non-ApiRequestError) when the server hasn't answered in this long. */
+  timeoutMs?: number;
 };
 
 /**
  * Authenticated JSON request against the API. Throws `ApiRequestError` with the
  * server's `message` (or the first zod issue) on a non-2xx response.
  */
-export async function api<T>(path: string, { method = "GET", body, query }: RequestOptions = {}): Promise<T> {
+export async function api<T>(
+  path: string,
+  { method = "GET", body, query, timeoutMs }: RequestOptions = {},
+): Promise<T> {
   const params = new URLSearchParams();
   for (const [k, v] of Object.entries(query ?? {})) if (v !== undefined) params.set(k, v);
   const qs = params.toString();
@@ -33,6 +38,7 @@ export async function api<T>(path: string, { method = "GET", body, query }: Requ
       ...(token && { Authorization: `Bearer ${token}` }),
     },
     ...(body !== undefined && { body: JSON.stringify(body) }),
+    ...(timeoutMs && { signal: AbortSignal.timeout(timeoutMs) }),
   });
 
   const data = await res.json().catch(() => ({}));

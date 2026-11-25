@@ -17,4 +17,6 @@ export const parseTask = (d: RawTask): Task => ({
   completedAt: d.completedAt ? new Date(d.completedAt) : null,
   project: d.project ?? null,
   tags: Array.isArray(d.tags) ? d.tags : [],
+  // Set on tasks laid over from the outbox (not on the server yet).
+  ...(d.pending && { pending: true }),
 });

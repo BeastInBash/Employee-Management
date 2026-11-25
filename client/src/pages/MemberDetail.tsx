@@ -1,3 +1,7 @@
+import { useAuth } from "@/contexts/AuthContext";
+import { useOutboxList } from "@/hooks/use-outbox-list";
+import { withOutbox } from "@/lib/outbox";
+import { parseTask } from "@/lib/tasks";
 import { usedTags } from "@/lib/tags";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -25,6 +29,7 @@ const MemberDetail = () => {
   const { memberId } = useParams();
   const navigate = useNavigate();
   const { members, getMemberTasks, addTask, updateTask, deleteTask, canManageTask } = useMembers();
+  const { user } = useAuth();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -35,11 +40,18 @@ const MemberDetail = () => {
   // The route param is the member's User id.
   const member = members.find((m) => m.userId == memberId);
 
-  useEffect(() => {
+  // Tasks assigned here that are still on their way to the server (lib/outbox).
+  const scope = memberId ? `member:${memberId}` : null;
+  const reload = () => {
     if (!memberId) return;
     getMemberTasks(memberId)
-      .then((result) => setTasks(result || []))
+      .then((result) => setTasks(user && scope ? withOutbox(user.id, result || [], scope, parseTask) : result || []))
       .catch(() => setTasks([]));
+  };
+  useOutboxList(user?.id, scope, setTasks, parseTask, reload);
+
+  useEffect(() => {
+    reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memberId]);
 

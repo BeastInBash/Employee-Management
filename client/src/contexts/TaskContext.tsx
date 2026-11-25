@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 import { useAuth } from "./AuthContext";
 import { parseTask } from "@/lib/tasks";
-import { enqueueCreate, enqueueUpdate, isQueued, newTaskId, startOutbox, subscribeOutbox } from "@/lib/outbox";
+import { queueTask, queueTaskEdit, startOutbox, subscribeOutbox } from "@/lib/outbox";
 
 const getAuthToken = () => localStorage.getItem("authToken");
 
@@ -125,21 +125,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     }
     // Shown at once and sent in the background (lib/outbox): the id is made
     // here, so retries can't duplicate it and later edits can refer to it.
-    const now = new Date();
-    const status = task.status ?? "todo";
-    const created = enqueueCreate(user.id, {
-      id: newTaskId(),
-      title: task.title,
-      description: task.description,
-      status,
-      priority: task.priority,
-      dueDate: new Date(task.dueDate),
-      memberId: task.memberId,
-      createdAt: now,
-      completedAt: status === "completed" ? now : null,
-      project: null,
-      tags: task.tags ?? [],
-    });
+    const created = queueTask(user.id, task, { scopes: ["own"] });
     setTasks((prev) => [...prev, created]);
     toast.success("Task added");
     return created;
@@ -153,21 +139,11 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // A task that hasn't reached the server yet: queue the edit behind it.
-    if (user && isQueued(user.id, id)) {
-      const { title, description, status, priority, dueDate, tags } = updatedTask;
-      const queued = enqueueUpdate(user.id, id, {
-        ...(title !== undefined && { title }),
-        ...(description !== undefined && { description }),
-        ...(status !== undefined && { status }),
-        ...(priority !== undefined && { priority }),
-        ...(dueDate !== undefined && { dueDate }),
-        ...(tags !== undefined && { tags }),
-      });
-      if (queued) {
-        setTasks((prev) => prev.map((t) => (t.id === id ? queued : t)));
-        toast.success("Task updated");
-        return queued;
-      }
+    const queued = user ? queueTaskEdit(user.id, id, updatedTask) : null;
+    if (queued) {
+      setTasks((prev) => prev.map((t) => (t.id === id ? queued : t)));
+      toast.success("Task updated");
+      return queued;
     }
 
     try {
