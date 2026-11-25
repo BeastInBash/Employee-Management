@@ -83,8 +83,7 @@ bun run format           # Prettier, whole repo
 - **pre-push** — builds whichever package changed since the upstream (both when there's
   no upstream). Skip a hook once with `--no-verify`, sparingly.
 - **CI** (`.github/workflows/lint.yml`) runs format check, lint (zero warnings), build for
-  both packages and backend tests on every PR; tests are non-blocking until the ~13
-  known failures are fixed.
+  both packages and backend tests on every PR. All of them block a merge.
 
 **Formatting:** Prettier from the root `.prettierrc.json` — 120 columns, double quotes,
 semicolons, trailing commas; 2-space indent, **4-space in `backend/src`**. Markdown is

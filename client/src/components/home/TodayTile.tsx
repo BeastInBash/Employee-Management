@@ -9,6 +9,7 @@ import { EASE } from "@/lib/motion";
 import { priorityColors, priorityLabels } from "@/lib/projectMeta";
 import { cn } from "@/lib/utils";
 import { Tile, TileLink } from "./Tile";
+import { PendingMark } from "@/components/tasks/PendingMark";
 
 type TodayStatus = "none" | "partial" | "present";
 
@@ -85,6 +86,7 @@ const TodayTaskRow = ({ task, busy, onToggle }: { task: Task; busy: boolean; onT
             >
               {task.title}
             </span>
+            {task.pending && <PendingMark className="mt-0.5 flex" />}
             {task.project && (
               <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                 <ColorSwatch color={task.project.color} className="h-2 w-2" />

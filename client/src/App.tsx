@@ -15,6 +15,7 @@ import { pages } from "./lib/pages";
 import { ScreenFallback } from "./components/layout/PageFallback";
 import { TaskProvider } from "./contexts/TaskContext";
 import { ProjectProvider } from "./contexts/ProjectContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Every page is its own chunk (see lib/pages.ts). Public pages wait on the
 // full-screen fallback below; signed-in pages wait inside AppShell, so the
@@ -42,57 +43,59 @@ const Reports = pages.Reports.Component;
 
 const App = () => (
   // <QueryClientProvider client={queryClient}>
-  <MotionConfig reducedMotion="user">
-    <ThemeProvider defaultTheme="light" storageKey="crewly-theme">
-      <TooltipProvider>
-        <AuthProvider>
-          <OrgProvider>
-            <MemberProvider>
-              <TaskProvider>
-                <ProjectProvider>
-                  <Toaster />
-                  <Sonner />
-                  <BrowserRouter>
-                    <Suspense fallback={<ScreenFallback />}>
-                      <Routes>
-                        <Route path="/" element={<Landing />} />
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/forgot-password" element={<ForgotPassword />} />
-                        <Route path="/reset-password" element={<ResetPassword />} />
-                        <Route path="/auth/callback" element={<AuthCallback />} />
-                        <Route path="/verify-email" element={<VerifyEmail />} />
+  <ErrorBoundary variant="screen">
+    <MotionConfig reducedMotion="user">
+      <ThemeProvider defaultTheme="light" storageKey="crewly-theme">
+        <TooltipProvider>
+          <AuthProvider>
+            <OrgProvider>
+              <MemberProvider>
+                <TaskProvider>
+                  <ProjectProvider>
+                    <Toaster />
+                    <Sonner />
+                    <BrowserRouter>
+                      <Suspense fallback={<ScreenFallback />}>
+                        <Routes>
+                          <Route path="/" element={<Landing />} />
+                          <Route path="/login" element={<Login />} />
+                          <Route path="/forgot-password" element={<ForgotPassword />} />
+                          <Route path="/reset-password" element={<ResetPassword />} />
+                          <Route path="/auth/callback" element={<AuthCallback />} />
+                          <Route path="/verify-email" element={<VerifyEmail />} />
 
-                        <Route element={<ProtectedRoute />}>
-                          <Route element={<AppShell />}>
-                            <Route path="/home" element={<Home />} />
-                            <Route path="/dashboard" element={<Dashboard />} />
-                            <Route path="/attendance" element={<Attendance />} />
+                          <Route element={<ProtectedRoute />}>
+                            <Route element={<AppShell />}>
+                              <Route path="/home" element={<Home />} />
+                              <Route path="/dashboard" element={<Dashboard />} />
+                              <Route path="/attendance" element={<Attendance />} />
 
-                            {/* Admin views a specific member's attendance */}
-                            <Route path="/dashboard/member/:memberId/attendance" element={<Attendance />} />
-                            <Route path="/admin/attendance" element={<AdminAttendance />} />
-                            <Route path="/member/:memberId" element={<MemberDetail />} />
-                            <Route path="/todos/:memberId" element={<TaskDetails />} />
-                            <Route path="/projects" element={<Projects />} />
-                            <Route path="/projects/:projectId" element={<ProjectDetail />} />
-                            <Route path="/teams" element={<Teams />} />
-                            <Route path="/teams/:teamId" element={<TeamDetail />} />
-                            <Route path="/reports" element={<Reports />} />
+                              {/* Admin views a specific member's attendance */}
+                              <Route path="/dashboard/member/:memberId/attendance" element={<Attendance />} />
+                              <Route path="/admin/attendance" element={<AdminAttendance />} />
+                              <Route path="/member/:memberId" element={<MemberDetail />} />
+                              <Route path="/todos/:memberId" element={<TaskDetails />} />
+                              <Route path="/projects" element={<Projects />} />
+                              <Route path="/projects/:projectId" element={<ProjectDetail />} />
+                              <Route path="/teams" element={<Teams />} />
+                              <Route path="/teams/:teamId" element={<TeamDetail />} />
+                              <Route path="/reports" element={<Reports />} />
+                            </Route>
                           </Route>
-                        </Route>
 
-                        <Route path="*" element={<NotFound />} />
-                      </Routes>
-                    </Suspense>
-                  </BrowserRouter>
-                </ProjectProvider>
-              </TaskProvider>
-            </MemberProvider>
-          </OrgProvider>
-        </AuthProvider>
-      </TooltipProvider>
-    </ThemeProvider>
-  </MotionConfig>
+                          <Route path="*" element={<NotFound />} />
+                        </Routes>
+                      </Suspense>
+                    </BrowserRouter>
+                  </ProjectProvider>
+                </TaskProvider>
+              </MemberProvider>
+            </OrgProvider>
+          </AuthProvider>
+        </TooltipProvider>
+      </ThemeProvider>
+    </MotionConfig>
+  </ErrorBoundary>
   // </QueryClientProvider>
 );
 

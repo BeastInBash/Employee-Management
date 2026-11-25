@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { PrismaClient, AttendanceStatus, TaskStatus, Prisma } from "@prisma/client";
-import { getTodayISTDate } from "../utils/attendance";
+import { getISTDayBounds, getTodayISTDate, isWeekendDate } from "../utils/attendance";
 
 const prisma = new PrismaClient();
 
@@ -17,6 +17,8 @@ export type EODSummary = {
     absent: number;
     /** Already present before the run (finished their list during the day). */
     alreadyPresent: number;
+    /** Saturday or Sunday: members with no tasks are left alone instead of marked absent. */
+    weekend: boolean;
 };
 
 /**
@@ -46,6 +48,9 @@ export function startAttendanceCronJobs(): void {
  * partial, all done → present. Rows already marked present are left alone.
  * Safe to run more than once a day. Throws on failure so the caller can report it.
  *
+ * On Saturdays and Sundays nobody is marked absent: only members who planned
+ * tasks that day are settled (present or partial).
+ *
  * With `dryRun`, everything is read and counted but nothing is written, so the
  * trigger can be tested at any hour (a real run mid-day would mark everyone who
  * hasn't planned yet as absent, and adding tasks later doesn't undo that).
@@ -54,13 +59,14 @@ export async function processEODAttendance({ dryRun = false }: { dryRun?: boolea
     console.log(dryRun ? "Processing EOD attendance (dry run)..." : "Processing EOD attendance...");
 
     const today = getTodayISTDate();
-    const tomorrow = new Date(today.getTime() + 86400000);
+    const { start, end } = getISTDayBounds(today);
+    const weekend = isWeekendDate(today);
 
     // Three reads for the whole day instead of two per member.
     const [members, tasks, records] = await Promise.all([
         prisma.member.findMany({ select: { id: true } }),
         prisma.task.findMany({
-            where: { createdAt: { gte: today, lt: tomorrow } },
+            where: { createdAt: { gte: start, lt: end } },
             select: { memberId: true, status: true, createdAt: true },
         }),
         prisma.dailyAttendance.findMany({
@@ -85,6 +91,7 @@ export async function processEODAttendance({ dryRun = false }: { dryRun?: boolea
         partial: 0,
         absent: 0,
         alreadyPresent: 0,
+        weekend,
     };
     const writes: Prisma.PrismaPromise<unknown>[] = [];
     const now = new Date();
@@ -100,6 +107,9 @@ export async function processEODAttendance({ dryRun = false }: { dryRun?: boolea
 
         const where = { memberId_date: { memberId, date: today } };
         const todaysTasks = tasksByMember.get(memberId) ?? [];
+
+        // No tasks on a weekend → not a working day, nothing to record
+        if (todaysTasks.length === 0 && weekend) continue;
 
         // No tasks submitted today → absent
         if (todaysTasks.length === 0) {

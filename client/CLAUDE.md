@@ -99,10 +99,14 @@ src/
                             #   ProjectFormDialog, TeamFormDialog, AddPeopleDialog
     reports/ReportCharts.tsx  # StatTile, ThroughputChart, AttendanceChart (recharts)
     ProtectedRoute.tsx      # gates routes; redirects to "/login" when unauthenticated
+    ErrorBoundary.tsx       # render-crash fallback: "screen" around the whole app (App.tsx),
+                            #   "page" around each signed-in page inside AppShell's transition
+                            #   (keyed per page, so navigating away clears it; sidebar stays)
     theme-provider.tsx      # ThemeProvider, useTheme, ThemeToggle
     ui/                     # shadcn components
   hooks/                    # use-workspace-people.ts loads Member seats for pickers
   lib/                      # utils.ts (cn), api.ts (fetch helper), cache.ts (persistent SWR cache),
+                            #   outbox.ts (queued task writes, see "Task outbox"),
                             #   pages.ts + lazy.ts (code-split page registry, preloading),
                             #   tasks.ts (parseTask: API row → Task),
                             #   projectMeta.ts (labels/colours/dates,
@@ -360,8 +364,30 @@ you back in the app instead of on the marketing/login page.
   additions are never announced. Background checks fail silently. This is polling, not
   push: Vercel functions can't hold connections open, so true real-time would need a
   service like Pusher/Ably. Admin and project boards don't poll yet.
-- **Task status is editable inline.** On `components/tasks/TaskBoard` the status pill is a
-  `DropdownMenu` (when `canManage`) — picking a status calls `updateTask({ status })`.
+- **Task outbox (members' own tasks).** `TaskContext.addTask` doesn't wait for the API: it
+  makes the task id (`newTaskId()`), shows the task at once with `pending: true` (a
+  "Saving…" `PendingMark` on the row) and queues it in `lib/outbox.ts`, a per-user queue in
+  localStorage (`wz-outbox:v1:<userId>`, deliberately **not** cleared on sign-out, so it sends
+  after the same person signs in again). Edits to a task still in the queue
+  (`updateTask` when `isQueued`) go in behind it, folded into the waiting create when it
+  isn't at the head. One tab sends at a time (Web Locks), in order; network errors, 5xx,
+  408, 429 retry with backoff (1s → 30s) and on `online` / tab focus; 401 pauses until the
+  next sign-in; any other refusal drops the task's ops, toasts "Couldn't save…" and takes
+  it off the list. `useLiveTasks` lays the queue over every load (`withOutbox`), so polling
+  never drops an unsaved task. Admin assignment (`MemberContext`) and project boards still
+  call the API directly, and so do edits to tasks already on the server.
+- **Task status is editable inline, or by dragging.** On `components/tasks/TaskBoard` the
+  status pill is a `DropdownMenu` (when `canManage`) — picking a status calls
+  `updateTask({ status })`. Cards also drag between columns (`@dnd-kit/core`: mouse after a
+  6px move, touch after a 180ms press so swipes still scroll, keyboard Space → arrows jump a
+  column → Space, Escape cancels; screen-reader announcements name the columns). A
+  `DragOverlay` copy lifts (scale 1.03, −1.5° tilt) while the original stays as a faint
+  placeholder; on drop the card moves at once (`moved` override, saved via `onStatusChange`
+  in the background, glides back if that fails), the overlay flies into the new slot and
+  settles flat. Its landing state goes through `LiftContext` because dnd-kit freezes the
+  overlay's props on drop. The board holds its height while cards rearrange
+  (`holdHeight`) so a column never snaps shorter under a card still gliding up. Controls
+  inside a card spread `keepClick` so pressing them never starts a drag.
   `MemberDetail` (admin) and `TaskDetails` (member) both use it.
 - Theme toggle, change password and sign-out live in the sidebar's **account menu**
   (`AppShell`); admins switch org/workspace from the sidebar's workspace switcher.

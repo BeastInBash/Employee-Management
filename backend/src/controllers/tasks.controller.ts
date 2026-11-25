@@ -1,8 +1,12 @@
 import { Request, Response } from "express";
-import { PrismaClient, UserRole, TaskStatus, AttendanceStatus } from "@prisma/client";
+import { PrismaClient, Prisma, UserRole, TaskStatus, AttendanceStatus } from "@prisma/client";
 import { createTaskSchema, updateTaskSchema } from "../validation/taskValidation";
 import {
+    getISTDateOf,
+    getISTDayBounds,
+    getSettleInstant,
     getTodayISTDate,
+    resolveClientTime,
     isWithinTaskWindow,
     serializeTaskWindow,
     taskWindowClosedMessage,
@@ -20,6 +24,24 @@ const taskWindowSelect = {
     taskWindowEnd: true,
 } as const;
 
+const taskProjectInclude = { project: { select: { id: true, name: true, color: true } } } as const;
+
+/**
+ * A task the client already created under this id (a retry from its outbox).
+ * Returns the task when it belongs to the caller (or the caller is an admin),
+ * "taken" when the id belongs to someone else's task, null when it's unused.
+ */
+async function findRetriedTask(id: string, user: { userId: string; role: string }) {
+    const existing = await prisma.task.findUnique({
+        where: { id },
+        include: { ...taskProjectInclude, member: { select: { userId: true } } },
+    });
+    if (!existing) return null;
+    if (user.role !== UserRole.admin && existing.member.userId !== user.userId) return "taken" as const;
+    const { member: _member, ...task } = existing;
+    return task;
+}
+
 export async function createTask(req: Request, res: Response): Promise<void> {
     try {
         if (!req.user) {
@@ -28,6 +50,24 @@ export async function createTask(req: Request, res: Response): Promise<void> {
         }
 
         const validatedData = createTaskSchema.parse(req.body);
+
+        // A retry of a task that already reached us: answer with it instead of
+        // creating a duplicate. Checked before the window, so a task added while
+        // the window was open still saves if it arrives after it closed.
+        if (validatedData.id) {
+            const retried = await findRetriedTask(validatedData.id, req.user);
+            if (retried === "taken") {
+                res.status(409).json({ message: "A task with this id already exists" });
+                return;
+            }
+            if (retried) {
+                res.status(200).json(retried);
+                return;
+            }
+        }
+
+        // When the task was really added (it may arrive late from the outbox).
+        const submittedAt = resolveClientTime(validatedData.clientCreatedAt);
 
         let memberId: string;
 
@@ -63,7 +103,7 @@ export async function createTask(req: Request, res: Response): Promise<void> {
             // The window lives on the member's workspace and is off by default,
             // so members can submit anytime unless an admin restricted it.
             const window = toTaskWindow(member.workspace);
-            if (!isWithinTaskWindow(window)) {
+            if (!isWithinTaskWindow(window, submittedAt)) {
                 res.status(403).json({
                     message: taskWindowClosedMessage(window),
                     taskWindow: serializeTaskWindow(window),
@@ -102,33 +142,60 @@ export async function createTask(req: Request, res: Response): Promise<void> {
             }
         }
 
-        const task = await prisma.task.create({
-            data: {
-                title: validatedData.title,
-                description: validatedData.description,
-                status: validatedData.status ?? TaskStatus.todo,
-                priority: validatedData.priority,
-                dueDate: new Date(validatedData.dueDate),
-                memberId,
-                ...(validatedData.projectId && { projectId: validatedData.projectId }),
-            },
-            include: { project: { select: { id: true, name: true, color: true } } },
-        });
+        const status = validatedData.status ?? TaskStatus.todo;
+        let task;
+        try {
+            task = await prisma.task.create({
+                data: {
+                    ...(validatedData.id && { id: validatedData.id }),
+                    title: validatedData.title,
+                    description: validatedData.description,
+                    status,
+                    priority: validatedData.priority,
+                    dueDate: new Date(validatedData.dueDate),
+                    memberId,
+                    createdAt: submittedAt,
+                    // A task can be finished before it reaches us (ticked while queued).
+                    ...(status === TaskStatus.completed && { completedAt: submittedAt }),
+                    ...(validatedData.projectId && { projectId: validatedData.projectId }),
+                },
+                include: taskProjectInclude,
+            });
+        } catch (error) {
+            // Two copies of the same retry raced: the other one created it.
+            if (validatedData.id && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+                const retried = await findRetriedTask(validatedData.id, req.user);
+                if (retried && retried !== "taken") {
+                    res.status(200).json(retried);
+                    return;
+                }
+            }
+            throw error;
+        }
 
         if (req.user.role === UserRole.member) {
-            const today = getTodayISTDate();
+            const day = getISTDateOf(submittedAt);
             // Planned but not finished yet is partial, which is also what the day
             // settles to if it stays that way; finishing the list flips it to present.
             await prisma.dailyAttendance.upsert({
-                where: { memberId_date: { memberId, date: today } },
+                where: { memberId_date: { memberId, date: day } },
                 update: {},
                 create: {
                     memberId,
-                    date: today,
+                    date: day,
                     status: AttendanceStatus.partial,
-                    taskSubmittedAt: new Date(),
+                    taskSubmittedAt: submittedAt,
                 },
             });
+            // Added before the day settled but delivered after (queued while
+            // offline): the nightly job saw no tasks and wrote absent. Correct it.
+            if (submittedAt < getSettleInstant(day)) {
+                await prisma.dailyAttendance.updateMany({
+                    where: { memberId, date: day, status: AttendanceStatus.absent },
+                    data: { status: AttendanceStatus.partial, taskSubmittedAt: submittedAt },
+                });
+            }
+            if (status === TaskStatus.completed) await checkAndMarkPresent(memberId, day);
         }
 
         res.status(201).json(task);
@@ -332,14 +399,13 @@ export async function deleteTask(req: Request, res: Response): Promise<void> {
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
-async function checkAndMarkPresent(memberId: string): Promise<void> {
-    const today = getTodayISTDate();
-    const tomorrow = new Date(today.getTime() + 86400000);
+async function checkAndMarkPresent(memberId: string, today: Date = getTodayISTDate()): Promise<void> {
+    const { start, end } = getISTDayBounds(today);
 
-    console.log(`[attendance] checking member ${memberId} | range: ${today.toISOString()} → ${tomorrow.toISOString()}`);
+    console.log(`[attendance] checking member ${memberId} | range: ${start.toISOString()} → ${end.toISOString()}`);
 
     const todaysTasks = await prisma.task.findMany({
-        where: { memberId, createdAt: { gte: today, lt: tomorrow } },
+        where: { memberId, createdAt: { gte: start, lt: end } },
         select: { status: true, createdAt: true },
     });
 

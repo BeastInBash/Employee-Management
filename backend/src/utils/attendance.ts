@@ -154,7 +154,53 @@ export function formatDateOnly(date: Date): string {
 }
 
 export function getTodayISTDate(): Date {
-    const ist = toIST(new Date());
+    return getISTDateOf(new Date());
+}
+
+/** The attendance date (UTC midnight of the IST calendar day) an instant falls on. */
+export function getISTDateOf(instant: Date): Date {
+    const ist = toIST(instant);
     // Return as UTC midnight so Prisma @db.Date stores correctly
     return new Date(Date.UTC(ist.getFullYear(), ist.getMonth(), ist.getDate()));
+}
+
+/** When an attendance date is settled by the nightly job: 9:00 PM IST that day. */
+export function getSettleInstant(day: Date): Date {
+    return new Date(day.getTime() + (21 * 60 - IST_OFFSET_MINUTES) * 60000);
+}
+
+/**
+ * How far back a queued task's own timestamp is trusted. The client saves tasks
+ * in an outbox and may send them late (offline, cold start); within this limit
+ * the task counts at the moment it was added, not when it arrived.
+ */
+export const MAX_CLIENT_CLOCK_AGE_MS = 6 * 60 * 60 * 1000;
+
+/**
+ * The instant a task was really added: the client's timestamp when it's recent
+ * and not in the future (small skew allowed), otherwise now. Never later than now.
+ */
+export function resolveClientTime(clientIso: string | undefined, now: Date = new Date()): Date {
+    if (!clientIso) return now;
+    const at = new Date(clientIso);
+    const age = now.getTime() - at.getTime();
+    if (Number.isNaN(age) || age > MAX_CLIENT_CLOCK_AGE_MS || age < -2 * 60 * 1000) return now;
+    return age < 0 ? now : at;
+}
+
+/**
+ * The real instants an IST calendar day runs between, for querying timestamps
+ * like `Task.createdAt`. `day` is an attendance date (UTC midnight of the IST
+ * date, as getTodayISTDate returns); the day starts 5:30 earlier in UTC, so a
+ * task made at 00:30 IST belongs to the day it was made on, not the one before.
+ */
+export function getISTDayBounds(day: Date = getTodayISTDate()): { start: Date; end: Date } {
+    const start = new Date(day.getTime() - IST_OFFSET_MINUTES * 60000);
+    return { start, end: new Date(start.getTime() + 86_400_000) };
+}
+
+/** True when an attendance date (UTC midnight of the IST date) is a Saturday or Sunday. */
+export function isWeekendDate(day: Date): boolean {
+    const weekday = day.getUTCDay();
+    return weekday === 0 || weekday === 6;
 }

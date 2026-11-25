@@ -201,7 +201,8 @@ export function sendPasswordResetEmail(
     resetToken: string,
     validForHours: number,
 ): Promise<boolean> {
-    const duration = validForHours % 24 === 0 ? `${validForHours / 24} days` : `${validForHours} hours`;
+    const plural = (n: number, unit: string) => `${n} ${unit}${n === 1 ? "" : "s"}`;
+    const duration = validForHours % 24 === 0 ? plural(validForHours / 24, "day") : plural(validForHours, "hour");
     return send(email, `Reset your ${BRAND} password`, {
         preview: "Use this link to choose a new password.",
         heading: "Reset your password",

@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 // One-time "choose a password" links, used for both resets and invites. The
 // raw token goes in the email link; only its SHA-256 hash is stored (in
 // User.resetToken), so a database leak can't be replayed.
-export const RESET_TOKEN_TTL_MS = 4 * 24 * 60 * 60 * 1000; // 4 days
+export const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour (the forgot-password page says so)
 export const INVITE_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 /** Minimum gap between unrequested set-password emails to one account. */
 export const SETUP_EMAIL_COOLDOWN_MS = 60 * 1000;

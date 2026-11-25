@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate, useOutlet } from "react-router-dom";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   BarChart3,
@@ -351,7 +352,10 @@ export const AppShell = () => {
         <Suspense fallback={<PageFallback />}>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.div key={pageKey} {...pageTransition(!!reduceMotion)}>
-              <FrozenOutlet />
+              {/* Per page, so a crash keeps the sidebar and clears on navigation. */}
+              <ErrorBoundary variant="page">
+                <FrozenOutlet />
+              </ErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </Suspense>
