@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { PrismaClient, UserRole, TaskStatus, AttendanceStatus } from "@prisma/client";
 import { createTaskSchema, updateTaskSchema } from "../validation/taskValidation";
 import {
+    getISTDayBounds,
     getTodayISTDate,
     isWithinTaskWindow,
     serializeTaskWindow,
@@ -334,12 +335,12 @@ export async function deleteTask(req: Request, res: Response): Promise<void> {
 
 async function checkAndMarkPresent(memberId: string): Promise<void> {
     const today = getTodayISTDate();
-    const tomorrow = new Date(today.getTime() + 86400000);
+    const { start, end } = getISTDayBounds(today);
 
-    console.log(`[attendance] checking member ${memberId} | range: ${today.toISOString()} → ${tomorrow.toISOString()}`);
+    console.log(`[attendance] checking member ${memberId} | range: ${start.toISOString()} → ${end.toISOString()}`);
 
     const todaysTasks = await prisma.task.findMany({
-        where: { memberId, createdAt: { gte: today, lt: tomorrow } },
+        where: { memberId, createdAt: { gte: start, lt: end } },
         select: { status: true, createdAt: true },
     });
 

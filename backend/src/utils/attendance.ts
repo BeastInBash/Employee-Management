@@ -158,3 +158,20 @@ export function getTodayISTDate(): Date {
     // Return as UTC midnight so Prisma @db.Date stores correctly
     return new Date(Date.UTC(ist.getFullYear(), ist.getMonth(), ist.getDate()));
 }
+
+/**
+ * The real instants an IST calendar day runs between, for querying timestamps
+ * like `Task.createdAt`. `day` is an attendance date (UTC midnight of the IST
+ * date, as getTodayISTDate returns); the day starts 5:30 earlier in UTC, so a
+ * task made at 00:30 IST belongs to the day it was made on, not the one before.
+ */
+export function getISTDayBounds(day: Date = getTodayISTDate()): { start: Date; end: Date } {
+    const start = new Date(day.getTime() - IST_OFFSET_MINUTES * 60000);
+    return { start, end: new Date(start.getTime() + 86_400_000) };
+}
+
+/** True when an attendance date (UTC midnight of the IST date) is a Saturday or Sunday. */
+export function isWeekendDate(day: Date): boolean {
+    const weekday = day.getUTCDay();
+    return weekday === 0 || weekday === 6;
+}

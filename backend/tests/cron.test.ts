@@ -6,10 +6,32 @@ import { createTestApp } from "./testApp";
 const app = createTestApp();
 const SECRET = "test-cron-secret";
 
+// Fake only the clock: supertest still needs real timers.
+const pinClock = (iso: string) =>
+  jest.useFakeTimers({
+    now: new Date(iso),
+    doNotFake: [
+      "hrtime",
+      "nextTick",
+      "performance",
+      "queueMicrotask",
+      "setImmediate",
+      "clearImmediate",
+      "setInterval",
+      "clearInterval",
+      "setTimeout",
+      "clearTimeout",
+    ],
+  });
+
 describe("GET /api/internal/cron/eod", () => {
   const original = process.env.CRON_SECRET;
   beforeEach(() => {
     process.env.CRON_SECRET = SECRET;
+    pinClock("2026-11-25T15:30:00Z"); // Wednesday, 9:00 PM IST
+  });
+  afterEach(() => {
+    jest.useRealTimers();
   });
   afterAll(() => {
     process.env.CRON_SECRET = original;
@@ -83,6 +105,39 @@ describe("GET /api/internal/cron/eod", () => {
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ dryRun: true, members: 2, partial: 1, absent: 1 });
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("reads the IST day, not the UTC day, when picking today's tasks", async () => {
+    prismaMock.member.findMany.mockResolvedValue([] as any);
+    prismaMock.task.findMany.mockResolvedValue([] as any);
+    prismaMock.dailyAttendance.findMany.mockResolvedValue([] as any);
+
+    await request(app).get("/api/internal/cron/eod?dryRun=1").set("Authorization", `Bearer ${SECRET}`);
+
+    const where = (prismaMock.task.findMany.mock.calls[0]![0] as any).where;
+    // 25 Nov IST runs from 24 Nov 18:30 UTC to 25 Nov 18:30 UTC.
+    expect(where.createdAt).toEqual({
+      gte: new Date("2026-11-24T18:30:00Z"),
+      lt: new Date("2026-11-25T18:30:00Z"),
+    });
+  });
+
+  it("on a weekend marks nobody absent but still settles people who planned tasks", async () => {
+    pinClock("2026-11-28T15:30:00Z"); // Saturday, 9:00 PM IST
+    prismaMock.member.findMany.mockResolvedValue([{ id: "worked" }, { id: "off" }] as any);
+    prismaMock.task.findMany.mockResolvedValue([
+      { memberId: "worked", status: TaskStatus.todo, createdAt: new Date("2026-11-28T05:00:00Z") },
+    ] as any);
+    prismaMock.dailyAttendance.findMany.mockResolvedValue([] as any);
+    prismaMock.dailyAttendance.upsert.mockImplementation(((args: any) => args) as any);
+    prismaMock.$transaction.mockResolvedValue([] as any);
+
+    const res = await request(app).get("/api/internal/cron/eod").set("Authorization", `Bearer ${SECRET}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ weekend: true, members: 2, partial: 1, absent: 0 });
+    const ids = prismaMock.dailyAttendance.upsert.mock.calls.map((c) => (c[0] as any).where.memberId_date.memberId);
+    expect(ids).toEqual(["worked"]);
   });
 
   it("still needs the secret for a dry run", async () => {
