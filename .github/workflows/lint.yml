@@ -60,9 +60,6 @@ jobs:
         working-directory: backend
         run: bun run build
 
-      # Not blocking yet: ~13 known failures (auth middleware returns 500
-      # instead of 401; stale attendance mocks). Make this blocking once fixed.
       - name: Test
         working-directory: backend
         run: bun run test
-        continue-on-error: true

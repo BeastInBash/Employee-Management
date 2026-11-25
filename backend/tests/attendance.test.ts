@@ -16,7 +16,7 @@ describe("GET /api/attendance/me", () => {
   });
 
   it("returns the member's monthly attendance plus a status summary", async () => {
-    prismaMock.member.findUnique.mockResolvedValue(makeMember() as any);
+    prismaMock.member.findFirst.mockResolvedValue(makeMember() as any);
     prismaMock.dailyAttendance.findMany.mockResolvedValue([
       makeAttendance({ status: AttendanceStatus.present }),
       makeAttendance({ id: "a2", status: AttendanceStatus.absent }),
@@ -35,7 +35,7 @@ describe("GET /api/attendance/me", () => {
   });
 
   it("returns 404 when the caller has no member row", async () => {
-    prismaMock.member.findUnique.mockResolvedValue(null);
+    prismaMock.member.findFirst.mockResolvedValue(null);
 
     const res = await request(app).get("/api/attendance/me").set("Authorization", authHeader(MEMBER));
 
@@ -43,7 +43,7 @@ describe("GET /api/attendance/me", () => {
   });
 
   it("honours explicit ?month & ?year query params", async () => {
-    prismaMock.member.findUnique.mockResolvedValue(makeMember() as any);
+    prismaMock.member.findFirst.mockResolvedValue(makeMember() as any);
     prismaMock.dailyAttendance.findMany.mockResolvedValue([] as any);
 
     await request(app).get("/api/attendance/me?month=3&year=2025").set("Authorization", authHeader(MEMBER));
@@ -55,7 +55,7 @@ describe("GET /api/attendance/me", () => {
   });
 
   it("returns an empty summary when there are no records", async () => {
-    prismaMock.member.findUnique.mockResolvedValue(makeMember() as any);
+    prismaMock.member.findFirst.mockResolvedValue(makeMember() as any);
     prismaMock.dailyAttendance.findMany.mockResolvedValue([] as any);
 
     const res = await request(app).get("/api/attendance/me").set("Authorization", authHeader(MEMBER));
