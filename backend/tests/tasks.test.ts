@@ -72,6 +72,48 @@ describe("POST /api/tasks (member)", () => {
     );
   });
 
+  describe("tags", () => {
+    it("saves tags trimmed, without #, de-duplicated ignoring case", async () => {
+      openWindow();
+      prismaMock.task.create.mockResolvedValue(makeTask() as any);
+      prismaMock.dailyAttendance.upsert.mockResolvedValue({} as any);
+      prismaMock.dailyAttendance.updateMany.mockResolvedValue({ count: 0 } as any);
+
+      const res = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", authHeader(MEMBER))
+        .send({ ...validTask, tags: ["  #Frontend ", "frontend", "bug   fix", "", "API"] });
+
+      expect(res.status).toBe(201);
+      expect((prismaMock.task.create.mock.calls[0]![0] as any).data.tags).toEqual(["Frontend", "bug fix", "API"]);
+    });
+
+    it("rejects more than 10 tags or a tag over 24 characters", async () => {
+      openWindow();
+      const many = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", authHeader(MEMBER))
+        .send({ ...validTask, tags: Array.from({ length: 11 }, (_, i) => `t${i}`) });
+      const long = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", authHeader(MEMBER))
+        .send({ ...validTask, tags: ["x".repeat(25)] });
+
+      expect(many.status).toBe(400);
+      expect(long.status).toBe(400);
+      expect(prismaMock.task.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects a description over 5000 characters", async () => {
+      openWindow();
+      const res = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", authHeader(MEMBER))
+        .send({ ...validTask, description: "x".repeat(5001) });
+      expect(res.status).toBe(400);
+    });
+  });
+
   describe("from the client's outbox", () => {
     const ID = "7f1c2a4e-1b7d-4c55-9b0e-3d2f8a6c9e01";
 

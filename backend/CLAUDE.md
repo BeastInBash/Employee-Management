@@ -144,7 +144,11 @@ ReBAC.md                   # design guide for the Organizations→Workspaces ReB
   `title`, `description`, `status` (`todo` | `in_progress` | `review` | `completed`),
   `priority` (`low|medium|high|urgent`), `dueDate`, `completedAt`, optional `projectId`
   (`onDelete: SetNull`, so deleting a project keeps its tasks). Cascade-deletes with its
-  Member. Reopening a completed task clears `completedAt`.
+  Member. Reopening a completed task clears `completedAt`. `tags String[]` (default `[]`,
+  migration `20261125120000_task_tags`): free-form labels, accepted on create (plain and
+  project tasks) and `PATCH`, normalised by `validation/tags.ts` (trim, drop a leading
+  `#`, collapse spaces, de-dupe ignoring case; ≤ 10 tags of ≤ 24 chars). `description` is
+  Markdown written by the user (rendered client-side, raw HTML not rendered), 10–5000 chars.
 - **Project** — in a workspace: `name`, `description?`, `status` (`ProjectStatus`),
   `color?` (hex), `startDate?`, `dueDate?`, `createdById`. Seats are **`ProjectMember`**
   (`projectId`+`memberId` unique, `role: ScopeRole` = `lead|member`); whole teams attach via

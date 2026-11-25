@@ -172,6 +172,8 @@ model Task {
   project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdAt   DateTime     @default(now())
   completedAt DateTime?
+  /// Free-form labels the user picks ("frontend", "urgent-fix"); normalised by validation/tags.ts.
+  tags        String[]     @default([])
 
   @@index([projectId])
   @@index([memberId, createdAt])

@@ -155,6 +155,7 @@ export async function createTask(req: Request, res: Response): Promise<void> {
                     dueDate: new Date(validatedData.dueDate),
                     memberId,
                     createdAt: submittedAt,
+                    ...(validatedData.tags && { tags: validatedData.tags }),
                     // A task can be finished before it reaches us (ticked while queued).
                     ...(status === TaskStatus.completed && { completedAt: submittedAt }),
                     ...(validatedData.projectId && { projectId: validatedData.projectId }),
@@ -334,6 +335,7 @@ export async function updateTask(req: Request, res: Response): Promise<void> {
                 ...(validatedData.status !== undefined && { status: validatedData.status }),
                 ...(validatedData.priority !== undefined && { priority: validatedData.priority }),
                 ...(validatedData.dueDate !== undefined && { dueDate: new Date(validatedData.dueDate) }),
+                ...(validatedData.tags !== undefined && { tags: validatedData.tags }),
                 ...(isBeingCompleted && { completedAt: new Date() }),
                 // Reopening a finished task clears its completion time.
                 ...(validatedData.status !== undefined &&

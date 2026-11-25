@@ -581,6 +581,7 @@ export const createProjectTask = async (req: Request, res: Response) => {
             dueDate: new Date(data.dueDate),
             memberId: assigneeId,
             projectId,
+            ...(data.tags && { tags: data.tags }),
         },
         include: taskWithAssigneeInclude,
     });
