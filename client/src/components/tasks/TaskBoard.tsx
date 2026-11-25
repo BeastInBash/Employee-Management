@@ -1,3 +1,5 @@
+import { MarkdownView } from "@/components/tasks/MarkdownView";
+import { TaskTags } from "@/components/tasks/TaskTags";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -509,7 +511,13 @@ const TaskCard = ({
           </DropdownMenu>
         )}
       </div>
-      {task.description && <p className="line-clamp-2 text-xs text-muted-foreground">{task.description}</p>}
+      {task.description && (
+        // Enter on a link inside shouldn't pick the card up for a keyboard drag.
+        <div onKeyDown={(e) => e.stopPropagation()}>
+          <MarkdownView text={task.description} compact />
+        </div>
+      )}
+      <TaskTags tags={task.tags} />
       {task.pending && <PendingMark />}
       <div className="flex flex-wrap items-center gap-1.5">
         {canManage ? (

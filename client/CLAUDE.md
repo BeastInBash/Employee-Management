@@ -376,6 +376,18 @@ you back in the app instead of on the marketing/login page.
   it off the list. `useLiveTasks` lays the queue over every load (`withOutbox`), so polling
   never drops an unsaved task. Admin assignment (`MemberContext`) and project boards still
   call the API directly, and so do edits to tasks already on the server.
+- **Tags and Markdown descriptions.** Tasks carry `tags?: string[]` (rules mirror the API in
+  `lib/tags.ts`: ≤ 10, ≤ 24 chars, de-duped ignoring case). `components/tasks/TagInput`
+  (Enter or comma adds, Backspace removes the last, suggestions from `usedTags(tasks)`
+  picked by click or ↑/↓ + Enter; Enter alone adds exactly what was typed) and `TaskTags`
+  (neutral chips; the dot colour is hashed from the tag into `COLOR_CHOICES`, so a tag looks
+  the same everywhere; tags never use status colours). Descriptions are Markdown:
+  `MarkdownEditor` (Write/Preview tabs, toolbar, Ctrl/⌘+B/I) in both `TaskFormDialog` and
+  ProjectDetail's `AddTaskDialog`; `MarkdownView` renders (cards: `compact`, ~3 lines, fade
+  only when cut; Today's details: full). The parser (`react-markdown` + `remark-gfm`,
+  ~51 KB gzip) is its own lazy chunk (`MarkdownBody`), with the plain text shown until it
+  loads. Raw HTML is never rendered; links open in a new tab. Styles: `.markdown` in
+  `index.css`.
 - **Task status is editable inline, or by dragging.** On `components/tasks/TaskBoard` the
   status pill is a `DropdownMenu` (when `canManage`) — picking a status calls
   `updateTask({ status })`. Cards also drag between columns (`@dnd-kit/core`: mouse after a

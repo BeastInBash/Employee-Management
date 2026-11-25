@@ -78,6 +78,7 @@ export type ProjectTask = {
   createdAt: string;
   completedAt: string | null;
   assignee: Person;
+  tags?: string[];
 };
 
 export type TeamSummary = {

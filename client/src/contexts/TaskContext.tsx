@@ -25,6 +25,8 @@ export type Task = {
   completedAt: Date | null;
   /** Set when the task belongs to a project. */
   project?: { id: string; name: string; color: string | null } | null;
+  /** Free-form labels (normalised like the API: lib/tags). */
+  tags?: string[];
   /** Still in the outbox: shown already, not on the server yet (see lib/outbox). */
   pending?: boolean;
 };
@@ -136,6 +138,7 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       createdAt: now,
       completedAt: status === "completed" ? now : null,
       project: null,
+      tags: task.tags ?? [],
     });
     setTasks((prev) => [...prev, created]);
     toast.success("Task added");
@@ -151,13 +154,14 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
 
     // A task that hasn't reached the server yet: queue the edit behind it.
     if (user && isQueued(user.id, id)) {
-      const { title, description, status, priority, dueDate } = updatedTask;
+      const { title, description, status, priority, dueDate, tags } = updatedTask;
       const queued = enqueueUpdate(user.id, id, {
         ...(title !== undefined && { title }),
         ...(description !== undefined && { description }),
         ...(status !== undefined && { status }),
         ...(priority !== undefined && { priority }),
         ...(dueDate !== undefined && { dueDate }),
+        ...(tags !== undefined && { tags }),
       });
       if (queued) {
         setTasks((prev) => prev.map((t) => (t.id === id ? queued : t)));

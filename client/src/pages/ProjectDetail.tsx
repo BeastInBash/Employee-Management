@@ -1,3 +1,8 @@
+import { MarkdownView } from "@/components/tasks/MarkdownView";
+import { MarkdownEditor } from "@/components/tasks/MarkdownEditor";
+import { TagInput } from "@/components/tasks/TagInput";
+import { TaskTags } from "@/components/tasks/TaskTags";
+import { usedTags } from "@/lib/tags";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -35,7 +40,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -512,6 +516,7 @@ const Board = ({
         people={people}
         canAssignOthers={canManage}
         myMemberId={myMemberId}
+        tagSuggestions={usedTags(tasks)}
         onCreated={(task) => setTasks((prev) => [task, ...prev])}
       />
 
@@ -599,7 +604,8 @@ const BoardCard = ({
           </DropdownMenu>
         )}
       </div>
-      {task.description && <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>}
+      {task.description && <MarkdownView text={task.description} compact />}
+      <TaskTags tags={task.tags} />
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 min-w-0">
           <PersonAvatar person={task.assignee} className="h-6 w-6 text-[9px]" />
@@ -623,6 +629,7 @@ const AddTaskDialog = ({
   people,
   canAssignOthers,
   myMemberId,
+  tagSuggestions,
   onCreated,
 }: {
   open: boolean;
@@ -631,6 +638,7 @@ const AddTaskDialog = ({
   people: ProjectPerson[];
   canAssignOthers: boolean;
   myMemberId: string | undefined;
+  tagSuggestions: string[];
   onCreated: (t: ProjectTask) => void;
 }) => {
   const [title, setTitle] = useState("");
@@ -638,6 +646,7 @@ const AddTaskDialog = ({
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [dueDate, setDueDate] = useState("");
   const [assignee, setAssignee] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -646,6 +655,7 @@ const AddTaskDialog = ({
     setDescription("");
     setPriority("medium");
     setDueDate("");
+    setTags([]);
     setAssignee(myMemberId ? [myMemberId] : []);
   }, [open, myMemberId]);
 
@@ -663,6 +673,7 @@ const AddTaskDialog = ({
           priority,
           dueDate: fromDueDateInput(dueDate),
           ...(assigneeId && { memberId: assigneeId }),
+          ...(tags.length && { tags }),
         },
       });
       onCreated(task);
@@ -677,7 +688,7 @@ const AddTaskDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add task</DialogTitle>
           <DialogDescription>
@@ -691,12 +702,7 @@ const AddTaskDialog = ({
           </div>
           <div className="space-y-2">
             <Label htmlFor="task-description">Description</Label>
-            <Textarea
-              id="task-description"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+            <MarkdownEditor id="task-description" value={description} onChange={setDescription} />
             {description.length > 0 && description.trim().length < 10 && (
               <p className="text-xs text-muted-foreground">At least 10 characters.</p>
             )}
@@ -721,6 +727,10 @@ const AddTaskDialog = ({
               <Label htmlFor="task-due">Due date</Label>
               <Input id="task-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="project-task-tags">Tags</Label>
+            <TagInput id="project-task-tags" value={tags} onChange={setTags} suggestions={tagSuggestions} />
           </div>
           {canAssignOthers && (
             <div className="space-y-2">

@@ -25,6 +25,7 @@ export type Task = {
   completedAt: Date | null;
   /** Set when the task belongs to a project. */
   project?: { id: string; name: string; color: string | null } | null;
+  tags?: string[];
 };
 
 export type Member = {
@@ -191,6 +192,7 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
           priority: task.priority,
           dueDate: task.dueDate,
           userId: task.memberId,
+          ...(task.tags && { tags: task.tags }),
         }),
       });
 

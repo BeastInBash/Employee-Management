@@ -1,3 +1,4 @@
+import { usedTags } from "@/lib/tags";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { CalendarCheck, Loader2, Plus, UserX } from "lucide-react";
@@ -128,6 +129,7 @@ const MemberDetail = () => {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         task={editing}
+        tagSuggestions={usedTags(tasks)}
         description={
           editing
             ? undefined

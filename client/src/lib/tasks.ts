@@ -16,4 +16,5 @@ export const parseTask = (d: RawTask): Task => ({
   createdAt: d.createdAt ? new Date(d.createdAt) : new Date(),
   completedAt: d.completedAt ? new Date(d.completedAt) : null,
   project: d.project ?? null,
+  tags: Array.isArray(d.tags) ? d.tags : [],
 });

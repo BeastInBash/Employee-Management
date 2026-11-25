@@ -1,3 +1,4 @@
+import { usedTags } from "@/lib/tags";
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -311,6 +312,7 @@ const Home = () => {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         task={null}
+        tagSuggestions={usedTags(tasks ?? [])}
         description={taskWindow?.enabled ? `Submissions for your workspace are open ${taskWindow.label}.` : undefined}
         onSubmit={async (values) => {
           const created = await addTask({ ...values, memberId: user.id });

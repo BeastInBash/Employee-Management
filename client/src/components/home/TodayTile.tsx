@@ -1,3 +1,5 @@
+import { MarkdownView } from "@/components/tasks/MarkdownView";
+import { TaskTags } from "@/components/tasks/TaskTags";
 import { useId, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { format, isToday, isTomorrow } from "date-fns";
@@ -124,14 +126,12 @@ const TodayTaskRow = ({ task, busy, onToggle }: { task: Task; busy: boolean; onT
             className="overflow-hidden"
           >
             <div className="space-y-2.5 border-t border-border/70 px-4 pb-3.5 pl-[52px] pt-3">
-              <p
-                className={cn(
-                  "whitespace-pre-line break-words text-sm leading-relaxed",
-                  !description && "text-muted-foreground",
-                )}
-              >
-                {description || "No description."}
-              </p>
+              {description ? (
+                <MarkdownView text={description} className="leading-relaxed" />
+              ) : (
+                <p className="text-sm text-muted-foreground">No description.</p>
+              )}
+              <TaskTags tags={task.tags} />
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className={cn("rounded-full px-2 py-0.5 font-medium", priorityColors[task.priority])}>
                   {priorityLabels[task.priority]} priority

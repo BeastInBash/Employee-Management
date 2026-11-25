@@ -27,7 +27,7 @@ const PREFIX = "wz-outbox:v1:";
 const MAX_BACKOFF_MS = 30_000;
 
 /** The fields an edit can change, as the API takes them. */
-export type TaskPatch = Partial<Pick<Task, "title" | "description" | "status" | "priority" | "dueDate">>;
+export type TaskPatch = Partial<Pick<Task, "title" | "description" | "status" | "priority" | "dueDate" | "tags">>;
 
 type Body = Record<string, unknown>;
 
@@ -131,6 +131,7 @@ export function enqueueCreate(userId: string, task: Task): Task {
     priority: task.priority,
     dueDate: task.dueDate.toISOString(),
     clientCreatedAt: task.createdAt.toISOString(),
+    ...(task.tags?.length && { tags: task.tags }),
   };
   write(userId, [...load(userId), { opId: newTaskId(), kind: "create", id: task.id, body, snapshot }]);
   emit({ type: "changed" });
