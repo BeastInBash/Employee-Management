@@ -99,6 +99,9 @@ src/
                             #   ProjectFormDialog, TeamFormDialog, AddPeopleDialog
     reports/ReportCharts.tsx  # StatTile, ThroughputChart, AttendanceChart (recharts)
     ProtectedRoute.tsx      # gates routes; redirects to "/login" when unauthenticated
+    ErrorBoundary.tsx       # render-crash fallback: "screen" around the whole app (App.tsx),
+                            #   "page" around each signed-in page inside AppShell's transition
+                            #   (keyed per page, so navigating away clears it; sidebar stays)
     theme-provider.tsx      # ThemeProvider, useTheme, ThemeToggle
     ui/                     # shadcn components
   hooks/                    # use-workspace-people.ts loads Member seats for pickers

@@ -207,7 +207,7 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
   last one; `{ alreadyVerified: true }` if there's nothing to do
 - `POST /change-password` *(auth)* — verify old pw, set new (must differ), clear `isPasswordReset`
 - `POST /forgot-password` — takes `email` only; if the account exists, stores a hashed
-  reset token (valid 4 days, `RESET_TOKEN_TTL_MS`) and emails a reset link. Always returns a generic 200 (no user
+  reset token (valid 1 hour, `RESET_TOKEN_TTL_MS`) and emails a reset link. Always returns a generic 200 (no user
   enumeration).
 - `POST /reset-password` — resets pw via `token` + newPassword. The raw token from the
   email is SHA-256 hashed and matched against the stored hash + expiry. Success also sets
@@ -401,17 +401,19 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
 - **Completion → present:** when a member completes a task (`PATCH` status→`completed`),
   `checkAndMarkPresent` checks whether **all of today's tasks** are completed; if so the
   day flips to `present`.
-- **Known quirk:** the cron (and `checkAndMarkPresent`) select "today's tasks" with
-  `createdAt` between `getTodayISTDate()` and +24h — i.e. UTC midnight to UTC midnight, not
-  the IST day. Tasks created 00:00–05:30 IST count toward the previous day. The cron also
-  writes an `absent` row for every member on weekends, which is why reports default to
-  `excludeWeekends`.
+- **Today's tasks:** the cron and `checkAndMarkPresent` select "today's tasks" by
+  `createdAt` within `getISTDayBounds()`, the real instants of the IST day (18:30 UTC to
+  18:30 UTC). Attendance *rows* are still keyed by `getTodayISTDate()` (UTC midnight of the
+  IST date). Don't mix the two: one is a timestamp range, the other a `@db.Date` key.
+- **Weekends:** on Saturday and Sunday (IST) the cron marks nobody absent; it only settles
+  members who planned tasks that day. Rows written before this fix still hold weekend
+  `absent`s, which is one reason reports default to `excludeWeekends`.
 - **EOD finalization (cron):** `processEODAttendance()` in `attendancecron.ts`, at
   **3:30 PM UTC = 9:00 PM IST**. For each member: no tasks today → `absent`;
   some-but-not-all complete → `partial`; all complete → `present`. Already-`present` rows are
   skipped, so a re-run is safe. It reads members, today's tasks and today's rows in three
   queries and writes upserts in transactions of 100, then returns a summary
-  (`{ date, members, present, partial, absent, alreadyPresent }`) and **throws on failure**.
+  (`{ date, members, present, partial, absent, alreadyPresent, weekend }`) and **throws on failure**.
   - **Who triggers it:** production runs on **Vercel** (`.env.prod`'s `BACKEND_URL`), where
     serverless functions aren't running at 9 PM, so an external scheduler,
     **cron-job.org**, calls `GET /api/internal/cron/eod` **once a day at 21:00
@@ -434,7 +436,8 @@ All times are **IST (UTC+5:30)**; helpers live in `src/utils/attendance.ts`.
   absent (`cookiesToken ?? bearerToken`) — this is what makes the client work, since it
   stores the JWT in `localStorage` and a `sameSite=lax` cookie is never sent cross-site.
   Puts the decoded payload (`{ userId, email, role }`) on `req.user`. Tokens last **7d**.
-  It doesn't try/catch: a bad/absent token throws and is handled by error middleware.
+  A missing token answers 401 "Authentication required"; a bad, malformed or expired one
+  answers 401 "Invalid or expired token" (never a 500).
 - The **login cookie `maxAge` is 7d** (`auth.controller.ts`), matching the JWT lifetime —
   they were previously mismatched (cookie 4d), which expired the session early. The client
   authenticates via the localStorage Bearer token anyway, but keep the two in sync.
@@ -512,8 +515,9 @@ anyway), `BACKEND_URL` (keep-alive ping target, default `http://localhost:3000`)
   admin / lead / member / outsider), and email verification (`verification.test.ts`).
   `tests/singleton.ts` mocks `utils/email` (every send resolves `true`; assert on the
   mocks) and the `resend` package, so tests never reach the network.
-  **~19 pre-existing failures** (auth-middleware 401s surfacing as 500, plus members/
-  attendance mocks that drifted from the controllers) are unrelated to that suite.
+  The whole suite passes and CI blocks on it; keep it green. Tests that depend on the
+  date pin only the clock (`jest.useFakeTimers({ now, doNotFake: [...timers] })`, see
+  `tests/cron.test.ts`) because supertest needs real timers.
 - ts-jest relaxes a few strict-mode diagnostics (`2345/2322/2769`) so test doubles compile;
   don't rely on that leniency in `src/`.
 
