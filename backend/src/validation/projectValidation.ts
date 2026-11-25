@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { ProjectStatus, ScopeRole, TaskPriority, TaskStatus } from "@prisma/client";
+import { MAX_DESCRIPTION_LENGTH, tagsSchema } from "./tags";
 
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value like #f97316");
 
@@ -72,12 +73,20 @@ export const assignTeamSchema = z.object({
 
 export const createProjectTaskSchema = z.object({
     title: z.string().min(3, "Title must be at least 3 characters"),
-    description: z.string().min(10, "Description must be at least 10 characters"),
+    description: z
+        .string()
+        .min(10, "Description must be at least 10 characters")
+        .max(MAX_DESCRIPTION_LENGTH, `Description can be at most ${MAX_DESCRIPTION_LENGTH} characters`),
     status: z.nativeEnum(TaskStatus).default(TaskStatus.todo),
     priority: z.nativeEnum(TaskPriority).default(TaskPriority.medium),
     dueDate: isoDate,
     /** Assignee's Member id. Omit to assign the task to yourself. */
     memberId: z.string().uuid().optional(),
+    tags: tagsSchema.optional(),
+    // From the client's outbox, as on POST /api/tasks: the task's id (a retry
+    // can't duplicate it) and when it was really added.
+    id: z.string().uuid().optional(),
+    clientCreatedAt: z.string().datetime().optional(),
 });
 
 export const projectTasksQuerySchema = z.object({

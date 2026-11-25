@@ -5,7 +5,6 @@ import type { Task, TaskPriority, TaskStatus } from "@/contexts/TaskContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -16,6 +15,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { STATUS_ORDER, priorityLabels, taskStatusLabels } from "@/lib/projectMeta";
+import { MarkdownEditor } from "./MarkdownEditor";
+import { TagInput } from "./TagInput";
 
 export type TaskFormValues = {
   title: string;
@@ -23,22 +24,29 @@ export type TaskFormValues = {
   status: TaskStatus;
   priority: TaskPriority;
   dueDate: Date;
+  tags: string[];
 };
 
 const toLocalInput = (d: Date) => format(d, "yyyy-MM-dd'T'HH:mm");
 
-/** Add a task, or edit one when `task` is set. Mirrors the API's rules (title ≥ 3, description ≥ 10). */
+/**
+ * Add a task, or edit one when `task` is set. Mirrors the API's rules (title ≥ 3,
+ * description 10–5000 characters of Markdown, up to 10 tags). `tagSuggestions`
+ * are tags already in use, offered while typing.
+ */
 export const TaskFormDialog = ({
   open,
   onOpenChange,
   task,
   description,
+  tagSuggestions,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   task?: Task | null;
   description?: string;
+  tagSuggestions?: string[];
   onSubmit: (values: TaskFormValues) => Promise<boolean>;
 }) => {
   const [title, setTitle] = useState("");
@@ -46,6 +54,7 @@ export const TaskFormDialog = ({
   const [status, setStatus] = useState<TaskStatus>("todo");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [due, setDue] = useState(toLocalInput(new Date()));
+  const [tags, setTags] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -54,6 +63,7 @@ export const TaskFormDialog = ({
     setDetails(task?.description ?? "");
     setStatus(task?.status ?? "todo");
     setPriority(task?.priority ?? "medium");
+    setTags(task?.tags ?? []);
     // New tasks default to the end of today.
     const end = new Date();
     end.setHours(18, 0, 0, 0);
@@ -74,6 +84,7 @@ export const TaskFormDialog = ({
         status,
         priority,
         dueDate: new Date(due),
+        tags,
       });
       if (ok) onOpenChange(false);
     } finally {
@@ -83,7 +94,7 @@ export const TaskFormDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
         <form onSubmit={submit} className="space-y-5">
           <DialogHeader>
             <DialogTitle>{task ? "Edit task" : "Add a task"}</DialogTitle>
@@ -102,11 +113,10 @@ export const TaskFormDialog = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="task-details">Details</Label>
-              <Textarea
+              <MarkdownEditor
                 id="task-details"
-                rows={3}
                 value={details}
-                onChange={(e) => setDetails(e.target.value)}
+                onChange={setDetails}
                 placeholder="What does done look like?"
               />
               {details.length > 0 && !detailsOk && (
@@ -148,6 +158,10 @@ export const TaskFormDialog = ({
             <div className="space-y-2">
               <Label htmlFor="task-due">Due</Label>
               <Input id="task-due" type="datetime-local" value={due} onChange={(e) => setDue(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="task-tags">Tags</Label>
+              <TagInput id="task-tags" value={tags} onChange={setTags} suggestions={tagSuggestions} />
             </div>
           </div>
           <DialogFooter>

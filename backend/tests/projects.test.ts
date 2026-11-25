@@ -315,6 +315,48 @@ describe("POST /api/projects/:projectId/tasks", () => {
     expect(prismaMock.dailyAttendance.upsert).not.toHaveBeenCalled();
   });
 
+  it("answers a retry from the outbox with the task it already has", async () => {
+    const ID = "5d0c3b2a-7e1f-4a9b-8c6d-2f4e1a0b9c33";
+    standAs("lead");
+    prismaMock.projectMember.findMany.mockResolvedValue([{ memberId: MY_SEAT }] as any);
+    prismaMock.teamMember.findMany.mockResolvedValue([{ memberId: OTHER_SEAT }] as any);
+    prismaMock.task.findUnique.mockResolvedValue({
+      ...makeTask({ id: ID, memberId: OTHER_SEAT, projectId: PROJECT }),
+      member: memberRow(OTHER_SEAT, "Teammate"),
+      project: { id: PROJECT, name: "Website relaunch", color: null },
+    } as any);
+
+    const res = await request(app)
+      .post(`/api/projects/${PROJECT}/tasks`)
+      .set("Authorization", as("lead"))
+      .send({ ...task, memberId: OTHER_SEAT, id: ID });
+
+    expect(res.status).toBe(200);
+    expect(res.body.task.id).toBe(ID);
+    expect(prismaMock.task.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a new task under the client's id", async () => {
+    const ID = "5d0c3b2a-7e1f-4a9b-8c6d-2f4e1a0b9c34";
+    standAs("lead");
+    prismaMock.projectMember.findMany.mockResolvedValue([{ memberId: MY_SEAT }] as any);
+    prismaMock.teamMember.findMany.mockResolvedValue([{ memberId: OTHER_SEAT }] as any);
+    prismaMock.task.findUnique.mockResolvedValue(null);
+    prismaMock.task.create.mockResolvedValue({
+      ...makeTask({ id: ID, memberId: OTHER_SEAT, projectId: PROJECT }),
+      member: memberRow(OTHER_SEAT, "Teammate"),
+      project: { id: PROJECT, name: "Website relaunch", color: null },
+    } as any);
+
+    const res = await request(app)
+      .post(`/api/projects/${PROJECT}/tasks`)
+      .set("Authorization", as("lead"))
+      .send({ ...task, memberId: OTHER_SEAT, id: ID });
+
+    expect(res.status).toBe(201);
+    expect((prismaMock.task.create.mock.calls[0]![0] as any).data.id).toBe(ID);
+  });
+
   it("applies the workspace task window to a member's own submission", async () => {
     standAs("member");
     prismaMock.projectMember.findMany.mockResolvedValue([{ memberId: MY_SEAT }] as any);

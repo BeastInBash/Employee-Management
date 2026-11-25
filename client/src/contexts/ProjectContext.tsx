@@ -78,6 +78,9 @@ export type ProjectTask = {
   createdAt: string;
   completedAt: string | null;
   assignee: Person;
+  tags?: string[];
+  /** Still in the outbox: shown already, not on the server yet (see lib/outbox). */
+  pending?: boolean;
 };
 
 export type TeamSummary = {

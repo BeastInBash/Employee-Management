@@ -1,3 +1,13 @@
+import { enqueueCreate, enqueueUpdate, newTaskId, withOutbox } from "@/lib/outbox";
+import { useOutboxList } from "@/hooks/use-outbox-list";
+import { PendingMark } from "@/components/tasks/PendingMark";
+import type { RawTask } from "@/lib/tasks";
+import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
+import { MarkdownView } from "@/components/tasks/MarkdownView";
+import { MarkdownEditor } from "@/components/tasks/MarkdownEditor";
+import { TagInput } from "@/components/tasks/TagInput";
+import { TaskTags } from "@/components/tasks/TaskTags";
+import { usedTags } from "@/lib/tags";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -35,7 +45,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -91,6 +100,9 @@ const COLUMNS: TaskStatus[] = ["todo", "in_progress", "review", "completed"];
 
 type DetailResponse = { project: ProjectDetailData; myRole: ScopeAccess; permissions: Permissions };
 
+/** A queued task (lib/outbox) is stored in the API's project-task shape already. */
+const asProjectTask = (raw: RawTask) => raw as ProjectTask;
+
 const ProjectDetail = () => {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -114,12 +126,14 @@ const ProjectDetail = () => {
         api<{ tasks: ProjectTask[] }>(`/projects/${projectId}/tasks`),
       ]);
       setDetail(d);
-      setTasks(t.tasks);
+      // Tasks added here that are still on their way to the server (lib/outbox).
+      setTasks(user ? withOutbox(user.id, t.tasks, `project:${projectId}`, asProjectTask) : t.tasks);
       setLoadError(null);
     } catch (e) {
       setLoadError(errorMessage(e));
     }
-  }, [projectId, setDetail, setTasks]);
+  }, [projectId, setDetail, setTasks, user]);
+  useOutboxList(user?.id, projectId ? `project:${projectId}` : null, setTasks, asProjectTask, () => void load());
 
   useEffect(() => {
     load();
@@ -381,10 +395,14 @@ const Board = ({
   canManage: boolean;
   myMemberId: string | undefined;
 }) => {
+  const { user } = useAuth();
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [taskToDelete, setTaskToDelete] = useState<ProjectTask | null>(null);
+  // The task whose details are open; read from `tasks` so status changes show at once.
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const openTask = openTaskId ? tasks.find((t) => t.id === openTaskId) : undefined;
 
   const visible = tasks.filter((t) =>
     assigneeFilter === "all"
@@ -397,6 +415,12 @@ const Board = ({
   const canEdit = (t: ProjectTask) => canManage || t.memberId === myMemberId;
 
   const changeStatus = async (task: ProjectTask, status: TaskStatus) => {
+    // Not on the server yet: the change waits behind it in the outbox.
+    const queued = user ? enqueueUpdate(user.id, task.id, { status }) : null;
+    if (queued) {
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? asProjectTask(queued) : t)));
+      return;
+    }
     setBusyTaskId(task.id);
     try {
       const updated = await api<Omit<ProjectTask, "assignee">>(`/tasks/${task.id}`, {
@@ -493,6 +517,7 @@ const Board = ({
                             isBusy={busyTaskId === t.id}
                             onStatus={(s) => changeStatus(t, s)}
                             onDelete={() => setTaskToDelete(t)}
+                            onOpen={() => setOpenTaskId(t.id)}
                           />
                         </motion.div>
                       ))}
@@ -505,6 +530,21 @@ const Board = ({
         </LayoutGroup>
       )}
 
+      <TaskDetailDialog
+        task={openTask ?? null}
+        onOpenChange={(o) => !o && setOpenTaskId(null)}
+        canChangeStatus={!!openTask && canEdit(openTask)}
+        busy={!!openTask && busyTaskId === openTask.id}
+        onStatus={(s) => openTask && void changeStatus(openTask, s)}
+        {...(openTask &&
+          canManage && {
+            onDelete: () => {
+              setOpenTaskId(null);
+              setTaskToDelete(openTask);
+            },
+          })}
+      />
+
       <AddTaskDialog
         open={isAddOpen}
         onOpenChange={setIsAddOpen}
@@ -512,6 +552,7 @@ const Board = ({
         people={people}
         canAssignOthers={canManage}
         myMemberId={myMemberId}
+        tagSuggestions={usedTags(tasks)}
         onCreated={(task) => setTasks((prev) => [task, ...prev])}
       />
 
@@ -548,6 +589,7 @@ const BoardCard = ({
   isBusy,
   onStatus,
   onDelete,
+  onOpen,
 }: {
   task: ProjectTask;
   canEdit: boolean;
@@ -555,10 +597,28 @@ const BoardCard = ({
   isBusy: boolean;
   onStatus: (s: TaskStatus) => void;
   onDelete: () => void;
+  onOpen: () => void;
 }) => {
   const overdue = task.status !== "completed" && new Date(task.dueDate) < new Date();
   return (
-    <div className="space-y-2.5 rounded-lg border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgb(78_34_15/0.04)]">
+    // A click (or Enter) anywhere but its own menu or links opens the details.
+    <div
+      tabIndex={0}
+      role="group"
+      aria-label={`${task.title}. Press Enter for details.`}
+      aria-haspopup="dialog"
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest("a, button, [role='menuitem'], [role='menu']")) return;
+        onOpen();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target === e.currentTarget) {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="cursor-pointer space-y-2.5 rounded-lg border border-border/70 bg-card p-3 shadow-[0_1px_2px_rgb(78_34_15/0.04)] outline-none transition-shadow duration-150 hover:shadow-[0_4px_14px_-6px_rgb(78_34_15/0.22)] focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <div className="flex items-start justify-between gap-2">
         <p
           className={`text-sm leading-snug ${task.status === "completed" ? "line-through text-muted-foreground" : ""}`}
@@ -599,7 +659,9 @@ const BoardCard = ({
           </DropdownMenu>
         )}
       </div>
-      {task.description && <p className="text-xs text-muted-foreground line-clamp-2">{task.description}</p>}
+      {task.description && <MarkdownView text={task.description} compact />}
+      <TaskTags tags={task.tags} />
+      {task.pending && <PendingMark />}
       <div className="flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 min-w-0">
           <PersonAvatar person={task.assignee} className="h-6 w-6 text-[9px]" />
@@ -623,6 +685,7 @@ const AddTaskDialog = ({
   people,
   canAssignOthers,
   myMemberId,
+  tagSuggestions,
   onCreated,
 }: {
   open: boolean;
@@ -631,14 +694,16 @@ const AddTaskDialog = ({
   people: ProjectPerson[];
   canAssignOthers: boolean;
   myMemberId: string | undefined;
+  tagSuggestions: string[];
   onCreated: (t: ProjectTask) => void;
 }) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [dueDate, setDueDate] = useState("");
+  const { user } = useAuth();
   const [assignee, setAssignee] = useState<string[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -646,38 +711,59 @@ const AddTaskDialog = ({
     setDescription("");
     setPriority("medium");
     setDueDate("");
+    setTags([]);
     setAssignee(myMemberId ? [myMemberId] : []);
   }, [open, myMemberId]);
 
   const assigneeId = canAssignOthers ? assignee[0] : myMemberId;
   const valid = title.trim().length >= 3 && description.trim().length >= 10 && !!dueDate && !!assigneeId;
 
-  const submit = async () => {
-    setIsSaving(true);
-    try {
-      const { task } = await api<{ task: ProjectTask }>(`/projects/${projectId}/tasks`, {
-        method: "POST",
-        body: {
-          title: title.trim(),
-          description: description.trim(),
-          priority,
-          dueDate: fromDueDateInput(dueDate),
-          ...(assigneeId && { memberId: assigneeId }),
-        },
-      });
-      onCreated(task);
-      toast.success("Task added");
-      onOpenChange(false);
-    } catch (e) {
-      toast.error(errorMessage(e));
-    } finally {
-      setIsSaving(false);
-    }
+  /**
+   * Shows the task on the board at once and sends it in the background
+   * (lib/outbox): nobody waits on the server. A task you give yourself also
+   * shows on your own lists (scope "own") until it syncs.
+   */
+  const submit = () => {
+    if (!user || !assigneeId) return;
+    const person = people.find((p) => p.id === assigneeId);
+    const due = fromDueDateInput(dueDate);
+    const raw = enqueueCreate(user.id, {
+      snapshot: {
+        id: newTaskId(),
+        title: title.trim(),
+        description: description.trim(),
+        status: "todo",
+        priority,
+        dueDate: due,
+        memberId: assigneeId,
+        projectId,
+        createdAt: new Date().toISOString(),
+        completedAt: null,
+        tags,
+        assignee: person
+          ? { id: person.id, userId: person.userId, name: person.name, email: person.email, jobTitle: person.jobTitle }
+          : { id: assigneeId, userId: user.id, name: user.name, email: user.email, jobTitle: "" },
+      },
+      body: {
+        title: title.trim(),
+        description: description.trim(),
+        priority,
+        dueDate: due,
+        memberId: assigneeId,
+        ...(tags.length && { tags }),
+      },
+      path: `/projects/${projectId}/tasks`,
+      unwrap: "task",
+      scopes: [`project:${projectId}`, ...(assigneeId === myMemberId ? ["own"] : [])],
+    });
+    onCreated(asProjectTask(raw));
+    toast.success("Task added");
+    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Add task</DialogTitle>
           <DialogDescription>
@@ -691,12 +777,7 @@ const AddTaskDialog = ({
           </div>
           <div className="space-y-2">
             <Label htmlFor="task-description">Description</Label>
-            <Textarea
-              id="task-description"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
+            <MarkdownEditor id="task-description" value={description} onChange={setDescription} />
             {description.length > 0 && description.trim().length < 10 && (
               <p className="text-xs text-muted-foreground">At least 10 characters.</p>
             )}
@@ -722,6 +803,10 @@ const AddTaskDialog = ({
               <Input id="task-due" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
             </div>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="project-task-tags">Tags</Label>
+            <TagInput id="project-task-tags" value={tags} onChange={setTags} suggestions={tagSuggestions} />
+          </div>
           {canAssignOthers && (
             <div className="space-y-2">
               <Label>Assignee</Label>
@@ -739,8 +824,7 @@ const AddTaskDialog = ({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={!valid || isSaving}>
-            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+          <Button onClick={submit} disabled={!valid}>
             Add task
           </Button>
         </DialogFooter>

@@ -144,7 +144,11 @@ ReBAC.md                   # design guide for the Organizations→Workspaces ReB
   `title`, `description`, `status` (`todo` | `in_progress` | `review` | `completed`),
   `priority` (`low|medium|high|urgent`), `dueDate`, `completedAt`, optional `projectId`
   (`onDelete: SetNull`, so deleting a project keeps its tasks). Cascade-deletes with its
-  Member. Reopening a completed task clears `completedAt`.
+  Member. Reopening a completed task clears `completedAt`. `tags String[]` (default `[]`,
+  migration `20261125120000_task_tags`): free-form labels, accepted on create (plain and
+  project tasks) and `PATCH`, normalised by `validation/tags.ts` (trim, drop a leading
+  `#`, collapse spaces, de-dupe ignoring case; ≤ 10 tags of ≤ 24 chars). `description` is
+  Markdown written by the user (rendered client-side, raw HTML not rendered), 10–5000 chars.
 - **Project** — in a workspace: `name`, `description?`, `status` (`ProjectStatus`),
   `color?` (hex), `startDate?`, `dueDate?`, `createdById`. Seats are **`ProjectMember`**
   (`projectId`+`memberId` unique, `role: ScopeRole` = `lead|member`); whole teams attach via
@@ -289,7 +293,9 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
   `DELETE /:projectId/members/:memberId` *(admin/lead; leads can't remove a lead)*.
 - `POST /:projectId/teams` `{ teamId }` / `DELETE /:projectId/teams/:teamId` *(admin/lead)*.
 - `GET /:projectId/tasks?status&memberId` — any participant; tasks include `assignee` + `project`.
-- `POST /:projectId/tasks` — admins/leads assign to any participant (`memberId` = Member id);
+- `POST /:projectId/tasks` — takes the outbox's optional `id` / `clientCreatedAt` like
+  `POST /api/tasks` (a repeated id answers 200 with the existing task, 409 if it's in another
+  project); admins/leads assign to any participant (`memberId` = Member id);
   a regular member may only create for themselves, and that self-submission obeys the
   workspace task window and upserts today's attendance like `POST /api/tasks`.
 

@@ -1,3 +1,4 @@
+import { usedTags } from "@/lib/tags";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Plus } from "lucide-react";
@@ -100,6 +101,7 @@ const TaskDetails = () => {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         task={editing}
+        tagSuggestions={usedTags(tasks)}
         description={
           editing ? undefined : restricted ? `Submissions for your workspace are open ${taskWindow?.label}.` : undefined
         }

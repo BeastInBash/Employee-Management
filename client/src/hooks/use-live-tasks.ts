@@ -31,7 +31,7 @@ export function useLiveTasks(userId: string | undefined) {
   const cacheKey = userId ? `${userId}:tasks` : null;
   const readCached = useCallback(() => {
     const cached = cacheKey ? readCache<RawTask[]>(cacheKey)?.map(parseTask) : undefined;
-    return cached && userId ? withOutbox(userId, cached) : (cached ?? null);
+    return cached && userId ? withOutbox(userId, cached, "own", parseTask) : (cached ?? null);
   }, [cacheKey, userId]);
 
   const [tasks, setTasksState] = useState<Task[] | null>(readCached);
@@ -47,7 +47,7 @@ export function useLiveTasks(userId: string | undefined) {
       loading.current = true;
       try {
         const { tasks: raw = [] } = await api<{ tasks?: RawTask[] }>(`/tasks/${userId}`);
-        const next = withOutbox(userId, raw.map(parseTask));
+        const next = withOutbox(userId, raw.map(parseTask), "own", parseTask);
         if (background && known.current) {
           const added = next.filter((t) => !known.current!.has(t.id));
           if (added.length === 1) toast.info(`New task on your list: ${added[0]!.title}`);
@@ -109,17 +109,21 @@ export function useLiveTasks(userId: string | undefined) {
   useEffect(() => {
     if (!userId) return;
     return subscribeOutbox((e) => {
+      if (e.type === "changed" || !e.scopes.includes("own")) return;
       if (e.type === "synced") {
+        const task = parseTask(e.raw);
         setTasksState((prev) => {
           if (!prev) return prev;
           const next = withOutbox(
             userId,
-            prev.map((t) => (t.id === e.task.id ? e.task : t)),
+            prev.map((t) => (t.id === e.id ? task : t)),
+            "own",
+            parseTask,
           );
           if (cacheKey) writeCache(cacheKey, next);
           return next;
         });
-      } else if (e.type === "failed") {
+      } else {
         if (e.kind === "update") {
           void load(true);
           return;

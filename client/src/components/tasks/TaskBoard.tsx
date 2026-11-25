@@ -1,3 +1,5 @@
+import { MarkdownView } from "@/components/tasks/MarkdownView";
+import { TaskTags } from "@/components/tasks/TaskTags";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -57,6 +59,7 @@ import {
 } from "@/lib/projectMeta";
 import { cn } from "@/lib/utils";
 import { PendingMark } from "@/components/tasks/PendingMark";
+import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 
 /** Stops a press on a control inside a card (menu, link) from starting a drag. */
 const keepClick = {
@@ -116,6 +119,8 @@ export const TaskBoard = ({
   // Where a dropped card shows until its save settles (then the parent's list agrees).
   const [moved, setMoved] = useState<Record<string, TaskStatus>>({});
   const [activeId, setActiveId] = useState<string | null>(null);
+  // The task whose details are open; read from `tasks` so it stays current.
+  const [openId, setOpenId] = useState<string | null>(null);
   // What the floating card shows. It outlives the drag by the landing, so it can
   // settle flat and already wear its new status while it flies into place.
   const [lifted, setLifted] = useState<Lift>(null);
@@ -155,7 +160,11 @@ export const TaskBoard = ({
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     // On touch, a short press: a plain swipe still scrolls the page.
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: columnKeys }),
+    // Space picks a card up; Enter is left free to open its details.
+    useSensor(KeyboardSensor, {
+      coordinateGetter: columnKeys,
+      keyboardCodes: { start: ["Space"], cancel: ["Escape"], end: ["Space", "Enter"] },
+    }),
   );
 
   const statusOf = (task: Task) => moved[task.id] ?? task.status;
@@ -180,17 +189,30 @@ export const TaskBoard = ({
     }
 
     land(status);
-    holdHeight();
-    setMoved((m) => ({ ...m, [task.id]: status }));
     setLandingId(task.id);
     window.setTimeout(() => setLandingId((id) => (id === task.id ? null : id)), DROP_MS + 60);
-    void change(task, status).finally(() =>
+    moveTo(task, status);
+  };
+
+  /**
+   * Show the task in its new column now; save in the background (it glides
+   * back if that fails). `place` (used by the details dialog, where the board
+   * is behind a modal) puts the card straight into its new column: a shared-
+   * layout glide there would be re-rendered when the save lands, mid-fade, and
+   * framer-motion briefly hands the visible slot to the fading copy (a blink).
+   */
+  const moveTo = (task: Task, status: TaskStatus, { place = false } = {}) => {
+    setMoved((m) => ({ ...m, [task.id]: status }));
+    if (place) setLandingId(task.id);
+    void change(task, status).finally(() => {
       setMoved((m) => {
         const rest = { ...m };
         delete rest[task.id];
         return rest;
-      }),
-    );
+      });
+      // Keep the glide off until the save's re-render and the old copy's fade are done.
+      if (place) window.setTimeout(() => setLandingId((id) => (id === task.id ? null : id)), 400);
+    });
   };
 
   const announcements: Announcements = {
@@ -256,9 +278,11 @@ export const TaskBoard = ({
                       >
                         <DraggableCard
                           id={task.id}
+                          title={task.title}
                           status={status}
                           disabled={!canManage(task)}
                           isActive={activeId === task.id}
+                          onOpen={() => setOpenId(task.id)}
                         >
                           <TaskCard
                             task={{ ...task, status }}
@@ -321,6 +345,34 @@ export const TaskBoard = ({
           document.body,
         )}
       </LiftContext.Provider>
+
+      {(() => {
+        const open = openId ? tasks.find((t) => t.id === openId) : undefined;
+        const manage = !!open && canManage(open);
+        return (
+          <TaskDetailDialog
+            task={open ? { ...open, status: statusOf(open) } : null}
+            onOpenChange={(o) => !o && setOpenId(null)}
+            canChangeStatus={manage}
+            busy={!!open && busyId === open.id}
+            onStatus={(s) => open && moveTo(open, s, { place: true })}
+            {...(manage && {
+              onEdit: () => {
+                setOpenId(null);
+                if (open) onEdit(open);
+              },
+            })}
+            {...(open &&
+              canDelete &&
+              manage && {
+                onDelete: () => {
+                  setOpenId(null);
+                  onDelete(open);
+                },
+              })}
+          />
+        );
+      })()}
     </DndContext>
   );
 };
@@ -413,17 +465,30 @@ const Column = ({
 };
 
 /** Makes a card draggable; while it's being dragged, its spot stays as a faint placeholder. */
+/** Clicks on these inside a card do their own thing instead of opening the details. */
+const OWN_CLICK = "a, button, input, select, textarea, [role='menuitem'], [role='menu']";
+
+/**
+ * Makes a card draggable and opens its details on a click or Enter. A drag
+ * never counts as a click (it needs a 6px move first), and presses on the
+ * card's own controls are left to them. While it's being dragged, its spot
+ * stays as a faint placeholder.
+ */
 const DraggableCard = ({
   id,
+  title,
   status,
   disabled,
   isActive,
+  onOpen,
   children,
 }: {
   id: string;
+  title: string;
   status: TaskStatus;
   disabled: boolean;
   isActive: boolean;
+  onOpen: () => void;
   children: ReactNode;
 }) => {
   const { setNodeRef, attributes, listeners } = useDraggable({ id, disabled, data: { status } });
@@ -432,12 +497,29 @@ const DraggableCard = ({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      // Always focusable (even when it can't be dragged) so Enter can open it.
+      tabIndex={0}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest(OWN_CLICK)) return;
+        onOpen();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && e.target === e.currentTarget) {
+          e.preventDefault();
+          onOpen();
+          return;
+        }
+        listeners?.onKeyDown?.(e);
+      }}
       // dnd-kit's role="button" would hide the card's own controls from screen readers' sense of structure.
-      role={disabled ? undefined : "group"}
+      role="group"
+      aria-label={`${title}. Press Enter for details${disabled ? "" : ", Space to move"}.`}
+      aria-haspopup="dialog"
       aria-roledescription={disabled ? undefined : "draggable task"}
       className={cn(
-        "rounded-lg outline-none transition-opacity duration-150 focus-visible:ring-2 focus-visible:ring-ring",
-        !disabled && "cursor-grab touch-manipulation active:cursor-grabbing",
+        "cursor-pointer rounded-lg outline-none transition-[opacity,transform] duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+        "[&>div]:transition-shadow [&>div]:duration-150 hover:[&>div]:shadow-[0_4px_14px_-6px_rgb(78_34_15/0.22)]",
+        !disabled && "touch-manipulation active:cursor-grabbing",
         isActive && "opacity-35",
       )}
     >
@@ -509,7 +591,13 @@ const TaskCard = ({
           </DropdownMenu>
         )}
       </div>
-      {task.description && <p className="line-clamp-2 text-xs text-muted-foreground">{task.description}</p>}
+      {task.description && (
+        // Enter on a link inside shouldn't pick the card up for a keyboard drag.
+        <div onKeyDown={(e) => e.stopPropagation()}>
+          <MarkdownView text={task.description} compact />
+        </div>
+      )}
+      <TaskTags tags={task.tags} />
       {task.pending && <PendingMark />}
       <div className="flex flex-wrap items-center gap-1.5">
         {canManage ? (

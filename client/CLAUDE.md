@@ -364,23 +364,49 @@ you back in the app instead of on the marketing/login page.
   additions are never announced. Background checks fail silently. This is polling, not
   push: Vercel functions can't hold connections open, so true real-time would need a
   service like Pusher/Ably. Admin and project boards don't poll yet.
-- **Task outbox (members' own tasks).** `TaskContext.addTask` doesn't wait for the API: it
-  makes the task id (`newTaskId()`), shows the task at once with `pending: true` (a
-  "Saving…" `PendingMark` on the row) and queues it in `lib/outbox.ts`, a per-user queue in
-  localStorage (`wz-outbox:v1:<userId>`, deliberately **not** cleared on sign-out, so it sends
-  after the same person signs in again). Edits to a task still in the queue
-  (`updateTask` when `isQueued`) go in behind it, folded into the waiting create when it
-  isn't at the head. One tab sends at a time (Web Locks), in order; network errors, 5xx,
-  408, 429 retry with backoff (1s → 30s) and on `online` / tab focus; 401 pauses until the
-  next sign-in; any other refusal drops the task's ops, toasts "Couldn't save…" and takes
-  it off the list. `useLiveTasks` lays the queue over every load (`withOutbox`), so polling
-  never drops an unsaved task. Admin assignment (`MemberContext`) and project boards still
-  call the API directly, and so do edits to tasks already on the server.
+- **Task outbox: adding a task never waits on the server.** Every add goes through
+  `lib/outbox.ts`: a member's own tasks (`TaskContext.addTask`, scope `"own"`), an admin
+  assigning on a member's page (`MemberContext.addTask`, scope `member:<userId>`, sends
+  `userId`), and the project board (`AddTaskDialog`, scope `project:<id>`, plus `"own"` when you
+  assign yourself; POSTs to `/projects/:id/tasks` and unwraps `{ task }`). The task id is made
+  in the browser (`newTaskId()`), the task is written to a per-user queue in localStorage
+  (`wz-outbox:v1:<userId>`, deliberately **not** cleared on sign-out) and shown at once with
+  `pending: true` (a "Saving…" `PendingMark`); the form closes immediately. Edits to a task
+  still queued (`queueTaskEdit` / `enqueueUpdate`, used by both contexts and the project
+  board) go in behind it, folded into the waiting create when it isn't at the head. One tab
+  sends at a time (Web Locks), in order; every request has a **20s timeout** (`api({
+  timeoutMs })`); network errors, timeouts, 5xx, 408, 429 retry after 2s, 4s, 8s, then every
+  15s, and at once on `online` / tab focus; 401 pauses until the next sign-in; any other
+  refusal drops the task's ops, toasts "Couldn't save…" and takes it off the list. Lists lay
+  the queue over every load with `withOutbox(userId, list, scope, fromRaw)` and follow it with
+  `hooks/use-outbox-list.ts` (`useLiveTasks` does the same for `"own"`), so a refresh or poll
+  never drops an unsaved task. Edits to tasks already on the server still call the API directly.
+- **Tags and Markdown descriptions.** Tasks carry `tags?: string[]` (rules mirror the API in
+  `lib/tags.ts`: ≤ 10, ≤ 24 chars, de-duped ignoring case). `components/tasks/TagInput`
+  (Enter or comma adds, Backspace removes the last, suggestions from `usedTags(tasks)`
+  picked by click or ↑/↓ + Enter; Enter alone adds exactly what was typed) and `TaskTags`
+  (neutral chips; the dot colour is hashed from the tag into `COLOR_CHOICES`, so a tag looks
+  the same everywhere; tags never use status colours). Descriptions are Markdown:
+  `MarkdownEditor` (Write/Preview tabs, toolbar, Ctrl/⌘+B/I) in both `TaskFormDialog` and
+  ProjectDetail's `AddTaskDialog`; `MarkdownView` renders (cards: `compact`, ~3 lines, fade
+  only when cut; Today's details: full). The parser (`react-markdown` + `remark-gfm`,
+  ~51 KB gzip) is its own lazy chunk (`MarkdownBody`), with the plain text shown until it
+  loads. Raw HTML is never rendered; links open in a new tab. Styles: `.markdown` in
+  `index.css`.
+- **Task details dialog.** Clicking a card (or Enter on a focused one) on `TaskBoard` or the
+  project board opens `components/tasks/TaskDetailDialog`: full Markdown description, tags,
+  project/assignee, created/due/completed dates, a status switch (when allowed) and Edit /
+  Delete when the page offers them. It reads the task from the board's list by id, so it stays
+  current. Clicks on a card's own controls (`a, button, [role=menuitem]`…) don't open it, a
+  drag never does (6px activation), and the keyboard sensor starts drags on **Space only** so
+  Enter is free. Status changes from the dialog move the card at once with `moveTo(…, { place:
+  true })`, which turns the card's shared-layout glide off until the save settles: a glide
+  re-rendered mid-fade makes framer-motion briefly hand the slot to the fading copy (a blink).
 - **Task status is editable inline, or by dragging.** On `components/tasks/TaskBoard` the
   status pill is a `DropdownMenu` (when `canManage`) — picking a status calls
   `updateTask({ status })`. Cards also drag between columns (`@dnd-kit/core`: mouse after a
   6px move, touch after a 180ms press so swipes still scroll, keyboard Space → arrows jump a
-  column → Space, Escape cancels; screen-reader announcements name the columns). A
+  column → Space (Enter opens details instead), Escape cancels; screen-reader announcements name the columns). A
   `DragOverlay` copy lifts (scale 1.03, −1.5° tilt) while the original stays as a faint
   placeholder; on drop the card moves at once (`moved` override, saved via `onStatusChange`
   in the background, glides back if that fails), the overlay flies into the new slot and

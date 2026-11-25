@@ -20,8 +20,10 @@ import {
     updateSeatSchema,
 } from "../validation/projectValidation";
 import {
+    getISTDateOf,
     getTodayISTDate,
     isWithinTaskWindow,
+    resolveClientTime,
     serializeTaskWindow,
     taskWindowClosedMessage,
     toTaskWindow,
@@ -560,33 +562,62 @@ export const createProjectTask = async (req: Request, res: Response) => {
         throw ApiError.badRequest("The assignee must be on this project (directly or through a team)");
     }
 
+    // A retry of a task already created under this id: answer with it.
+    // Checked before the window, so a task added in time still saves when late.
+    if (data.id) {
+        const existing = await prisma.task.findUnique({ where: { id: data.id }, include: taskWithAssigneeInclude });
+        if (existing) {
+            if (existing.projectId !== projectId) throw ApiError.conflict("A task with this id already exists");
+            res.status(200).json({ task: serializeTask(existing) });
+            return;
+        }
+    }
+    const submittedAt = resolveClientTime(data.clientCreatedAt);
+
     if (isSelf && access.access !== "admin") {
         const workspace = await prisma.workspace.findUnique({
             where: { id: access.workspaceId },
             select: { taskWindowEnabled: true, taskWindowStart: true, taskWindowEnd: true },
         });
         const window = toTaskWindow(workspace);
-        if (!isWithinTaskWindow(window)) {
+        if (!isWithinTaskWindow(window, submittedAt)) {
             res.status(403).json({ message: taskWindowClosedMessage(window), taskWindow: serializeTaskWindow(window) });
             return;
         }
     }
 
-    const task = await prisma.task.create({
-        data: {
-            title: data.title,
-            description: data.description,
-            status: data.status,
-            priority: data.priority,
-            dueDate: new Date(data.dueDate),
-            memberId: assigneeId,
-            projectId,
-        },
-        include: taskWithAssigneeInclude,
-    });
+    let task: TaskWithAssignee;
+    try {
+        task = await prisma.task.create({
+            data: {
+                ...(data.id && { id: data.id }),
+                title: data.title,
+                description: data.description,
+                status: data.status,
+                priority: data.priority,
+                dueDate: new Date(data.dueDate),
+                memberId: assigneeId,
+                projectId,
+                createdAt: submittedAt,
+                ...(data.status === TaskStatus.completed && { completedAt: submittedAt }),
+                ...(data.tags && { tags: data.tags }),
+            },
+            include: taskWithAssigneeInclude,
+        });
+    } catch (error) {
+        // Two copies of the same retry raced: the other one created it.
+        if (data.id && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+            const existing = await prisma.task.findUnique({ where: { id: data.id }, include: taskWithAssigneeInclude });
+            if (existing?.projectId === projectId) {
+                res.status(200).json({ task: serializeTask(existing) });
+                return;
+            }
+        }
+        throw error;
+    }
 
     if (isSelf && access.access !== "admin") {
-        const today = getTodayISTDate();
+        const today = getISTDateOf(submittedAt);
         await prisma.dailyAttendance.upsert({
             where: { memberId_date: { memberId: assigneeId, date: today } },
             update: {},
@@ -595,7 +626,7 @@ export const createProjectTask = async (req: Request, res: Response) => {
                 memberId: assigneeId,
                 date: today,
                 status: AttendanceStatus.partial,
-                taskSubmittedAt: new Date(),
+                taskSubmittedAt: submittedAt,
             },
         });
     }

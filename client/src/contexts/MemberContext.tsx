@@ -6,6 +6,7 @@ import { toast } from "@/components/ui/sonner";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 import { useAuth } from "./AuthContext";
+import { queueTask, queueTaskEdit } from "@/lib/outbox";
 import { usePersistentState } from "@/hooks/use-persistent-state";
 
 const getAuthToken = () => localStorage.getItem("authToken");
@@ -25,6 +26,9 @@ export type Task = {
   completedAt: Date | null;
   /** Set when the task belongs to a project. */
   project?: { id: string; name: string; color: string | null } | null;
+  tags?: string[];
+  /** Still in the outbox: shown already, not on the server yet (see lib/outbox). */
+  pending?: boolean;
 };
 
 export type Member = {
@@ -170,51 +174,23 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Task functions
+  /**
+   * Assign a task to a member. It shows at once and is sent in the background
+   * (lib/outbox), so the admin never waits on the server; `task.memberId` is
+   * the member's **User** id here, which the API takes as `userId`.
+   */
   const addTask = async (task: Omit<Task, "id" | "createdAt" | "completedAt">) => {
-    const token = getAuthToken();
-    if (!token) {
+    if (!getAuthToken() || !user) {
       toast.error("You must be logged in");
       return;
     }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/tasks`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: task.title,
-          description: task.description,
-          status: task.status,
-          priority: task.priority,
-          dueDate: task.dueDate,
-          userId: task.memberId,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        toast.error(error.message || "Failed to create task");
-        return;
-      }
-
-      const data = await response.json();
-      const newTask = {
-        ...data,
-        dueDate: new Date(data.dueDate),
-        createdAt: new Date(data.createdAt),
-        completedAt: data.completedAt ? new Date(data.completedAt) : null,
-      };
-
-      setTasks([...tasks, newTask]);
-      toast.success("Task added");
-      return newTask as Task;
-    } catch (error) {
-      console.error("Add task error:", error);
-      toast.error("An error occurred while creating task");
-    }
+    const created = queueTask(user.id, task, {
+      scopes: [`member:${task.memberId}`],
+      extraBody: { userId: task.memberId },
+    });
+    setTasks((prev) => [...prev, created]);
+    toast.success("Task added");
+    return created;
   };
 
   const updateTask = async (id: string, updatedTask: Partial<Task>) => {
@@ -222,6 +198,14 @@ export const MemberProvider = ({ children }: { children: ReactNode }) => {
     if (!token) {
       toast.error("You must be logged in");
       return;
+    }
+
+    // Not on the server yet: the edit waits behind the task in the outbox.
+    const queued = user ? queueTaskEdit(user.id, id, updatedTask) : null;
+    if (queued) {
+      setTasks((prev) => prev.map((t) => (t.id === id ? queued : t)));
+      toast.success("Task updated");
+      return queued;
     }
 
     const task = tasks.find((t) => t.id === id);
