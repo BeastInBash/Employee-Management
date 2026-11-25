@@ -385,7 +385,10 @@ you back in the app instead of on the marketing/login page.
   placeholder; on drop the card moves at once (`moved` override, saved via `onStatusChange`
   in the background, glides back if that fails), the overlay flies into the new slot and
   settles flat. Its landing state goes through `LiftContext` because dnd-kit freezes the
-  overlay's props on drop. The board holds its height while cards rearrange
+  overlay's props on drop. The overlay is **portalled to `<body>`**: AppShell's page
+  transition leaves a `transform` on the page wrapper, which would make the fixed overlay
+  position against it and float the card a sidebar-width away from the pointer. Test drag
+  and drop inside AppShell (or a transformed wrapper), not on a bare page. The board holds its height while cards rearrange
   (`holdHeight`) so a column never snaps shorter under a card still gliding up. Controls
   inside a card spread `keepClick` so pressing them never starts a drag.
   `MemberDetail` (admin) and `TaskDetails` (member) both use it.

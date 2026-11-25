@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "framer-motion";
 import {
@@ -296,21 +297,29 @@ export const TaskBoard = ({
       {/* The card under the pointer. On drop it flies into the slot the card now
           has (dnd-kit measures the moved card), then hands over to it. dnd-kit
           freezes the overlay's props once dropped, so the landing state reaches
-          it through context instead. */}
+          it through context instead (context still flows through the portal).
+
+          It's portalled to <body> because the overlay is position: fixed, and
+          any transformed ancestor (AppShell's page transition keeps one) would
+          make it fixed to that ancestor instead of the window, offsetting the
+          card from the pointer by the sidebar's width. */}
       <LiftContext.Provider value={lifted}>
-        <DragOverlay
-          dropAnimation={
-            reduceMotion
-              ? null
-              : {
-                  duration: DROP_MS,
-                  easing: EASE_OUT,
-                  sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: "0" } } }),
-                }
-          }
-        >
-          {lifted && <LiftedCard task={lifted.task} reduceMotion={!!reduceMotion} />}
-        </DragOverlay>
+        {createPortal(
+          <DragOverlay
+            dropAnimation={
+              reduceMotion
+                ? null
+                : {
+                    duration: DROP_MS,
+                    easing: EASE_OUT,
+                    sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: "0" } } }),
+                  }
+            }
+          >
+            {lifted && <LiftedCard task={lifted.task} reduceMotion={!!reduceMotion} />}
+          </DragOverlay>,
+          document.body,
+        )}
       </LiftContext.Provider>
     </DndContext>
   );
