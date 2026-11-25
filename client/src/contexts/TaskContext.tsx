@@ -6,6 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 import { useAuth } from "./AuthContext";
 import { parseTask } from "@/lib/tasks";
+import { enqueueCreate, enqueueUpdate, isQueued, newTaskId, startOutbox, subscribeOutbox } from "@/lib/outbox";
 
 const getAuthToken = () => localStorage.getItem("authToken");
 
@@ -24,6 +25,8 @@ export type Task = {
   completedAt: Date | null;
   /** Set when the task belongs to a project. */
   project?: { id: string; name: string; color: string | null } | null;
+  /** Still in the outbox: shown already, not on the server yet (see lib/outbox). */
+  pending?: boolean;
 };
 
 // The submission window that applies to the signed-in member, as reported by
@@ -81,6 +84,27 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     else setTaskWindow(null);
   }, [user]);
 
+  // Send whatever this user's outbox holds (also what was left from an earlier
+  // visit), and say so when the server turns something down. Lists update
+  // themselves through useLiveTasks.
+  const userId = user?.id;
+  useEffect(() => {
+    if (!userId) return;
+    const stop = startOutbox(userId);
+    const unsubscribe = subscribeOutbox((e) => {
+      if (e.type !== "failed") return;
+      toast.error(
+        e.kind === "create" ? `Couldn't save "${e.title}": ${e.message}` : `Couldn't update "${e.title}": ${e.message}`,
+      );
+      // The usual refusal is a submission window that closed; show the current one.
+      void refreshTaskWindow();
+    });
+    return () => {
+      stop();
+      unsubscribe();
+    };
+  }, [userId]);
+
   const addTask = async (task: Omit<Task, "id" | "createdAt" | "completedAt">) => {
     const token = getAuthToken();
     if (!token) {
@@ -97,57 +121,25 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
       toast.error(`Tasks can only be submitted between ${taskWindow.startTime} and ${taskWindow.endTime} IST`);
       return;
     }
-    try {
-      const response = await fetch(`${API_BASE_URL}/tasks`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: task.title,
-          description: task.description,
-          status: task.status,
-          priority: task.priority,
-          dueDate: task.dueDate,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        // A 403 carries the workspace's current window — adopt it so the UI
-        // stops offering a submission that can't succeed.
-        if (error?.taskWindow) setTaskWindow(error.taskWindow);
-        toast.error(error.message || "Failed to create task");
-        return;
-      }
-
-      const data = await response.json();
-      const newTask = {
-        ...data,
-        dueDate: new Date(data.dueDate),
-        createdAt: new Date(data.createdAt),
-        completedAt: data.completedAt ? new Date(data.completedAt) : null,
-      };
-
-      setTasks([...tasks, newTask]);
-      toast.success("Task added");
-      return newTask as Task;
-    } catch (error) {
-      console.error("Add task error:", error);
-      toast.error("An error occurred while creating task");
-    }
-
-    // MOCK IMPLEMENTATION (Remove when backend is ready)
-    // const newTask = {
-    //   ...task,
-    //   id: `${tasks.length + 1}`,
-    //   createdAt: new Date(),
-    //   completedAt: null,
-    // };
-
-    // setTasks([...tasks, newTask]);
-    // toast.success("Task created successfully");
+    // Shown at once and sent in the background (lib/outbox): the id is made
+    // here, so retries can't duplicate it and later edits can refer to it.
+    const now = new Date();
+    const status = task.status ?? "todo";
+    const created = enqueueCreate(user.id, {
+      id: newTaskId(),
+      title: task.title,
+      description: task.description,
+      status,
+      priority: task.priority,
+      dueDate: new Date(task.dueDate),
+      memberId: task.memberId,
+      createdAt: now,
+      completedAt: status === "completed" ? now : null,
+      project: null,
+    });
+    setTasks((prev) => [...prev, created]);
+    toast.success("Task added");
+    return created;
   };
 
   const updateTask = async (id: string, updatedTask: Partial<Task>) => {
@@ -155,6 +147,23 @@ export const TaskProvider = ({ children }: { children: ReactNode }) => {
     if (!token) {
       toast.error("You must be logged in");
       return;
+    }
+
+    // A task that hasn't reached the server yet: queue the edit behind it.
+    if (user && isQueued(user.id, id)) {
+      const { title, description, status, priority, dueDate } = updatedTask;
+      const queued = enqueueUpdate(user.id, id, {
+        ...(title !== undefined && { title }),
+        ...(description !== undefined && { description }),
+        ...(status !== undefined && { status }),
+        ...(priority !== undefined && { priority }),
+        ...(dueDate !== undefined && { dueDate }),
+      });
+      if (queued) {
+        setTasks((prev) => prev.map((t) => (t.id === id ? queued : t)));
+        toast.success("Task updated");
+        return queued;
+      }
     }
 
     try {

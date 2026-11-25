@@ -5,6 +5,7 @@ import { toast } from "@/components/ui/sonner";
 import { api } from "@/lib/api";
 import { readCache, writeCache } from "@/lib/cache";
 import { parseTask } from "@/lib/tasks";
+import { subscribeOutbox, withOutbox } from "@/lib/outbox";
 import type { RawTask } from "@/lib/tasks";
 
 /** How often to check for new work while the tab is in front. */
@@ -19,15 +20,19 @@ const POLL_MS = 60_000;
  * `tasks` is null until the first load. `setTasks` is for the page's own
  * optimistic updates; whatever it sets counts as already seen, so tasks the
  * member adds themselves are never announced.
+ *
+ * Tasks still in the outbox (lib/outbox) are laid over every load, so a refresh
+ * never drops an unsaved task; once one syncs its `pending` mark goes, and one
+ * the server refused comes off the list.
  */
 export function useLiveTasks(userId: string | undefined) {
   // The last list this browser saw, shown at once on load while the network
   // catches up (dates come back as strings, so they're parsed again).
   const cacheKey = userId ? `${userId}:tasks` : null;
-  const readCached = useCallback(
-    () => (cacheKey ? (readCache<RawTask[]>(cacheKey)?.map(parseTask) ?? null) : null),
-    [cacheKey],
-  );
+  const readCached = useCallback(() => {
+    const cached = cacheKey ? readCache<RawTask[]>(cacheKey)?.map(parseTask) : undefined;
+    return cached && userId ? withOutbox(userId, cached) : (cached ?? null);
+  }, [cacheKey, userId]);
 
   const [tasks, setTasksState] = useState<Task[] | null>(readCached);
   const known = useRef<Set<string> | null>(null);
@@ -42,7 +47,7 @@ export function useLiveTasks(userId: string | undefined) {
       loading.current = true;
       try {
         const { tasks: raw = [] } = await api<{ tasks?: RawTask[] }>(`/tasks/${userId}`);
-        const next = raw.map(parseTask);
+        const next = withOutbox(userId, raw.map(parseTask));
         if (background && known.current) {
           const added = next.filter((t) => !known.current!.has(t.id));
           if (added.length === 1) toast.info(`New task on your list: ${added[0]!.title}`);
@@ -97,6 +102,37 @@ export function useLiveTasks(userId: string | undefined) {
       document.removeEventListener("visibilitychange", refreshIfVisible);
     };
   }, [load]);
+
+  // Follow the outbox: a synced task takes the server's copy (keeping any edits
+  // still queued behind it); a refused create leaves the list; a refused edit
+  // reloads, to show what the server really has.
+  useEffect(() => {
+    if (!userId) return;
+    return subscribeOutbox((e) => {
+      if (e.type === "synced") {
+        setTasksState((prev) => {
+          if (!prev) return prev;
+          const next = withOutbox(
+            userId,
+            prev.map((t) => (t.id === e.task.id ? e.task : t)),
+          );
+          if (cacheKey) writeCache(cacheKey, next);
+          return next;
+        });
+      } else if (e.type === "failed") {
+        if (e.kind === "update") {
+          void load(true);
+          return;
+        }
+        setTasksState((prev) => {
+          if (!prev) return prev;
+          const next = prev.filter((t) => t.id !== e.id);
+          if (cacheKey) writeCache(cacheKey, next);
+          return next;
+        });
+      }
+    });
+  }, [userId, cacheKey, load]);
 
   const setTasks = useCallback((update: SetStateAction<Task[]>) => {
     changedLocally.current = true;
