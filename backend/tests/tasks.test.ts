@@ -39,6 +39,7 @@ describe("POST /api/tasks (member)", () => {
       workspace,
     } as any);
     jest.spyOn(attendance, "getTodayISTDate").mockReturnValue(new Date("2026-06-21T00:00:00.000Z"));
+    jest.spyOn(attendance, "getISTDateOf").mockReturnValue(new Date("2026-06-21T00:00:00.000Z"));
   }
 
   it("rejects unauthenticated requests", async () => {
@@ -69,6 +70,95 @@ describe("POST /api/tasks (member)", () => {
         }),
       }),
     );
+  });
+
+  describe("from the client's outbox", () => {
+    const ID = "7f1c2a4e-1b7d-4c55-9b0e-3d2f8a6c9e01";
+
+    it("creates the task under the client's id and timestamp", async () => {
+      openWindow();
+      prismaMock.task.findUnique.mockResolvedValue(null);
+      prismaMock.task.create.mockResolvedValue(makeTask({ id: ID }) as any);
+      prismaMock.dailyAttendance.upsert.mockResolvedValue({} as any);
+      prismaMock.dailyAttendance.updateMany.mockResolvedValue({ count: 0 } as any);
+      const addedAt = new Date(Date.now() - 10 * 60 * 1000); // queued 10 minutes ago
+
+      const res = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", authHeader(MEMBER))
+        .send({ ...validTask, id: ID, clientCreatedAt: addedAt.toISOString() });
+
+      expect(res.status).toBe(201);
+      const data = (prismaMock.task.create.mock.calls[0]![0] as any).data;
+      expect(data.id).toBe(ID);
+      expect(data.createdAt).toEqual(addedAt);
+      const upsert = prismaMock.dailyAttendance.upsert.mock.calls[0]![0] as any;
+      expect(upsert.create.taskSubmittedAt).toEqual(addedAt);
+    });
+
+    it("answers a retry with the task it already has instead of a duplicate", async () => {
+      openWindow();
+      prismaMock.task.findUnique.mockResolvedValue({
+        ...makeTask({ id: ID }),
+        member: { userId: MEMBER.userId },
+      } as any);
+
+      const res = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", authHeader(MEMBER))
+        .send({ ...validTask, id: ID });
+
+      expect(res.status).toBe(200);
+      expect(res.body.id).toBe(ID);
+      expect(res.body.member).toBeUndefined();
+      expect(prismaMock.task.create).not.toHaveBeenCalled();
+    });
+
+    it("refuses an id that belongs to someone else's task", async () => {
+      openWindow();
+      prismaMock.task.findUnique.mockResolvedValue({
+        ...makeTask({ id: ID }),
+        member: { userId: "someone-else" },
+      } as any);
+
+      const res = await request(app)
+        .post("/api/tasks")
+        .set("Authorization", authHeader(MEMBER))
+        .send({ ...validTask, id: ID });
+
+      expect(res.status).toBe(409);
+      expect(prismaMock.task.create).not.toHaveBeenCalled();
+    });
+
+    it("ignores a client timestamp that is too old or in the future", () => {
+      const now = new Date("2026-06-21T10:00:00.000Z");
+      expect(attendance.resolveClientTime("2026-06-21T09:50:00.000Z", now)).toEqual(
+        new Date("2026-06-21T09:50:00.000Z"),
+      );
+      expect(attendance.resolveClientTime("2026-06-20T10:00:00.000Z", now)).toEqual(now); // a day old
+      expect(attendance.resolveClientTime("2026-06-21T11:00:00.000Z", now)).toEqual(now); // an hour ahead
+      expect(attendance.resolveClientTime(undefined, now)).toEqual(now);
+    });
+
+    it("turns an absent day back to partial when the task was added before it settled", async () => {
+      openWindow();
+      prismaMock.task.findUnique.mockResolvedValue(null);
+      prismaMock.task.create.mockResolvedValue(makeTask({ id: ID }) as any);
+      prismaMock.dailyAttendance.upsert.mockResolvedValue({} as any);
+      prismaMock.dailyAttendance.updateMany.mockResolvedValue({ count: 1 } as any);
+      // 2026-06-21 settles at 15:30 UTC; this was added at 15:25 UTC.
+      jest.spyOn(attendance, "resolveClientTime").mockReturnValue(new Date("2026-06-21T15:25:00.000Z"));
+
+      await request(app)
+        .post("/api/tasks")
+        .set("Authorization", authHeader(MEMBER))
+        .send({ ...validTask, id: ID, clientCreatedAt: "2026-06-21T15:25:00.000Z" });
+
+      expect(prismaMock.dailyAttendance.updateMany).toHaveBeenCalledWith({
+        where: { memberId: "member-1", date: new Date("2026-06-21T00:00:00.000Z"), status: AttendanceStatus.absent },
+        data: { status: AttendanceStatus.partial, taskSubmittedAt: new Date("2026-06-21T15:25:00.000Z") },
+      });
+    });
   });
 
   it("blocks task creation outside a restricted workspace's window with 403", async () => {

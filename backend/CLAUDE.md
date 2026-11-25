@@ -229,6 +229,13 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
 - `DELETE /:memberId` *(admin)*
 
 **`/api/tasks`** (all `authenticate`)
+- `POST /` — optional `id` (uuid) and `clientCreatedAt` come from the client's outbox: a
+  repeated `id` returns the existing task with **200** (409 if it's someone else's), checked
+  before the window so a late retry still saves; `clientCreatedAt` (trusted up to 6 hours
+  back, `resolveClientTime`) sets `createdAt`, the window check, the attendance day and
+  `taskSubmittedAt`, and turns an already-settled `absent` back to `partial` when the task
+  was added before 9 PM. A task created as `completed` gets `completedAt` and can mark the
+  day present.
 - `POST /` — member: creates a task for self + upserts today's attendance row; allowed
   **anytime** unless the member's workspace has a submission window enabled (403 +
   `taskWindow` when it's closed); admin: must pass `userId` (the member's **User** id)

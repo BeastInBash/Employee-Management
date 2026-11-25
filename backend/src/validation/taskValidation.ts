@@ -10,6 +10,10 @@ export const createTaskSchema = z.object({
     userId: z.string().optional(),
     // Optional project the task belongs to; the assignee must be on that project.
     projectId: z.string().uuid().optional(),
+    // Set by the client's outbox: the task's id (so a retry can't create it twice)
+    // and when it was added (it may be sent later, e.g. after being offline).
+    id: z.string().uuid().optional(),
+    clientCreatedAt: z.string().datetime().optional(),
 });
 
 export const updateTaskSchema = z.object({
