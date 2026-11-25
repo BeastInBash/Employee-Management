@@ -293,7 +293,9 @@ backfill), made `WorkspaceMembership.workspaceId` non-null, and swapped `Member`
   `DELETE /:projectId/members/:memberId` *(admin/lead; leads can't remove a lead)*.
 - `POST /:projectId/teams` `{ teamId }` / `DELETE /:projectId/teams/:teamId` *(admin/lead)*.
 - `GET /:projectId/tasks?status&memberId` — any participant; tasks include `assignee` + `project`.
-- `POST /:projectId/tasks` — admins/leads assign to any participant (`memberId` = Member id);
+- `POST /:projectId/tasks` — takes the outbox's optional `id` / `clientCreatedAt` like
+  `POST /api/tasks` (a repeated id answers 200 with the existing task, 409 if it's in another
+  project); admins/leads assign to any participant (`memberId` = Member id);
   a regular member may only create for themselves, and that self-submission obeys the
   workspace task window and upserts today's attendance like `POST /api/tasks`.
 

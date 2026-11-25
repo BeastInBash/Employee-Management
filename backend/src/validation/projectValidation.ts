@@ -83,6 +83,10 @@ export const createProjectTaskSchema = z.object({
     /** Assignee's Member id. Omit to assign the task to yourself. */
     memberId: z.string().uuid().optional(),
     tags: tagsSchema.optional(),
+    // From the client's outbox, as on POST /api/tasks: the task's id (a retry
+    // can't duplicate it) and when it was really added.
+    id: z.string().uuid().optional(),
+    clientCreatedAt: z.string().datetime().optional(),
 });
 
 export const projectTasksQuerySchema = z.object({
